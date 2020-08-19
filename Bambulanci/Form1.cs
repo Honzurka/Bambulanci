@@ -17,5 +17,19 @@ namespace Bambulanci
 			InitializeComponent();
 		}
 
+		private void disableButton(Button b)
+		{
+			b.Enabled = false;
+			b.Visible = false;
+		}
+
+		private void bCreateGame_Click(object sender, EventArgs e)
+		{
+			disableButton(bCreateGame);
+			disableButton(bConnect);
+
+			numericUpDown1.Value
+			Console.WriteLine(listBox12.SelectedItem);
+		}
 	}
 }
