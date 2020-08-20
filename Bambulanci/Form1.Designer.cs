@@ -34,6 +34,7 @@
 			this.bCreateGame2 = new System.Windows.Forms.Button();
 			this.lWaiting = new System.Windows.Forms.Label();
 			this.nListenPort = new System.Windows.Forms.NumericUpDown();
+			this.lBServers = new System.Windows.Forms.ListBox();
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).BeginInit();
 			this.SuspendLayout();
 			// 
@@ -95,7 +96,7 @@
 			// 
 			this.lWaiting.AutoSize = true;
 			this.lWaiting.Enabled = false;
-			this.lWaiting.Location = new System.Drawing.Point(640, 326);
+			this.lWaiting.Location = new System.Drawing.Point(361, 68);
 			this.lWaiting.Name = "lWaiting";
 			this.lWaiting.Size = new System.Drawing.Size(166, 20);
 			this.lWaiting.TabIndex = 4;
@@ -126,11 +127,23 @@
             0});
 			this.nListenPort.Visible = false;
 			// 
+			// lBServers
+			// 
+			this.lBServers.Enabled = false;
+			this.lBServers.FormattingEnabled = true;
+			this.lBServers.ItemHeight = 20;
+			this.lBServers.Location = new System.Drawing.Point(27, 255);
+			this.lBServers.Name = "lBServers";
+			this.lBServers.Size = new System.Drawing.Size(150, 104);
+			this.lBServers.TabIndex = 8;
+			this.lBServers.Visible = false;
+			// 
 			// formBambulanci
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(914, 600);
+			this.Controls.Add(this.lBServers);
 			this.Controls.Add(this.nListenPort);
 			this.Controls.Add(this.lWaiting);
 			this.Controls.Add(this.bCreateGame2);
@@ -154,6 +167,7 @@
 		private System.Windows.Forms.Button bCreateGame2;
 		private System.Windows.Forms.Label lWaiting;
 		private System.Windows.Forms.NumericUpDown nListenPort;
+		private System.Windows.Forms.ListBox lBServers;
 	}
 }
 

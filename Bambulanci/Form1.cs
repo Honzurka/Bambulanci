@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.VisualBasic;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -15,7 +16,7 @@ namespace Bambulanci
 {
 	public partial class formBambulanci : Form
 	{
-		private enum GameState { Intro, HostSelect, HostWaiting, HostWaitingRoom}
+		private enum GameState { Intro, HostSelect, HostWaiting, HostWaitingRoom, ClientSearch}
 		private GameState currentGameState;
 
 		public formBambulanci()
@@ -62,6 +63,12 @@ namespace Bambulanci
 					DisableControl(lWaiting);
 					Console.WriteLine("host is in the waiting room");
 					break;
+				case GameState.ClientSearch:
+					DisableControl(bCreateGame);
+					DisableControl(bConnect);
+					EnableControl(lBServers);
+					//lBServers.Items.Add("test");
+					break;
 				default:
 					break;
 			}
@@ -81,12 +88,13 @@ namespace Bambulanci
 
 		private void bConnect_Click(object sender, EventArgs e)
 		{
-			//not implemented yet
+			ChangeGameState(GameState.ClientSearch);
+			StartClient();
 		}
 
 
 		//networking---------------------
-		enum Command { Login, Logout}
+		enum Command { Login, Logout, FindServers} //add broadcast = "who are you"
 		struct Client //neresim viditelnost poli
 		{
 			public int id;
@@ -99,11 +107,10 @@ namespace Bambulanci
 			List<Client> clientList = new List<Client>(); //size is known...
 			int id = 1; //0 is host
 
-			//int listenPort = 55555; //zatim napevno, casem pujde nastavit
-			UdpClient listener = new UdpClient(listenPort);
-			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
+			UdpClient listener = new UdpClient(new IPEndPoint(IPAddress.Parse("127.0.0.1"), listenPort));
+			IPEndPoint clientEP = new IPEndPoint(IPAddress.Parse("127.0.0.1")/*IPAddress.Any*/, listenPort); //pro testovani staticke----co je to sakris za IP--asi kde posloucham klienty??
 
-			Console.WriteLine($"server IP: {listener.Client.LocalEndPoint as IPEndPoint}");
+			//Console.WriteLine($"server IP: {listener.Client.LocalEndPoint as IPEndPoint}"); //z nejakeho duvodu vypisuje 0.0.0.0 ???---
 
 			while(clientList.Count < numOfPlayers)
 			{
@@ -112,17 +119,50 @@ namespace Bambulanci
 				//parser-----
 				Command command = (Command)data[0];
 
-				Console.WriteLine($"New client: {clientEP}");
-				if (command == Command.Login)
+				switch (command)
 				{
-					Client client = new Client() { id = id, ipEndPoint = clientEP };
-					clientList.Add(client);
-					id++; //muze zpusobit potize v pripade reconnection
+					case Command.Login:
+						Console.WriteLine($"New client: {clientEP}");
+						Client client = new Client() { id = id, ipEndPoint = clientEP };
+						clientList.Add(client);
+						id++; //muze zpusobit potize v pripade reconnection
+						break;
+					case Command.Logout:
+						break;
+					case Command.FindServers:
+						byte[] serverInfo = Encoding.ASCII.GetBytes(listener.Client.LocalEndPoint.ToString()); //"ping"
+						listener.Send(serverInfo, serverInfo.Length, clientEP);
+						Console.WriteLine("broadcast received");
+						break;
+					default:
+						break;
 				}
 			}
-
-
 			ChangeGameState(GameState.HostWaitingRoom); //kazdemu hraci poslu jeho id/pozici v listu
+		}
+
+		private void StartClient()
+		{
+			Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+			int hostPort = 49152; //static for now...
+			IPEndPoint broadcastEP = new IPEndPoint(/*IPAddress.Broadcast*/IPAddress.Parse("127.0.0.1"), hostPort); //broadCast throws error
+
+			socket.SendTo(new byte[] { (byte)Command.FindServers }, broadcastEP);
+			Console.WriteLine("broadcast sent");
+
+			byte[] serverInfo = new byte[1024]; //1024???
+
+
+
+			for (int i = 0; i < 1; i++) //dokud si nevyberu, vyhledavam...
+			{
+				//source: https://docs.microsoft.com/en-us/dotnet/api/system.net.sockets.socket.receivefrom?view=netcore-3.1
+				//chci ziskat IP adresu serveru****
+				int receivedAmount = socket.Receive(serverInfo);
+				string serverInfoString = Encoding.ASCII.GetString(serverInfo);
+				lBServers.Items.Add(serverInfoString);
+			}
+
 
 		}
 	}
