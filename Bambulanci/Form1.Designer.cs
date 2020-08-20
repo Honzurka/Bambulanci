@@ -1,6 +1,6 @@
 ﻿namespace Bambulanci
 {
-	partial class Form1
+	partial class formBambulanci
 	{
 		/// <summary>
 		///  Required designer variable.
@@ -30,79 +30,119 @@
 		{
 			this.bCreateGame = new System.Windows.Forms.Button();
 			this.bConnect = new System.Windows.Forms.Button();
-			this.listBox12 = new System.Windows.Forms.ListBox();
-			this.numericUpDown1 = new System.Windows.Forms.NumericUpDown();
-			((System.ComponentModel.ISupportInitialize)(this.numericUpDown1)).BeginInit();
+			this.lBNumOfPlayers = new System.Windows.Forms.ListBox();
+			this.bCreateGame2 = new System.Windows.Forms.Button();
+			this.lWaiting = new System.Windows.Forms.Label();
+			this.nListenPort = new System.Windows.Forms.NumericUpDown();
+			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).BeginInit();
 			this.SuspendLayout();
 			// 
 			// bCreateGame
 			// 
-			this.bCreateGame.Location = new System.Drawing.Point(316, 109);
+			this.bCreateGame.Enabled = false;
+			this.bCreateGame.Location = new System.Drawing.Point(361, 145);
+			this.bCreateGame.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.bCreateGame.Name = "bCreateGame";
-			this.bCreateGame.Size = new System.Drawing.Size(167, 46);
+			this.bCreateGame.Size = new System.Drawing.Size(191, 61);
 			this.bCreateGame.TabIndex = 0;
 			this.bCreateGame.Text = "Vytvořit hru";
 			this.bCreateGame.UseVisualStyleBackColor = true;
+			this.bCreateGame.Visible = false;
 			this.bCreateGame.Click += new System.EventHandler(this.bCreateGame_Click);
 			// 
 			// bConnect
 			// 
-			this.bConnect.Location = new System.Drawing.Point(316, 191);
+			this.bConnect.Enabled = false;
+			this.bConnect.Location = new System.Drawing.Point(361, 255);
+			this.bConnect.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.bConnect.Name = "bConnect";
-			this.bConnect.Size = new System.Drawing.Size(167, 49);
+			this.bConnect.Size = new System.Drawing.Size(191, 65);
 			this.bConnect.TabIndex = 1;
 			this.bConnect.Text = "Připojit se";
 			this.bConnect.UseVisualStyleBackColor = true;
+			this.bConnect.Visible = false;
+			this.bConnect.Click += new System.EventHandler(this.bConnect_Click);
 			// 
-			// listBox12
+			// lBNumOfPlayers
 			// 
-			this.listBox12.FormattingEnabled = true;
-			this.listBox12.ItemHeight = 15;
-			this.listBox12.Items.AddRange(new object[] {
-            "1 hrac",
+			this.lBNumOfPlayers.Enabled = false;
+			this.lBNumOfPlayers.FormattingEnabled = true;
+			this.lBNumOfPlayers.ItemHeight = 20;
+			this.lBNumOfPlayers.Items.AddRange(new object[] {
             "2 hraci",
             "3 hraci",
             "4 hraci"});
-			this.listBox12.Location = new System.Drawing.Point(546, 12);
-			this.listBox12.Name = "listBox12";
-			this.listBox12.Size = new System.Drawing.Size(120, 94);
-			this.listBox12.TabIndex = 2;
+			this.lBNumOfPlayers.Location = new System.Drawing.Point(625, 100);
+			this.lBNumOfPlayers.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+			this.lBNumOfPlayers.Name = "lBNumOfPlayers";
+			this.lBNumOfPlayers.Size = new System.Drawing.Size(137, 124);
+			this.lBNumOfPlayers.TabIndex = 2;
+			this.lBNumOfPlayers.Visible = false;
 			// 
-			// numericUpDown1
+			// bCreateGame2
 			// 
-			this.numericUpDown1.Location = new System.Drawing.Point(546, 112);
-			this.numericUpDown1.Maximum = new decimal(new int[] {
-            4,
+			this.bCreateGame2.Enabled = false;
+			this.bCreateGame2.Location = new System.Drawing.Point(640, 245);
+			this.bCreateGame2.Name = "bCreateGame2";
+			this.bCreateGame2.Size = new System.Drawing.Size(94, 29);
+			this.bCreateGame2.TabIndex = 3;
+			this.bCreateGame2.Text = "Vytvorit";
+			this.bCreateGame2.UseVisualStyleBackColor = true;
+			this.bCreateGame2.Visible = false;
+			this.bCreateGame2.Click += new System.EventHandler(this.bCreateGame2_Click);
+			// 
+			// lWaiting
+			// 
+			this.lWaiting.AutoSize = true;
+			this.lWaiting.Enabled = false;
+			this.lWaiting.Location = new System.Drawing.Point(640, 326);
+			this.lWaiting.Name = "lWaiting";
+			this.lWaiting.Size = new System.Drawing.Size(166, 20);
+			this.lWaiting.TabIndex = 4;
+			this.lWaiting.Text = "Čekám na ostatní hráče.";
+			this.lWaiting.Visible = false;
+			// 
+			// nListenPort
+			// 
+			this.nListenPort.Enabled = false;
+			this.nListenPort.Location = new System.Drawing.Point(768, 145);
+			this.nListenPort.Maximum = new decimal(new int[] {
+            65535,
             0,
             0,
             0});
-			this.numericUpDown1.Minimum = new decimal(new int[] {
-            2,
+			this.nListenPort.Minimum = new decimal(new int[] {
+            49152,
             0,
             0,
             0});
-			this.numericUpDown1.Name = "numericUpDown1";
-			this.numericUpDown1.Size = new System.Drawing.Size(120, 23);
-			this.numericUpDown1.TabIndex = 3;
-			this.numericUpDown1.Value = new decimal(new int[] {
-            2,
+			this.nListenPort.Name = "nListenPort";
+			this.nListenPort.Size = new System.Drawing.Size(150, 27);
+			this.nListenPort.TabIndex = 7;
+			this.nListenPort.Value = new decimal(new int[] {
+            49152,
             0,
             0,
             0});
+			this.nListenPort.Visible = false;
 			// 
-			// Form1
+			// formBambulanci
 			// 
-			this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
+			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(800, 450);
-			this.Controls.Add(this.numericUpDown1);
-			this.Controls.Add(this.listBox12);
+			this.ClientSize = new System.Drawing.Size(914, 600);
+			this.Controls.Add(this.nListenPort);
+			this.Controls.Add(this.lWaiting);
+			this.Controls.Add(this.bCreateGame2);
+			this.Controls.Add(this.lBNumOfPlayers);
 			this.Controls.Add(this.bConnect);
 			this.Controls.Add(this.bCreateGame);
-			this.Name = "Form1";
-			this.Text = "Form1";
-			((System.ComponentModel.ISupportInitialize)(this.numericUpDown1)).EndInit();
+			this.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+			this.Name = "formBambulanci";
+			this.Text = "Bambulanci";
+			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).EndInit();
 			this.ResumeLayout(false);
+			this.PerformLayout();
 
 		}
 
@@ -110,8 +150,10 @@
 
 		private System.Windows.Forms.Button bCreateGame;
 		private System.Windows.Forms.Button bConnect;
-		private System.Windows.Forms.ListBox listBox12;
-		private System.Windows.Forms.NumericUpDown numericUpDown1;
+		private System.Windows.Forms.ListBox lBNumOfPlayers;
+		private System.Windows.Forms.Button bCreateGame2;
+		private System.Windows.Forms.Label lWaiting;
+		private System.Windows.Forms.NumericUpDown nListenPort;
 	}
 }
 
