@@ -100,9 +100,10 @@
 			// 
 			this.lWaiting.AutoSize = true;
 			this.lWaiting.Enabled = false;
-			this.lWaiting.Location = new System.Drawing.Point(361, 68);
+			this.lWaiting.Font = new System.Drawing.Font("Segoe UI", 18F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+			this.lWaiting.Location = new System.Drawing.Point(295, 496);
 			this.lWaiting.Name = "lWaiting";
-			this.lWaiting.Size = new System.Drawing.Size(166, 20);
+			this.lWaiting.Size = new System.Drawing.Size(334, 41);
 			this.lWaiting.TabIndex = 4;
 			this.lWaiting.Text = "Čekám na ostatní hráče.";
 			this.lWaiting.Visible = false;

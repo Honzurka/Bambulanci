@@ -16,7 +16,7 @@ namespace Bambulanci
 {
 	public partial class formBambulanci : Form
 	{
-		private enum GameState { Intro, HostSelect, HostWaiting, HostWaitingRoom, ClientSearch}
+		private enum GameState { Intro, HostSelect, HostWaiting, ClientWaiting, HostWaitingRoom, ClientWaitingRoom, ClientSearch}
 		private GameState currentGameState;
 
 		public formBambulanci()
@@ -59,9 +59,24 @@ namespace Bambulanci
 					DisableControl(nListenPort);
 					EnableControl(lWaiting); //okno se neprekresli...
 					break;
+				case GameState.ClientWaiting:
+					DisableControl(nHostPort);
+					DisableControl(bRefreshServers);
+					DisableControl(lBServers);
+					DisableControl(bLogin);
+					EnableControl(lWaiting);
+					MoveSelfToWaitingRoom();
+					break;
 				case GameState.HostWaitingRoom:
 					DisableControl(lWaiting);
 					Console.WriteLine("host is in the waiting room");
+					//vsem klientum napisu, ze se maji presunout do waiting room + pridam jejich ID (pozice)...
+					MoveClientsToWaitingRoom();
+					//chci nejakou grafiku....
+					break;
+				case GameState.ClientWaitingRoom:
+					DisableControl(lWaiting);
+					Console.WriteLine("client is in the waiting room");
 					break;
 				case GameState.ClientSearch:
 					DisableControl(bCreateGame);
@@ -96,7 +111,7 @@ namespace Bambulanci
 
 
 		//networking---------------------
-		enum Command { Login, Logout, FindServers}
+		enum Command { Login, Logout, FindServers, MoveToWaitingRoom}
 		struct Client //neresim viditelnost poli
 		{
 			public int id;
@@ -104,9 +119,12 @@ namespace Bambulanci
 			//private Color color; //?
 			public IPEndPoint ipEndPoint;
 		}
+
+		List<Client> clientList;
+		UdpClient host;
 		private void StartHost(int numOfPlayers, int listenPort)
 		{
-			List<Client> clientList = new List<Client>(); //size is known...could be array
+			clientList = new List<Client>(); //size is known...could be array
 			int id = 1; //0 is host
 
 			IPAddress hostIP = null; //might not work in case of multiple IPv4 addresses
@@ -119,13 +137,13 @@ namespace Bambulanci
 					break;
 				}
 			}
-			UdpClient listener = new UdpClient(new IPEndPoint(hostIP, listenPort));
+			host = new UdpClient(new IPEndPoint(hostIP, listenPort));
 
 			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
 
 			while(clientList.Count < numOfPlayers)
 			{
-				byte[] data = listener.Receive(ref clientEP);
+				byte[] data = host.Receive(ref clientEP);
 
 				//parser-----
 				Command command = (Command)data[0];
@@ -141,15 +159,40 @@ namespace Bambulanci
 					case Command.Logout:
 						break;
 					case Command.FindServers:
-						byte[] serverInfo = Encoding.ASCII.GetBytes(listener.Client.LocalEndPoint.ToString()); //"ping"
-						listener.Send(serverInfo, serverInfo.Length, clientEP);
+						byte[] serverInfo = Encoding.ASCII.GetBytes(host.Client.LocalEndPoint.ToString()); //"ping"
+						host.Send(serverInfo, serverInfo.Length, clientEP);
 						Console.WriteLine("broadcast received");
 						break;
 					default:
 						break;
 				}
 			}
-			ChangeGameState(GameState.HostWaitingRoom); //kazdemu hraci poslu jeho id/pozici v listu
+			ChangeGameState(GameState.HostWaitingRoom);
+		}
+
+		private void MoveClientsToWaitingRoom()
+		{
+			foreach (var client in clientList)
+			{
+				byte[] message = { (byte)Command.MoveToWaitingRoom, (byte)client.id }; //INT AS BYTES--------------------------?????
+				host.Send(message, message.Length, client.ipEndPoint);
+			}
+		}
+
+		private void MoveSelfToWaitingRoom()
+		{
+			byte[] data = new byte[1024]; //1024???
+			while (true)
+			{
+				clientSocket.Receive(data);
+				Command command = (Command)data[0];
+				if (command == Command.MoveToWaitingRoom)
+				{
+					byte id = (byte)data[1];
+					Console.WriteLine($"client id: {id}");
+					ChangeGameState(GameState.ClientWaitingRoom);
+				}
+			}
 		}
 
 		Socket clientSocket;
@@ -164,6 +207,7 @@ namespace Bambulanci
 			string[] tokens = lBServers.SelectedItem.ToString().Split(':');
 			IPEndPoint serverEP = new IPEndPoint(IPAddress.Parse(tokens[0]), int.Parse(tokens[1]));
 			clientSocket.SendTo(new byte[] { (byte)Command.Login }, serverEP);
+			ChangeGameState(GameState.ClientWaiting);
 		}
 
 		private void bRefreshServers_Click(object sender, EventArgs e)
