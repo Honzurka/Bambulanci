@@ -36,7 +36,10 @@
 			this.nListenPort = new System.Windows.Forms.NumericUpDown();
 			this.lBServers = new System.Windows.Forms.ListBox();
 			this.bLogin = new System.Windows.Forms.Button();
+			this.nHostPort = new System.Windows.Forms.NumericUpDown();
+			this.bRefreshServers = new System.Windows.Forms.Button();
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.nHostPort)).BeginInit();
 			this.SuspendLayout();
 			// 
 			// bCreateGame
@@ -151,11 +154,49 @@
 			this.bLogin.Visible = false;
 			this.bLogin.Click += new System.EventHandler(this.bLogin_Click);
 			// 
+			// nHostPort
+			// 
+			this.nHostPort.Enabled = false;
+			this.nHostPort.Location = new System.Drawing.Point(12, 145);
+			this.nHostPort.Maximum = new decimal(new int[] {
+            65535,
+            0,
+            0,
+            0});
+			this.nHostPort.Minimum = new decimal(new int[] {
+            49152,
+            0,
+            0,
+            0});
+			this.nHostPort.Name = "nHostPort";
+			this.nHostPort.Size = new System.Drawing.Size(150, 27);
+			this.nHostPort.TabIndex = 7;
+			this.nHostPort.Value = new decimal(new int[] {
+            49152,
+            0,
+            0,
+            0});
+			this.nHostPort.Visible = false;
+			// 
+			// bRefreshServers
+			// 
+			this.bRefreshServers.Enabled = false;
+			this.bRefreshServers.Location = new System.Drawing.Point(38, 178);
+			this.bRefreshServers.Name = "bRefreshServers";
+			this.bRefreshServers.Size = new System.Drawing.Size(139, 29);
+			this.bRefreshServers.TabIndex = 10;
+			this.bRefreshServers.Text = "Vyhledat servery";
+			this.bRefreshServers.UseVisualStyleBackColor = true;
+			this.bRefreshServers.Visible = false;
+			this.bRefreshServers.Click += new System.EventHandler(this.bRefreshServers_Click);
+			// 
 			// formBambulanci
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(914, 600);
+			this.Controls.Add(this.bRefreshServers);
+			this.Controls.Add(this.nHostPort);
 			this.Controls.Add(this.bLogin);
 			this.Controls.Add(this.lBServers);
 			this.Controls.Add(this.nListenPort);
@@ -168,6 +209,7 @@
 			this.Name = "formBambulanci";
 			this.Text = "Bambulanci";
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.nHostPort)).EndInit();
 			this.ResumeLayout(false);
 			this.PerformLayout();
 
@@ -183,6 +225,8 @@
 		private System.Windows.Forms.NumericUpDown nListenPort;
 		private System.Windows.Forms.ListBox lBServers;
 		private System.Windows.Forms.Button bLogin;
+		private System.Windows.Forms.NumericUpDown nHostPort;
+		private System.Windows.Forms.Button bRefreshServers;
 	}
 }
 
