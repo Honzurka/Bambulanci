@@ -67,7 +67,7 @@ namespace Bambulanci
 					DisableControl(bCreateGame);
 					DisableControl(bConnect);
 					EnableControl(lBServers);
-					//lBServers.Items.Add("test");
+					EnableControl(bLogin);
 					break;
 				default:
 					break;
@@ -94,7 +94,7 @@ namespace Bambulanci
 
 
 		//networking---------------------
-		enum Command { Login, Logout, FindServers} //add broadcast = "who are you"
+		enum Command { Login, Logout, FindServers}
 		struct Client //neresim viditelnost poli
 		{
 			public int id;
@@ -104,11 +104,18 @@ namespace Bambulanci
 		}
 		private void StartHost(int numOfPlayers, int listenPort)
 		{
-			List<Client> clientList = new List<Client>(); //size is known...
+			List<Client> clientList = new List<Client>(); //size is known...could be array
 			int id = 1; //0 is host
 
-			UdpClient listener = new UdpClient(new IPEndPoint(IPAddress.Parse("127.0.0.1"), listenPort));
-			IPEndPoint clientEP = new IPEndPoint(IPAddress.Parse("127.0.0.1")/*IPAddress.Any*/, listenPort); //pro testovani staticke----co je to sakris za IP--asi kde posloucham klienty??
+			//jak nastavit IP serveru??---------------------
+			//UdpClient listener = new UdpClient(new IPEndPoint(IPAddress.Parse("127.0.0.1"), listenPort));
+				//nefunguje vubec
+			UdpClient listener = new UdpClient(new IPEndPoint(IPAddress.Any, listenPort));
+				//port funguje, ale klient neodesle nic na IP 0.0.0.0, stejne tak IPAddress.Any
+
+
+
+			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort); //Zdroj, ze ktereho prijimam datagramy
 
 			//Console.WriteLine($"server IP: {listener.Client.LocalEndPoint as IPEndPoint}"); //z nejakeho duvodu vypisuje 0.0.0.0 ???---
 
@@ -141,29 +148,35 @@ namespace Bambulanci
 			ChangeGameState(GameState.HostWaitingRoom); //kazdemu hraci poslu jeho id/pozici v listu
 		}
 
+		Socket clientSocket;
 		private void StartClient()
 		{
-			Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+			clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 			int hostPort = 49152; //static for now...
 			IPEndPoint broadcastEP = new IPEndPoint(/*IPAddress.Broadcast*/IPAddress.Parse("127.0.0.1"), hostPort); //broadCast throws error
 
-			socket.SendTo(new byte[] { (byte)Command.FindServers }, broadcastEP);
+			clientSocket.SendTo(new byte[] { (byte)Command.FindServers }, broadcastEP);
 			Console.WriteLine("broadcast sent");
 
 			byte[] serverInfo = new byte[1024]; //1024???
 
 
-
+			//find all servers
 			for (int i = 0; i < 1; i++) //dokud si nevyberu, vyhledavam...
 			{
 				//source: https://docs.microsoft.com/en-us/dotnet/api/system.net.sockets.socket.receivefrom?view=netcore-3.1
 				//chci ziskat IP adresu serveru****
-				int receivedAmount = socket.Receive(serverInfo);
+				int receivedAmount = clientSocket.Receive(serverInfo);
 				string serverInfoString = Encoding.ASCII.GetString(serverInfo);
 				lBServers.Items.Add(serverInfoString);
 			}
+		}
 
-
+		private void bLogin_Click(object sender, EventArgs e)
+		{
+			string[] tokens = lBServers.SelectedItem.ToString().Split(':');
+			IPEndPoint serverEP = new IPEndPoint(IPAddress.Parse(tokens[0]), int.Parse(tokens[1]));
+			clientSocket.SendTo(new byte[] { (byte)Command.Login }, serverEP);
 		}
 	}
 }

@@ -35,6 +35,7 @@
 			this.lWaiting = new System.Windows.Forms.Label();
 			this.nListenPort = new System.Windows.Forms.NumericUpDown();
 			this.lBServers = new System.Windows.Forms.ListBox();
+			this.bLogin = new System.Windows.Forms.Button();
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).BeginInit();
 			this.SuspendLayout();
 			// 
@@ -138,11 +139,24 @@
 			this.lBServers.TabIndex = 8;
 			this.lBServers.Visible = false;
 			// 
+			// bLogin
+			// 
+			this.bLogin.Enabled = false;
+			this.bLogin.Location = new System.Drawing.Point(82, 380);
+			this.bLogin.Name = "bLogin";
+			this.bLogin.Size = new System.Drawing.Size(94, 29);
+			this.bLogin.TabIndex = 9;
+			this.bLogin.Text = "Připojit";
+			this.bLogin.UseVisualStyleBackColor = true;
+			this.bLogin.Visible = false;
+			this.bLogin.Click += new System.EventHandler(this.bLogin_Click);
+			// 
 			// formBambulanci
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(914, 600);
+			this.Controls.Add(this.bLogin);
 			this.Controls.Add(this.lBServers);
 			this.Controls.Add(this.nListenPort);
 			this.Controls.Add(this.lWaiting);
@@ -168,6 +182,7 @@
 		private System.Windows.Forms.Label lWaiting;
 		private System.Windows.Forms.NumericUpDown nListenPort;
 		private System.Windows.Forms.ListBox lBServers;
+		private System.Windows.Forms.Button bLogin;
 	}
 }
 
