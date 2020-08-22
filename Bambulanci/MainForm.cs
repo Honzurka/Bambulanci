@@ -34,65 +34,57 @@ namespace Bambulanci
 			c.Visible = true;
 		}
 
+		private void DisableAllControls()
+		{
+			foreach (var control in this.Controls)
+			{
+				DisableControl((Control)control);
+			}
+		}
+
 		public void ChangeGameState(GameState newState)
 		{
 			currentGameState = newState;
 			switch (currentGameState)
 			{
-				case GameState.Intro:
+				case GameState.Intro:;
+					DisableAllControls();
 					EnableControl(bCreateGame);
 					EnableControl(bConnect);
 					EnableControl(bExit);
-					DisableControl(bIntro);
-					DisableControl(lBNumOfPlayers);
-					DisableControl(bCreateGame2);
-					DisableControl(nListenPort);
 					break;
 				case GameState.HostSelect:
-					DisableControl(bCreateGame);
-					DisableControl(bConnect);
-					DisableControl(bExit);
+					DisableAllControls();
 					EnableControl(lBNumOfPlayers);
 					EnableControl(bCreateGame2);
 					EnableControl(nListenPort);
-					DisableControl(lWaiting);
-					DisableControl(bCancelHost);
 					EnableControl(bIntro);
 					break;
 				case GameState.HostWaiting:
-					DisableControl(lBNumOfPlayers);
-					DisableControl(bCreateGame2);
-					DisableControl(nListenPort);
+					DisableAllControls();
 					EnableControl(bCancelHost);
 					EnableControl(lWaiting);
-					DisableControl(bIntro);
 					break;
 				case GameState.HostWaitingRoom:
-					DisableControl(bCancelHost);
-					DisableControl(lWaiting);
+					DisableAllControls(); 
 					//vsem klientum napisu, ze se maji presunout do waiting room + pridam jejich ID (pozice)...
 					host.MoveClientsToWaitingRoom();
 					//chci nejakou grafiku....
 					break;
 				case GameState.ClientSearch:
-					DisableControl(bCreateGame);
-					DisableControl(bConnect);
-					DisableControl(bExit);
+					DisableAllControls();
 					EnableControl(lBServers);
 					EnableControl(bLogin);
 					EnableControl(nHostPort);
 					EnableControl(bRefreshServers);
 					break;
 				case GameState.ClientWaiting:
-					DisableControl(nHostPort);
-					DisableControl(bRefreshServers);
-					DisableControl(lBServers);
-					DisableControl(bLogin);
+					DisableAllControls();
 					EnableControl(lWaiting);
 					client.MoveSelfToWaitingRoom();
 					break;
 				case GameState.ClientWaitingRoom:
-					DisableControl(lWaiting);
+					DisableAllControls();
 					break;
 				default:
 					break;
