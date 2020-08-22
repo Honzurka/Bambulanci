@@ -47,13 +47,18 @@ namespace Bambulanci
 			bwHostStarter.RunWorkerCompleted += new RunWorkerCompletedEventHandler(bw_RunWorkerCompleted);
 			bwHostStarter.ProgressChanged += new ProgressChangedEventHandler(bw_ProgressChanged);
 			
-			
 			bwHostStarter.RunWorkerAsync(new ValueTuple<int, int>(numOfPlayers, listenPort));
 		}
 		public void BWCancelHost()
 		{
 			bwHostStarter.CancelAsync();
-			host.Close(); //zkousim zavrit spojeni, pravdepodobne pri poslouchani
+			host.Close(); //zkousim zavrit spojeni, pravdepodobne pri poslouchani == vyhodi exception
+		}
+
+		private void ChangeRemainingPlayers(int numOfPlayers)
+		{
+			int remainingPlayers = numOfPlayers - clientList.Count;
+			bwHostStarter.ReportProgress(remainingPlayers);
 		}
 
 		private void bw_DoWork(object sender, DoWorkEventArgs e)
@@ -66,18 +71,12 @@ namespace Bambulanci
 			host = new UdpClient(new IPEndPoint(hostIP, listenPort));
 			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
 
+			ChangeRemainingPlayers(numOfPlayers);
 			try
 			{
 				while (clientList.Count < numOfPlayers)
 				{
-					/*
-					if (bwHostStarter.CancellationPending)
-					{
-						e.Cancel = true;
-						break;
-					}
-					*/
-					byte[] data = host.Receive(ref clientEP); //blokujici ==> nepovoli cancelation--------------------
+					byte[] data = host.Receive(ref clientEP);
 
 					//ToDo: data parser--------------------------------
 					Command command = (Command)data[0];
@@ -88,9 +87,10 @@ namespace Bambulanci
 							Console.WriteLine($"New client: {clientEP}");
 							ClientInfo clientInfo = new ClientInfo() { id = id, ipEndPoint = clientEP };
 							clientList.Add(clientInfo);
+							ChangeRemainingPlayers(numOfPlayers);
 							id++;
 							break;
-						case Command.Logout: //chci pridat moznost odpojeni klienta
+						case Command.Logout: //nejdrive encoder/decoder && paralelismum i klienta
 							break;
 						case Command.FindServers:
 							byte[] serverInfo = Encoding.ASCII.GetBytes(host.Client.LocalEndPoint.ToString());
@@ -117,7 +117,8 @@ namespace Bambulanci
 
 		private void bw_ProgressChanged(object sender, ProgressChangedEventArgs e)
 		{
-			//chci zobrazovat pocet hracu, na ktere jeste cekam
+			int remainingPlayers = e.ProgressPercentage;
+			form.lWaiting.Text = $"Cekam na {remainingPlayers} hrace";
 		}
 
 		private void bw_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
@@ -126,7 +127,7 @@ namespace Bambulanci
 				throw new Exception(); //Error handling??----
 			else if (e.Cancelled)
 			{
-				//obeznamit pripojene vsechny klienty
+				//obeznamit pripojene vsechny klienty----nejdrive musim udelat nejaky data encoder/decoder--------------------
 			}
 			else
 				form.ChangeGameState(GameState.HostWaitingRoom);

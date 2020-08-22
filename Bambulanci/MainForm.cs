@@ -77,6 +77,7 @@ namespace Bambulanci
 					EnableControl(bLogin);
 					EnableControl(nHostPort);
 					EnableControl(bRefreshServers);
+					EnableControl(bIntro);
 					break;
 				case GameState.ClientWaiting:
 					DisableAllControls();
