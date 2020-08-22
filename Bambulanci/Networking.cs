@@ -4,11 +4,10 @@ using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Bambulanci
 {
-	
-	//networking---------------------
 	enum Command { Login, Logout, FindServers, MoveToWaitingRoom }
 	struct ClientInfo
 	{
@@ -20,20 +19,125 @@ namespace Bambulanci
 
 	class Host
 	{
-		formBambulanci form;
+		private formBambulanci form;
 		public Host(formBambulanci form)
 		{
 			this.form = form;
 		}
 
-		List<ClientInfo> clientList;
-		UdpClient host;
-		public void StartHost(int numOfPlayers, int listenPort)
-		{
-			clientList = new List<ClientInfo>(); //size is known...could be array
-			int id = 1; //0 is host
+		private BackgroundWorker bwHostStarter;
+		private List<ClientInfo> clientList;
+		private UdpClient host;
 
-			IPAddress hostIP = null; //might not work in case of multiple IPv4 addresses
+
+		//https://docs.microsoft.com/en-us/dotnet/api/system.componentmodel.backgroundworker?view=netcore-3.1
+		//https://docs.microsoft.com/en-us/dotnet/framework/winforms/controls/how-to-make-thread-safe-calls-to-windows-forms-controls
+		//https://docs.microsoft.com/en-us/dotnet/framework/winforms/controls/multithreading-in-windows-forms-controls
+
+		/// <summary>
+		/// Async - Starts BackgroundWorker which waits for numOfPlayers to connect to host.
+		/// </summary>
+		public void BWStartHost(int numOfPlayers, int listenPort) //work in progress-------------------------------
+		{
+			bwHostStarter = new BackgroundWorker();
+			bwHostStarter.WorkerReportsProgress = true; //ToDo
+			bwHostStarter.WorkerSupportsCancellation = true; //ToDo-button
+
+			bwHostStarter.DoWork += new DoWorkEventHandler(bw_DoWork);
+			bwHostStarter.RunWorkerCompleted += new RunWorkerCompletedEventHandler(bw_RunWorkerCompleted);
+			bwHostStarter.ProgressChanged += new ProgressChangedEventHandler(bw_ProgressChanged);
+			
+			
+			bwHostStarter.RunWorkerAsync(new ValueTuple<int, int>(numOfPlayers, listenPort));
+		}
+		public void BWCancelHost()
+		{
+			bwHostStarter.CancelAsync();
+			host.Close(); //zkousim zavrit spojeni, pravdepodobne pri poslouchani
+		}
+
+		private void bw_DoWork(object sender, DoWorkEventArgs e)
+		{
+			(int numOfPlayers, int listenPort) = (ValueTuple<int, int>)e.Argument;
+			clientList = new List<ClientInfo>();
+			int id = 1; //0 is host
+			IPAddress hostIP = getHostIP();
+
+			host = new UdpClient(new IPEndPoint(hostIP, listenPort));
+			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
+
+			try
+			{
+				while (clientList.Count < numOfPlayers)
+				{
+					/*
+					if (bwHostStarter.CancellationPending)
+					{
+						e.Cancel = true;
+						break;
+					}
+					*/
+					byte[] data = host.Receive(ref clientEP); //blokujici ==> nepovoli cancelation--------------------
+
+					//ToDo: data parser--------------------------------
+					Command command = (Command)data[0];
+
+					switch (command)
+					{
+						case Command.Login:
+							Console.WriteLine($"New client: {clientEP}");
+							ClientInfo clientInfo = new ClientInfo() { id = id, ipEndPoint = clientEP };
+							clientList.Add(clientInfo);
+							id++;
+							break;
+						case Command.Logout: //chci pridat moznost odpojeni klienta
+							break;
+						case Command.FindServers:
+							byte[] serverInfo = Encoding.ASCII.GetBytes(host.Client.LocalEndPoint.ToString());
+							host.Send(serverInfo, serverInfo.Length, clientEP);
+							break;
+						default:
+							break;
+					}
+				}
+			}
+			catch (SocketException exception)
+			{
+				if (bwHostStarter.CancellationPending) //catching intended exception from BWCancelHost
+					e.Cancel = true;
+				else
+					throw;
+			}
+			finally
+			{
+				host.Close();
+			}
+
+		}
+
+		private void bw_ProgressChanged(object sender, ProgressChangedEventArgs e)
+		{
+			//chci zobrazovat pocet hracu, na ktere jeste cekam
+		}
+
+		private void bw_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+		{
+			if (e.Error != null)
+				throw new Exception(); //Error handling??----
+			else if (e.Cancelled)
+			{
+				//obeznamit pripojene vsechny klienty
+			}
+			else
+				form.ChangeGameState(GameState.HostWaitingRoom);
+		}
+
+		/// <summary>
+		/// Returns first IPv4 address of Host -- in case of multiple IPv4 addresses might not work correctly
+		/// </summary>
+		private IPAddress getHostIP()
+		{
+			IPAddress hostIP = null;
 			IPAddress[] addresses = Dns.GetHostAddresses(Dns.GetHostName());
 			foreach (var address in addresses)
 			{
@@ -43,37 +147,7 @@ namespace Bambulanci
 					break;
 				}
 			}
-			host = new UdpClient(new IPEndPoint(hostIP, listenPort));
-
-			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
-
-			while (clientList.Count < numOfPlayers)
-			{
-				byte[] data = host.Receive(ref clientEP);
-
-				//parser-----
-				Command command = (Command)data[0];
-
-				switch (command)
-				{
-					case Command.Login:
-						Console.WriteLine($"New client: {clientEP}");
-						ClientInfo clientInfo = new ClientInfo() { id = id, ipEndPoint = clientEP };
-						clientList.Add(clientInfo);
-						id++; //muze zpusobit potize v pripade reconnection
-						break;
-					case Command.Logout:
-						break;
-					case Command.FindServers:
-						byte[] serverInfo = Encoding.ASCII.GetBytes(host.Client.LocalEndPoint.ToString()); //"ping"
-						host.Send(serverInfo, serverInfo.Length, clientEP);
-						Console.WriteLine("broadcast received");
-						break;
-					default:
-						break;
-				}
-			}
-			form.ChangeGameState(GameState.HostWaitingRoom);
+			return hostIP;
 		}
 
 		public void MoveClientsToWaitingRoom()
@@ -84,21 +158,6 @@ namespace Bambulanci
 				host.Send(message, message.Length, client.ipEndPoint);
 			}
 		}
-
-
-		private BackgroundWorker backgroundWorker1;
-		private void BackgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
-		{
-			(int numOfPlayers, int nListenPortValue) = (ValueTuple<int, int>)e.Argument;
-
-			StartHost(numOfPlayers, nListenPortValue);
-
-		}
-		private void BackgroundWorker1_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
-		{
-			//nic
-		}
-
 	}
 
 	class Client

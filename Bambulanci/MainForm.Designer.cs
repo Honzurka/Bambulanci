@@ -38,6 +38,9 @@
 			this.bLogin = new System.Windows.Forms.Button();
 			this.nHostPort = new System.Windows.Forms.NumericUpDown();
 			this.bRefreshServers = new System.Windows.Forms.Button();
+			this.bExit = new System.Windows.Forms.Button();
+			this.bCancelHost = new System.Windows.Forms.Button();
+			this.bIntro = new System.Windows.Forms.Button();
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).BeginInit();
 			((System.ComponentModel.ISupportInitialize)(this.nHostPort)).BeginInit();
 			this.SuspendLayout();
@@ -191,11 +194,50 @@
 			this.bRefreshServers.Visible = false;
 			this.bRefreshServers.Click += new System.EventHandler(this.bRefreshServers_Click);
 			// 
+			// bExit
+			// 
+			this.bExit.Enabled = false;
+			this.bExit.Location = new System.Drawing.Point(361, 342);
+			this.bExit.Name = "bExit";
+			this.bExit.Size = new System.Drawing.Size(191, 67);
+			this.bExit.TabIndex = 11;
+			this.bExit.Text = "Ukončit hru";
+			this.bExit.UseVisualStyleBackColor = true;
+			this.bExit.Visible = false;
+			this.bExit.Click += new System.EventHandler(this.bExit_Click);
+			// 
+			// bCancelHost
+			// 
+			this.bCancelHost.Enabled = false;
+			this.bCancelHost.Location = new System.Drawing.Point(625, 508);
+			this.bCancelHost.Name = "bCancelHost";
+			this.bCancelHost.Size = new System.Drawing.Size(94, 29);
+			this.bCancelHost.TabIndex = 12;
+			this.bCancelHost.Text = "Zpět";
+			this.bCancelHost.UseVisualStyleBackColor = true;
+			this.bCancelHost.Visible = false;
+			this.bCancelHost.Click += new System.EventHandler(this.bCancelHost_Click);
+			// 
+			// bIntro
+			// 
+			this.bIntro.Enabled = false;
+			this.bIntro.Location = new System.Drawing.Point(768, 245);
+			this.bIntro.Name = "bIntro";
+			this.bIntro.Size = new System.Drawing.Size(94, 29);
+			this.bIntro.TabIndex = 13;
+			this.bIntro.Text = "Zpět";
+			this.bIntro.UseVisualStyleBackColor = true;
+			this.bIntro.Visible = false;
+			this.bIntro.Click += new System.EventHandler(this.bIntro_Click);
+			// 
 			// formBambulanci
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(914, 600);
+			this.Controls.Add(this.bIntro);
+			this.Controls.Add(this.bCancelHost);
+			this.Controls.Add(this.bExit);
 			this.Controls.Add(this.bRefreshServers);
 			this.Controls.Add(this.nHostPort);
 			this.Controls.Add(this.bLogin);
@@ -228,6 +270,9 @@
 		private System.Windows.Forms.Button bLogin;
 		private System.Windows.Forms.NumericUpDown nHostPort;
 		private System.Windows.Forms.Button bRefreshServers;
+		private System.Windows.Forms.Button bExit;
+		private System.Windows.Forms.Button bCancelHost;
+		private System.Windows.Forms.Button bIntro;
 	}
 }
 

@@ -40,21 +40,48 @@ namespace Bambulanci
 			switch (currentGameState)
 			{
 				case GameState.Intro:
-						EnableControl(bCreateGame);
-						EnableControl(bConnect);
-						break;
+					EnableControl(bCreateGame);
+					EnableControl(bConnect);
+					EnableControl(bExit);
+					DisableControl(bIntro);
+					DisableControl(lBNumOfPlayers);
+					DisableControl(bCreateGame2);
+					DisableControl(nListenPort);
+					break;
 				case GameState.HostSelect:
 					DisableControl(bCreateGame);
 					DisableControl(bConnect);
+					DisableControl(bExit);
 					EnableControl(lBNumOfPlayers);
 					EnableControl(bCreateGame2);
 					EnableControl(nListenPort);
+					DisableControl(lWaiting);
+					DisableControl(bCancelHost);
+					EnableControl(bIntro);
 					break;
 				case GameState.HostWaiting:
 					DisableControl(lBNumOfPlayers);
 					DisableControl(bCreateGame2);
 					DisableControl(nListenPort);
+					EnableControl(bCancelHost);
 					EnableControl(lWaiting);
+					DisableControl(bIntro);
+					break;
+				case GameState.HostWaitingRoom:
+					DisableControl(bCancelHost);
+					DisableControl(lWaiting);
+					//vsem klientum napisu, ze se maji presunout do waiting room + pridam jejich ID (pozice)...
+					host.MoveClientsToWaitingRoom();
+					//chci nejakou grafiku....
+					break;
+				case GameState.ClientSearch:
+					DisableControl(bCreateGame);
+					DisableControl(bConnect);
+					DisableControl(bExit);
+					EnableControl(lBServers);
+					EnableControl(bLogin);
+					EnableControl(nHostPort);
+					EnableControl(bRefreshServers);
 					break;
 				case GameState.ClientWaiting:
 					DisableControl(nHostPort);
@@ -64,22 +91,8 @@ namespace Bambulanci
 					EnableControl(lWaiting);
 					client.MoveSelfToWaitingRoom();
 					break;
-				case GameState.HostWaitingRoom:
-					DisableControl(lWaiting);
-					//vsem klientum napisu, ze se maji presunout do waiting room + pridam jejich ID (pozice)...
-					host.MoveClientsToWaitingRoom();
-					//chci nejakou grafiku....
-					break;
 				case GameState.ClientWaitingRoom:
 					DisableControl(lWaiting);
-					break;
-				case GameState.ClientSearch:
-					DisableControl(bCreateGame);
-					DisableControl(bConnect);
-					EnableControl(lBServers);
-					EnableControl(bLogin);
-					EnableControl(nHostPort);
-					EnableControl(bRefreshServers);
 					break;
 				default:
 					break;
@@ -89,25 +102,14 @@ namespace Bambulanci
 		private void bCreateGame_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.HostSelect);
+			lBNumOfPlayers.SelectedIndex = 0; //default select
 		}
 
 		private void bCreateGame2_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.HostWaiting);
 			int numOfPlayers = lBNumOfPlayers.SelectedIndex + 1;
-			//nasledujici provest paralelne***********************************************************
-			//Thread t = new Thread(() => StartHost(numOfPlayers, (int)nListenPort.Value));
-			//t.Start();
-
-
-			host.StartHost(numOfPlayers, (int)nListenPort.Value);
-			/*
-			backgroundWorker1 = new BackgroundWorker();
-			backgroundWorker1.DoWork += new DoWorkEventHandler(BackgroundWorker1_DoWork);
-			backgroundWorker1.RunWorkerCompleted += new RunWorkerCompletedEventHandler(BackgroundWorker1_RunWorkerCompleted);
-
-			backgroundWorker1.RunWorkerAsync((numOfPlayers, (int)nListenPort.Value));
-			*/
+			host.BWStartHost(numOfPlayers, (int)nListenPort.Value);
 		}
 
 		private void bConnect_Click(object sender, EventArgs e)
@@ -144,5 +146,20 @@ namespace Bambulanci
 
 		}
 
+		private void bExit_Click(object sender, EventArgs e)
+		{
+			this.Close();
+		}
+
+		private void bCancelHost_Click(object sender, EventArgs e)
+		{
+			ChangeGameState(GameState.HostSelect);
+			host.BWCancelHost();
+		}
+
+		private void bIntro_Click(object sender, EventArgs e)
+		{
+			ChangeGameState(GameState.Intro);
+		}
 	}
 }
