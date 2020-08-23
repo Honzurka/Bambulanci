@@ -109,11 +109,15 @@ namespace Bambulanci
 		private void bConnect_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.ClientSearch);
-			client.StartClient();
+			//client.StartClient();
 		}
 
 		private void bLogin_Click(object sender, EventArgs e)
 		{
+			IPEndPoint serverEP = (IPEndPoint)lBServers.SelectedItem;
+			byte[] loginMessage = Data.ToBytes(Command.Login);
+			client.client.Send(loginMessage, loginMessage.Length, serverEP);
+			ChangeGameState(GameState.ClientWaiting); //asi bych mel pockat na potvrzeni serveru, muzou se najednou pripojovat 2 klienti
 
 			/*
 			string[] tokens = lBServers.SelectedItem.ToString().Split(':');
@@ -126,14 +130,14 @@ namespace Bambulanci
 		{
 			lBServers.Items.Clear();
 			int hostPort = (int)nHostPort.Value;
-			IPEndPoint broadcastEP = new IPEndPoint(IPAddress.Broadcast, hostPort); //ma byt broadcast IP------------
-			IPEndPoint hostEP = new IPEndPoint(IPAddress.Any, hostPort); //hostport??---- nevim na jakem portu chci prijimat, klidne na hostovem
-			
+			int listenPort = hostPort + 1; //odlisny od host portu pro stejny PC, jinak je to asi jedno?
+			IPEndPoint broadcastEP = new IPEndPoint(IPAddress.Broadcast, hostPort);
+			IPEndPoint hostEP = new IPEndPoint(IPAddress.Any, listenPort);
 
-			client.client = new UdpClient(new IPEndPoint(IPAddress.Any, hostPort+1)); //musi byt odlisni od hosta, pokud chci ted poslouchat na 1 PC
+			client.client = new UdpClient(new IPEndPoint(IPAddress.Any, listenPort)); //pri opetovanem refreshi na stejnem portu hazi chybu!!! -- snad vyresi backgroundWorker
+			
 			byte[] findServerMessage = Data.ToBytes(Command.FindServers);
-			client.client.Send(findServerMessage, findServerMessage.Length, broadcastEP); //error------------
-			Console.WriteLine("broadcast sent");
+			client.client.Send(findServerMessage, findServerMessage.Length, broadcastEP);
 			while(true) //for (int i = 0; i < 1; i++)
 			{
 				Data received = new Data(client.client.Receive(ref hostEP));
@@ -143,21 +147,6 @@ namespace Bambulanci
 					break;
 				}
 			}
-			/*
-			client.clientSocket.SendTo(new byte[] { (byte)Command.FindServers }, broadcastEP);
-
-			Console.WriteLine("broadcast sent");
-
-			byte[] serverInfo = new byte[1024]; //1024???
-
-			//find all servers---------------------------------------melo by se dit paralelne
-			for (int i = 0; i < 1; i++) //dokud si nevyberu, vyhledavam...
-			{
-				int receivedAmount = client.clientSocket.Receive(serverInfo);
-				string serverInfoString = Encoding.ASCII.GetString(serverInfo);
-				lBServers.Items.Add(serverInfoString);
-			}
-			*/
 		}
 
 		private void bExit_Click(object sender, EventArgs e)

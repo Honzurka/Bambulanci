@@ -138,20 +138,14 @@ namespace Bambulanci
 							UpdateRemainingPlayers(numOfPlayers);
 							id++;
 							break;
-						case Command.Logout:
+						case Command.Logout: //klient zatim neposila
 							int clientID = Int32.Parse(data.Msg);
 							clientList.RemoveAll(client => client.id == clientID);
 							UpdateRemainingPlayers(numOfPlayers);
 							break;
 						case Command.FindServers:
-							//-------------klient zatim neumi prijimat-----------------------------------
-							//byte[] serverInfo = Data.ToBytes(Command.FindServers, host.Client.LocalEndPoint.ToString());
 							byte[] serverInfo = Data.ToBytes(Command.FoundServer);
 							host.Send(serverInfo, serverInfo.Length, clientEP);
-							Console.WriteLine($"broadcast received from {clientEP}");
-
-							//byte[] serverInfo = Encoding.ASCII.GetBytes(host.Client.LocalEndPoint.ToString());
-							//host.Send(serverInfo, serverInfo.Length, clientEP);
 							break;
 						default:
 							break;
@@ -213,7 +207,7 @@ namespace Bambulanci
 			return hostIP;
 		}
 		
-		public void MoveClientsToWaitingRoom()
+		public void MoveClientsToWaitingRoom() //nefunkcni, host je zrusen po vykonani akce backgroundWorkeru---------------
 		{
 			foreach (var client in clientList)
 			{
@@ -249,13 +243,6 @@ namespace Bambulanci
 				}
 			}
 		}
-
-		public void StartClient()
-		{
-			//clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-			//clientSocket.EnableBroadcast = true;
-		}
-
 	}
 
 }
