@@ -8,24 +8,28 @@ using System.Threading.Tasks;
 
 namespace Bambulanci
 {
-	enum Command { Login, Logout, FindServers, MoveToWaitingRoom }
+	enum Command { Login, Logout, FindServers, MoveToWaitingRoom, HostingCanceled }
 	struct ClientInfo
 	{
 		public int id;
 		//private string name; //bez newline?
 		//private Color color; //?
 		public IPEndPoint ipEndPoint;
+
 	}
 	
+	/// <summary>
+	/// Data parser for network communication.
+	/// </summary>
 	class Data
 	{
-		Command cmd;
-		string msg;
+		public Command Cmd { get; private set; }
+		public string Msg { get; private set; }
 
 		public Data(byte[] data)
 		{
 			//1B command
-			cmd = (Command)data[0];
+			Cmd = (Command)data[0];
 
 			//4B msg length
 			int msgLen = BitConverter.ToInt32(data, 1);
@@ -33,18 +37,18 @@ namespace Bambulanci
 			//rest is message
 			if (msgLen > 0)
 			{
-				msg = Encoding.ASCII.GetString(data, 5, msgLen);
+				Msg = Encoding.ASCII.GetString(data, 5, msgLen);
 			}
 		}
 
-		public byte[] ToBytes(Data data)
+		public static byte[] ToBytes(Command cmd, string msg)
 		{
 			List<byte> result = new List<byte>();
 
-			result.Add((byte)data.cmd);
+			result.Add((byte)cmd);
 			if (msg != null)
 			{
-				result.AddRange(BitConverter.GetBytes(data.msg.Length));
+				result.AddRange(BitConverter.GetBytes(msg.Length));
 				result.AddRange(Encoding.ASCII.GetBytes(msg));
 			}
 
@@ -71,11 +75,11 @@ namespace Bambulanci
 		/// <summary>
 		/// Async - Starts BackgroundWorker which waits for numOfPlayers to connect to host.
 		/// </summary>
-		public void BWStartHost(int numOfPlayers, int listenPort) //work in progress-------------------------------
+		public void BWStartHost(int numOfPlayers, int listenPort)
 		{
 			bwHostStarter = new BackgroundWorker();
-			bwHostStarter.WorkerReportsProgress = true; //ToDo
-			bwHostStarter.WorkerSupportsCancellation = true; //ToDo-button
+			bwHostStarter.WorkerReportsProgress = true;
+			bwHostStarter.WorkerSupportsCancellation = true;
 
 			bwHostStarter.DoWork += new DoWorkEventHandler(bw_DoWork);
 			bwHostStarter.RunWorkerCompleted += new RunWorkerCompletedEventHandler(bw_RunWorkerCompleted);
@@ -89,7 +93,10 @@ namespace Bambulanci
 			host.Close(); //zkousim zavrit spojeni, pravdepodobne pri poslouchani == vyhodi exception
 		}
 
-		private void ChangeRemainingPlayers(int numOfPlayers)
+		/// <summary>
+		/// Reports progress of backgroundWorker.
+		/// </summary>
+		private void UpdateRemainingPlayers(int numOfPlayers)
 		{
 			int remainingPlayers = numOfPlayers - clientList.Count;
 			bwHostStarter.ReportProgress(remainingPlayers);
@@ -105,37 +112,40 @@ namespace Bambulanci
 			host = new UdpClient(new IPEndPoint(hostIP, listenPort));
 			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
 
-			ChangeRemainingPlayers(numOfPlayers);
+			UpdateRemainingPlayers(numOfPlayers);
 			try
 			{
 				while (clientList.Count < numOfPlayers)
 				{
-					byte[] data = host.Receive(ref clientEP);
-
-					//ToDo: data parser--------------------------------
-					Command command = (Command)data[0];
-
-					switch (command)
+					Data data = new Data(host.Receive(ref clientEP));
+					switch (data.Cmd)
 					{
 						case Command.Login:
-							Console.WriteLine($"New client: {clientEP}");
 							ClientInfo clientInfo = new ClientInfo() { id = id, ipEndPoint = clientEP };
 							clientList.Add(clientInfo);
-							ChangeRemainingPlayers(numOfPlayers);
+							UpdateRemainingPlayers(numOfPlayers);
 							id++;
 							break;
-						case Command.Logout: //nejdrive encoder/decoder && paralelismum i klienta
+						case Command.Logout:
+							int clientID = Int32.Parse(data.Msg);
+							clientList.RemoveAll(client => client.id == clientID);
+							UpdateRemainingPlayers(numOfPlayers);
 							break;
 						case Command.FindServers:
-							byte[] serverInfo = Encoding.ASCII.GetBytes(host.Client.LocalEndPoint.ToString());
+							//-------------klient zatim neumi prijimat-----------------------------------
+							//byte[] serverInfo = Data.ToBytes(Command.FindServers, host.Client.LocalEndPoint.ToString());
+							byte[] serverInfo = Data.ToBytes(Command.FindServers, null);
 							host.Send(serverInfo, serverInfo.Length, clientEP);
+
+							//byte[] serverInfo = Encoding.ASCII.GetBytes(host.Client.LocalEndPoint.ToString());
+							//host.Send(serverInfo, serverInfo.Length, clientEP);
 							break;
 						default:
 							break;
 					}
 				}
 			}
-			catch (SocketException exception)
+			catch (SocketException)
 			{
 				if (bwHostStarter.CancellationPending) //catching intended exception from BWCancelHost
 					e.Cancel = true;
@@ -146,24 +156,27 @@ namespace Bambulanci
 			{
 				host.Close();
 			}
-
 		}
 
 		private void bw_ProgressChanged(object sender, ProgressChangedEventArgs e)
 		{
 			int remainingPlayers = e.ProgressPercentage;
-			form.lWaiting.Text = $"Cekam na {remainingPlayers} hrace";
+			form.lWaiting.Text = $"Čekám na {remainingPlayers} hráče";
 		}
 
 		private void bw_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
 			if (e.Error != null)
 				throw new Exception(); //Error handling??----
-			else if (e.Cancelled)
+			else if (e.Cancelled) //neni implementovano u klienta -----
 			{
-				//obeznamit pripojene vsechny klienty----nejdrive musim udelat nejaky data encoder/decoder--------------------
+				byte[] hostCanceledInfo = Data.ToBytes(Command.HostingCanceled, null);
+				foreach (var client in clientList)
+				{
+					host.Send(hostCanceledInfo, hostCanceledInfo.Length, client.ipEndPoint);
+				}
 			}
-			else
+			else //all clients are connected
 				form.ChangeGameState(GameState.HostWaitingRoom);
 		}
 
@@ -184,13 +197,13 @@ namespace Bambulanci
 			}
 			return hostIP;
 		}
-
+		
 		public void MoveClientsToWaitingRoom()
 		{
 			foreach (var client in clientList)
 			{
-				byte[] message = { (byte)Command.MoveToWaitingRoom, (byte)client.id }; //INT AS BYTES--------------------------?????
-				host.Send(message, message.Length, client.ipEndPoint);
+				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.MoveToWaitingRoom, client.id.ToString());
+				host.Send(moveClientToWaitingRoom, moveClientToWaitingRoom.Length, client.ipEndPoint);
 			}
 		}
 	}
