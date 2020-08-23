@@ -16,7 +16,41 @@ namespace Bambulanci
 		//private Color color; //?
 		public IPEndPoint ipEndPoint;
 	}
+	
+	class Data
+	{
+		Command cmd;
+		string msg;
 
+		public Data(byte[] data)
+		{
+			//1B command
+			cmd = (Command)data[0];
+
+			//4B msg length
+			int msgLen = BitConverter.ToInt32(data, 1);
+
+			//rest is message
+			if (msgLen > 0)
+			{
+				msg = Encoding.ASCII.GetString(data, 5, msgLen);
+			}
+		}
+
+		public byte[] ToBytes(Data data)
+		{
+			List<byte> result = new List<byte>();
+
+			result.Add((byte)data.cmd);
+			if (msg != null)
+			{
+				result.AddRange(BitConverter.GetBytes(data.msg.Length));
+				result.AddRange(Encoding.ASCII.GetBytes(msg));
+			}
+
+			return result.ToArray();
+		}
+	}
 	class Host
 	{
 		private formBambulanci form;
