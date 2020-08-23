@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Windows.Forms;
 
@@ -65,7 +66,7 @@ namespace Bambulanci
 					EnableControl(bCancelHost);
 					EnableControl(lWaiting);
 					break;
-				case GameState.HostWaitingRoom:
+				case GameState.HostWaitingRoom: //musim pridat alespon text waiting room------------
 					DisableAllControls(); 
 					//vsem klientum napisu, ze se maji presunout do waiting room + pridam jejich ID (pozice)...
 					host.MoveClientsToWaitingRoom();
@@ -113,16 +114,36 @@ namespace Bambulanci
 
 		private void bLogin_Click(object sender, EventArgs e)
 		{
+
+			/*
 			string[] tokens = lBServers.SelectedItem.ToString().Split(':');
 			IPEndPoint serverEP = new IPEndPoint(IPAddress.Parse(tokens[0]), int.Parse(tokens[1]));
 			client.clientSocket.SendTo(new byte[] { (byte)Command.Login }, serverEP);
 			ChangeGameState(GameState.ClientWaiting);
+			*/
 		}
 		private void bRefreshServers_Click(object sender, EventArgs e)
 		{
 			lBServers.Items.Clear();
 			int hostPort = (int)nHostPort.Value;
-			IPEndPoint broadcastEP = new IPEndPoint(IPAddress.Broadcast, hostPort);
+			IPEndPoint broadcastEP = new IPEndPoint(IPAddress.Broadcast, hostPort); //ma byt broadcast IP------------
+			IPEndPoint hostEP = new IPEndPoint(IPAddress.Any, hostPort); //hostport??---- nevim na jakem portu chci prijimat, klidne na hostovem
+			
+
+			client.client = new UdpClient(new IPEndPoint(IPAddress.Any, hostPort+1)); //musi byt odlisni od hosta, pokud chci ted poslouchat na 1 PC
+			byte[] findServerMessage = Data.ToBytes(Command.FindServers);
+			client.client.Send(findServerMessage, findServerMessage.Length, broadcastEP); //error------------
+			Console.WriteLine("broadcast sent");
+			while(true) //for (int i = 0; i < 1; i++)
+			{
+				Data received = new Data(client.client.Receive(ref hostEP));
+				if (received.Cmd == Command.FoundServer)
+				{
+					lBServers.Items.Add(hostEP);
+					break;
+				}
+			}
+			/*
 			client.clientSocket.SendTo(new byte[] { (byte)Command.FindServers }, broadcastEP);
 
 			Console.WriteLine("broadcast sent");
@@ -136,7 +157,7 @@ namespace Bambulanci
 				string serverInfoString = Encoding.ASCII.GetString(serverInfo);
 				lBServers.Items.Add(serverInfoString);
 			}
-
+			*/
 		}
 
 		private void bExit_Click(object sender, EventArgs e)

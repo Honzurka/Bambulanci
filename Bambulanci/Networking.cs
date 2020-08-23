@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Bambulanci
 {
-	enum Command { Login, Logout, FindServers, MoveToWaitingRoom, HostingCanceled }
+	enum Command { Login, Logout, FindServers, FoundServer, MoveToWaitingRoom, HostingCanceled }
 	struct ClientInfo
 	{
 		public int id;
@@ -31,14 +31,22 @@ namespace Bambulanci
 			//1B command
 			Cmd = (Command)data[0];
 
-			//4B msg length
-			int msgLen = BitConverter.ToInt32(data, 1);
-
-			//rest is message
-			if (msgLen > 0)
+			if (data.Length > 1)
 			{
-				Msg = Encoding.ASCII.GetString(data, 5, msgLen);
+				//4B msg length
+				int msgLen = BitConverter.ToInt32(data, 1);
+
+				//rest is message
+				if (msgLen > 0)
+				{
+					Msg = Encoding.ASCII.GetString(data, 5, msgLen);
+				}
 			}
+		}
+
+		public static byte[] ToBytes(Command cmd)
+		{
+			return ToBytes(cmd, null);
 		}
 
 		public static byte[] ToBytes(Command cmd, string msg)
@@ -138,8 +146,9 @@ namespace Bambulanci
 						case Command.FindServers:
 							//-------------klient zatim neumi prijimat-----------------------------------
 							//byte[] serverInfo = Data.ToBytes(Command.FindServers, host.Client.LocalEndPoint.ToString());
-							byte[] serverInfo = Data.ToBytes(Command.FindServers, null);
+							byte[] serverInfo = Data.ToBytes(Command.FoundServer);
 							host.Send(serverInfo, serverInfo.Length, clientEP);
+							Console.WriteLine($"broadcast received from {clientEP}");
 
 							//byte[] serverInfo = Encoding.ASCII.GetBytes(host.Client.LocalEndPoint.ToString());
 							//host.Send(serverInfo, serverInfo.Length, clientEP);
@@ -174,7 +183,7 @@ namespace Bambulanci
 				throw new Exception(); //Error handling??----
 			else if (e.Cancelled) //neni implementovano u klienta -----
 			{
-				byte[] hostCanceledInfo = Data.ToBytes(Command.HostingCanceled, null);
+				byte[] hostCanceledInfo = Data.ToBytes(Command.HostingCanceled);
 				foreach (var client in clientList)
 				{
 					host.Send(hostCanceledInfo, hostCanceledInfo.Length, client.ipEndPoint);
@@ -223,14 +232,14 @@ namespace Bambulanci
 		}
 		
 		//public Socket clientSocket; //asi bych chtel spise private??--
-		private UdpClient client;
+		public UdpClient client;
 
 		public void MoveSelfToWaitingRoom()
 		{
 			byte[] data = new byte[1024]; //1024???
 			while (true)
 			{
-				clientSocket.Receive(data);
+				//clientSocket.Receive(data);
 				Command command = (Command)data[0];
 				if (command == Command.MoveToWaitingRoom)
 				{
@@ -243,8 +252,8 @@ namespace Bambulanci
 
 		public void StartClient()
 		{
-			clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-			clientSocket.EnableBroadcast = true;
+			//clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+			//clientSocket.EnableBroadcast = true;
 		}
 
 	}
