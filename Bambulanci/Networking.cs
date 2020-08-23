@@ -87,6 +87,10 @@ namespace Bambulanci
 			
 			bwHostStarter.RunWorkerAsync(new ValueTuple<int, int>(numOfPlayers, listenPort));
 		}
+		
+		/// <summary>
+		/// Cancels backgroundWorker.
+		/// </summary>
 		public void BWCancelHost()
 		{
 			bwHostStarter.CancelAsync();
@@ -177,7 +181,9 @@ namespace Bambulanci
 				}
 			}
 			else //all clients are connected
+			{
 				form.ChangeGameState(GameState.HostWaitingRoom);
+			}
 		}
 
 		/// <summary>
@@ -215,7 +221,9 @@ namespace Bambulanci
 		{
 			this.form = form;
 		}
-		public Socket clientSocket; //asi bych chtel spise private??--
+		
+		//public Socket clientSocket; //asi bych chtel spise private??--
+		private UdpClient client;
 
 		public void MoveSelfToWaitingRoom()
 		{
