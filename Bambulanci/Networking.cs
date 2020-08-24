@@ -92,7 +92,7 @@ namespace Bambulanci
 			bwHostStarter.DoWork += new DoWorkEventHandler(bw_DoWork);
 			bwHostStarter.RunWorkerCompleted += new RunWorkerCompletedEventHandler(bw_RunWorkerCompleted);
 			bwHostStarter.ProgressChanged += new ProgressChangedEventHandler(bw_ProgressChanged);
-			
+
 			bwHostStarter.RunWorkerAsync(new ValueTuple<int, int>(numOfPlayers, listenPort));
 		}
 		
@@ -118,12 +118,12 @@ namespace Bambulanci
 		{
 			(int numOfPlayers, int listenPort) = (ValueTuple<int, int>)e.Argument;
 			clientList = new List<ClientInfo>();
-			int id = 1; //0 is host
+
 			IPAddress hostIP = getHostIP();
-
 			host = new UdpClient(new IPEndPoint(hostIP, listenPort));
-			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
 
+			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
+			int id = 1; //0 is host
 			UpdateRemainingPlayers(numOfPlayers);
 			try
 			{
@@ -159,10 +159,6 @@ namespace Bambulanci
 				else
 					throw;
 			}
-			finally
-			{
-				host.Close();
-			}
 		}
 
 		private void bw_ProgressChanged(object sender, ProgressChangedEventArgs e)
@@ -182,6 +178,7 @@ namespace Bambulanci
 				{
 					host.Send(hostCanceledInfo, hostCanceledInfo.Length, client.ipEndPoint);
 				}
+				host.Close();
 			}
 			else //all clients are connected
 			{
