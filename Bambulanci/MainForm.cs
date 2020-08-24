@@ -66,7 +66,7 @@ namespace Bambulanci
 					EnableControl(bCancelHost);
 					EnableControl(lWaiting);
 					break;
-				case GameState.HostWaitingRoom: //musim pridat alespon text waiting room------------
+				case GameState.HostWaitingRoom:
 					DisableAllControls();
 					EnableControl(lWaitRoom);
 					host.MoveClientsToWaitingRoom();
@@ -82,7 +82,6 @@ namespace Bambulanci
 				case GameState.ClientWaiting:
 					DisableAllControls();
 					EnableControl(lWaiting);
-					client.MoveSelfToWaitingRoom();
 					break;
 				case GameState.ClientWaitingRoom:
 					DisableAllControls();
@@ -120,17 +119,12 @@ namespace Bambulanci
 
 		private void bLogin_Click(object sender, EventArgs e) //throws errors if no server is chosen -- disable button before refreshing...
 		{
-			IPEndPoint serverEP = (IPEndPoint)lBServers.SelectedItem;
-			byte[] loginMessage = Data.ToBytes(Command.ClientLogin);
-			client.udpClient.Send(loginMessage, loginMessage.Length, serverEP);
-			ChangeGameState(GameState.ClientWaiting); //asi bych mel pockat na potvrzeni serveru, muzou se najednou pripojovat 2 klienti
-
-			/*
-			string[] tokens = lBServers.SelectedItem.ToString().Split(':');
-			IPEndPoint serverEP = new IPEndPoint(IPAddress.Parse(tokens[0]), int.Parse(tokens[1]));
-			client.clientSocket.SendTo(new byte[] { (byte)Command.Login }, serverEP);
 			ChangeGameState(GameState.ClientWaiting);
-			*/
+			client.LoginSelectedServer();
+
+			//asi bych mel pockat na potvrzeni serveru, muzou se najednou pripojovat 2 klienti
+
+			//client.MoveSelfToWaitingRoom();
 		}
 
 		private void bExit_Click(object sender, EventArgs e)

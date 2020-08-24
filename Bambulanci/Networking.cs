@@ -215,7 +215,7 @@ namespace Bambulanci
 			this.form = form;
 		}
 
-		public UdpClient udpClient; //spise private
+		private UdpClient udpClient;
 		private int listenPort; //lze ziskat i z udpClienta...
 
 		public void StartClient()
@@ -225,7 +225,10 @@ namespace Bambulanci
 			udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, listenPort));
 		}
 
-		BackgroundWorker bwServerRefresher;
+		/// <summary>
+		/// Server refresh paralelism.
+		/// </summary>
+		private BackgroundWorker bwServerRefresher;
 		public void BWServerRefresherStart(int hostPort) //unfinished
 		{
 			/* idea
@@ -233,10 +236,12 @@ namespace Bambulanci
 				bwServerRefresher.Dispose();
 			*/
 			bwServerRefresher = new BackgroundWorker();
+			bwServerRefresher.WorkerReportsProgress = true;
 
 			bwServerRefresher.DoWork += new DoWorkEventHandler(BW_RefreshServers);
 			bwServerRefresher.RunWorkerCompleted += new RunWorkerCompletedEventHandler(BW_RefreshCompleted);
-
+			bwServerRefresher.ProgressChanged += new ProgressChangedEventHandler(BW_ServerFound);
+			
 			bwServerRefresher.RunWorkerAsync(hostPort);
 		}
 
@@ -258,7 +263,7 @@ namespace Bambulanci
 				switch (received.Cmd)
 				{
 					case Command.HostFoundServer:
-						form.lBServers.Items.Add(hostEP);
+						bwServerRefresher.ReportProgress(0, hostEP); //0 is ignored
 						break;
 					case Command.ClientStopServerRefresh: //not implemented
 						searching = false;
@@ -268,11 +273,25 @@ namespace Bambulanci
 				}
 			}
 		}
+
+		private void BW_ServerFound(object sender, ProgressChangedEventArgs e) //progress
+		{
+			var hostEP = e.UserState;
+			form.lBServers.Items.Add(hostEP);
+		}
 		private void BW_RefreshCompleted(object sender, RunWorkerCompletedEventArgs e) //Complete work
 		{
-
+			//empty - prob wasnt necessary to make backgroundWorker
 		}
 
+		public void LoginSelectedServer()
+		{
+			//stop refresh worker-------
+			
+			IPEndPoint serverEP = (IPEndPoint)form.lBServers.SelectedItem;
+			byte[] loginMessage = Data.ToBytes(Command.ClientLogin);
+			udpClient.Send(loginMessage, loginMessage.Length, serverEP);
+		}
 
 
 		public void MoveSelfToWaitingRoom()
