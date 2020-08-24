@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Bambulanci
 {
-	enum Command { Login, Logout, FindServers, FoundServer, MoveToWaitingRoom, HostingCanceled }
+	enum Command { Login, Logout, FindServers, FoundServer, MoveToWaitingRoom, HostingCanceled, StopHosting }
 	struct ClientInfo
 	{
 		public int id;
@@ -101,8 +101,9 @@ namespace Bambulanci
 		/// </summary>
 		public void BWCancelHost()
 		{
-			bwHostStarter.CancelAsync();
-			host.Close(); //zkousim zavrit spojeni, pravdepodobne pri poslouchani == vyhodi exception
+			bwHostStarter.CancelAsync(); //zbytecne, nevyuzivam e.CancelationPending
+			byte[] cancel = Data.ToBytes(Command.StopHosting); //kind of poison pill
+			host.Send(cancel, cancel.Length, (IPEndPoint)host.Client.LocalEndPoint);
 		}
 
 		/// <summary>
@@ -124,40 +125,41 @@ namespace Bambulanci
 
 			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
 			int id = 1; //0 is host
+			bool hostClosed = false;
 			UpdateRemainingPlayers(numOfPlayers);
-			try
+			while (!hostClosed && clientList.Count < numOfPlayers)
 			{
-				while (clientList.Count < numOfPlayers)
+				Data data = new Data(host.Receive(ref clientEP));
+				switch (data.Cmd)
 				{
-					Data data = new Data(host.Receive(ref clientEP));
-					switch (data.Cmd)
-					{
-						case Command.Login:
-							ClientInfo clientInfo = new ClientInfo() { id = id, ipEndPoint = clientEP };
-							clientList.Add(clientInfo);
-							UpdateRemainingPlayers(numOfPlayers);
-							id++;
-							break;
-						case Command.Logout: //klient zatim neposila
-							int clientID = Int32.Parse(data.Msg);
-							clientList.RemoveAll(client => client.id == clientID);
-							UpdateRemainingPlayers(numOfPlayers);
-							break;
-						case Command.FindServers:
-							byte[] serverInfo = Data.ToBytes(Command.FoundServer);
-							host.Send(serverInfo, serverInfo.Length, clientEP);
-							break;
-						default:
-							break;
-					}
+					case Command.Login:
+						ClientInfo clientInfo = new ClientInfo() { id = id, ipEndPoint = clientEP };
+						clientList.Add(clientInfo);
+						UpdateRemainingPlayers(numOfPlayers);
+						id++;
+						break;
+					case Command.Logout: //klient zatim neposila
+						int clientID = Int32.Parse(data.Msg);
+						clientList.RemoveAll(client => client.id == clientID);
+						UpdateRemainingPlayers(numOfPlayers);
+						break;
+					case Command.FindServers:
+						byte[] serverInfo = Data.ToBytes(Command.FoundServer);
+						host.Send(serverInfo, serverInfo.Length, clientEP);
+						break;
+					case Command.StopHosting:
+						hostClosed = true;
+						byte[] hostCanceledInfo = Data.ToBytes(Command.HostingCanceled);
+						foreach (var client in clientList) //isn't implemented on client's side
+						{
+							host.Send(hostCanceledInfo, hostCanceledInfo.Length, client.ipEndPoint);
+						}
+						host.Close();
+						e.Cancel = true;
+						break;
+					default:
+						break;
 				}
-			}
-			catch (SocketException)
-			{
-				if (bwHostStarter.CancellationPending) //catching intended exception from BWCancelHost
-					e.Cancel = true;
-				else
-					throw;
 			}
 		}
 
@@ -171,16 +173,7 @@ namespace Bambulanci
 		{
 			if (e.Error != null)
 				throw new Exception(); //Error handling??----
-			else if (e.Cancelled) //neni implementovano u klienta -----
-			{
-				byte[] hostCanceledInfo = Data.ToBytes(Command.HostingCanceled);
-				foreach (var client in clientList)
-				{
-					host.Send(hostCanceledInfo, hostCanceledInfo.Length, client.ipEndPoint);
-				}
-				host.Close();
-			}
-			else //all clients are connected
+			else if (!e.Cancelled)//all clients are connected
 			{
 				form.ChangeGameState(GameState.HostWaitingRoom);
 			}
