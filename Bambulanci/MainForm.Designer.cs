@@ -41,6 +41,7 @@
 			this.bExit = new System.Windows.Forms.Button();
 			this.bCancelHost = new System.Windows.Forms.Button();
 			this.bIntro = new System.Windows.Forms.Button();
+			this.lWaitRoom = new System.Windows.Forms.Label();
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).BeginInit();
 			((System.ComponentModel.ISupportInitialize)(this.nHostPort)).BeginInit();
 			this.SuspendLayout();
@@ -116,7 +117,7 @@
 			this.nListenPort.Enabled = false;
 			this.nListenPort.Location = new System.Drawing.Point(768, 145);
 			this.nListenPort.Maximum = new decimal(new int[] {
-            65535,
+            59999,
             0,
             0,
             0});
@@ -230,11 +231,24 @@
 			this.bIntro.Visible = false;
 			this.bIntro.Click += new System.EventHandler(this.bIntro_Click);
 			// 
+			// lWaitRoom
+			// 
+			this.lWaitRoom.AutoSize = true;
+			this.lWaitRoom.Enabled = false;
+			this.lWaitRoom.Font = new System.Drawing.Font("Segoe UI", 18F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+			this.lWaitRoom.Location = new System.Drawing.Point(390, 9);
+			this.lWaitRoom.Name = "lWaitRoom";
+			this.lWaitRoom.Size = new System.Drawing.Size(125, 41);
+			this.lWaitRoom.TabIndex = 14;
+			this.lWaitRoom.Text = "Čekárna";
+			this.lWaitRoom.Visible = false;
+			// 
 			// formBambulanci
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(914, 600);
+			this.Controls.Add(this.lWaitRoom);
 			this.Controls.Add(this.bIntro);
 			this.Controls.Add(this.bCancelHost);
 			this.Controls.Add(this.bExit);
@@ -265,7 +279,6 @@
 		private System.Windows.Forms.ListBox lBNumOfPlayers;
 		private System.Windows.Forms.Button bCreateGame2;
 		private System.Windows.Forms.NumericUpDown nListenPort;
-		private System.Windows.Forms.ListBox lBServers;
 		private System.Windows.Forms.Button bLogin;
 		private System.Windows.Forms.NumericUpDown nHostPort;
 		private System.Windows.Forms.Button bRefreshServers;
@@ -273,6 +286,8 @@
 		private System.Windows.Forms.Button bCancelHost;
 		private System.Windows.Forms.Button bIntro;
 		public System.Windows.Forms.Label lWaiting;
+		private System.Windows.Forms.Label lWaitRoom;
+		public System.Windows.Forms.ListBox lBServers;
 	}
 }
 

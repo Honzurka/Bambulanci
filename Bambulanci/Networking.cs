@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Bambulanci
 {
-	enum Command { Login, Logout, FindServers, FoundServer, MoveToWaitingRoom, HostingCanceled, StopHosting }
+	enum Command { ClientLogin, ClientLogout, ClientFindServers, HostFoundServer, HostMoveToWaitingRoom, HostCanceled, HostStopHosting, ClientStopServerRefresh }
 	struct ClientInfo
 	{
 		public int id;
@@ -87,11 +87,11 @@ namespace Bambulanci
 		{
 			bwHostStarter = new BackgroundWorker();
 			bwHostStarter.WorkerReportsProgress = true;
-			bwHostStarter.WorkerSupportsCancellation = true;
+			//bwHostStarter.WorkerSupportsCancellation = true; //mozna neni potreba
 
-			bwHostStarter.DoWork += new DoWorkEventHandler(bw_DoWork);
-			bwHostStarter.RunWorkerCompleted += new RunWorkerCompletedEventHandler(bw_RunWorkerCompleted);
-			bwHostStarter.ProgressChanged += new ProgressChangedEventHandler(bw_ProgressChanged);
+			bwHostStarter.DoWork += new DoWorkEventHandler(BW_DoWork);
+			bwHostStarter.RunWorkerCompleted += new RunWorkerCompletedEventHandler(BW_RunWorkerCompleted);
+			bwHostStarter.ProgressChanged += new ProgressChangedEventHandler(BW_ProgressChanged);
 
 			bwHostStarter.RunWorkerAsync(new ValueTuple<int, int>(numOfPlayers, listenPort));
 		}
@@ -101,8 +101,8 @@ namespace Bambulanci
 		/// </summary>
 		public void BWCancelHost()
 		{
-			bwHostStarter.CancelAsync(); //zbytecne, nevyuzivam e.CancelationPending
-			byte[] cancel = Data.ToBytes(Command.StopHosting); //kind of poison pill
+			//bwHostStarter.CancelAsync(); //zbytecne, nevyuzivam e.CancelationPending
+			byte[] cancel = Data.ToBytes(Command.HostStopHosting); //kind of poison pill
 			host.Send(cancel, cancel.Length, (IPEndPoint)host.Client.LocalEndPoint);
 		}
 
@@ -115,7 +115,7 @@ namespace Bambulanci
 			bwHostStarter.ReportProgress(remainingPlayers);
 		}
 
-		private void bw_DoWork(object sender, DoWorkEventArgs e)
+		private void BW_DoWork(object sender, DoWorkEventArgs e)
 		{
 			(int numOfPlayers, int listenPort) = (ValueTuple<int, int>)e.Argument;
 			clientList = new List<ClientInfo>();
@@ -132,24 +132,24 @@ namespace Bambulanci
 				Data data = new Data(host.Receive(ref clientEP));
 				switch (data.Cmd)
 				{
-					case Command.Login:
+					case Command.ClientLogin:
 						ClientInfo clientInfo = new ClientInfo() { id = id, ipEndPoint = clientEP };
 						clientList.Add(clientInfo);
 						UpdateRemainingPlayers(numOfPlayers);
 						id++;
 						break;
-					case Command.Logout: //klient zatim neposila
+					case Command.ClientLogout: //klient zatim neposila
 						int clientID = Int32.Parse(data.Msg);
 						clientList.RemoveAll(client => client.id == clientID);
 						UpdateRemainingPlayers(numOfPlayers);
 						break;
-					case Command.FindServers:
-						byte[] serverInfo = Data.ToBytes(Command.FoundServer);
+					case Command.ClientFindServers:
+						byte[] serverInfo = Data.ToBytes(Command.HostFoundServer);
 						host.Send(serverInfo, serverInfo.Length, clientEP);
 						break;
-					case Command.StopHosting:
+					case Command.HostStopHosting:
 						hostClosed = true;
-						byte[] hostCanceledInfo = Data.ToBytes(Command.HostingCanceled);
+						byte[] hostCanceledInfo = Data.ToBytes(Command.HostCanceled);
 						foreach (var client in clientList) //isn't implemented on client's side
 						{
 							host.Send(hostCanceledInfo, hostCanceledInfo.Length, client.ipEndPoint);
@@ -163,13 +163,13 @@ namespace Bambulanci
 			}
 		}
 
-		private void bw_ProgressChanged(object sender, ProgressChangedEventArgs e)
+		private void BW_ProgressChanged(object sender, ProgressChangedEventArgs e)
 		{
 			int remainingPlayers = e.ProgressPercentage;
 			form.lWaiting.Text = $"Čekám na {remainingPlayers} hráče";
 		}
 
-		private void bw_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+		private void BW_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
 			if (e.Error != null)
 				throw new Exception(); //Error handling??----
@@ -197,11 +197,11 @@ namespace Bambulanci
 			return hostIP;
 		}
 		
-		public void MoveClientsToWaitingRoom() //nefunkcni, host je zrusen po vykonani akce backgroundWorkeru---------------
+		public void MoveClientsToWaitingRoom()
 		{
 			foreach (var client in clientList)
 			{
-				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.MoveToWaitingRoom, client.id.ToString());
+				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom, client.id.ToString());
 				host.Send(moveClientToWaitingRoom, moveClientToWaitingRoom.Length, client.ipEndPoint);
 			}
 		}
@@ -214,9 +214,66 @@ namespace Bambulanci
 		{
 			this.form = form;
 		}
-		
-		//public Socket clientSocket; //asi bych chtel spise private??--
-		public UdpClient client;
+
+		public UdpClient udpClient; //spise private
+		private int listenPort; //lze ziskat i z udpClienta...
+
+		public void StartClient()
+		{
+			Random rnd = new Random();
+			listenPort = rnd.Next(60000, 65536); //random port to be able to have 2 clients on 1 PC---------
+			udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, listenPort));
+		}
+
+		BackgroundWorker bwServerRefresher;
+		public void BWServerRefresherStart(int hostPort) //unfinished
+		{
+			/* idea
+			if (bwServerRefresher != null)
+				bwServerRefresher.Dispose();
+			*/
+			bwServerRefresher = new BackgroundWorker();
+
+			bwServerRefresher.DoWork += new DoWorkEventHandler(BW_RefreshServers);
+			bwServerRefresher.RunWorkerCompleted += new RunWorkerCompletedEventHandler(BW_RefreshCompleted);
+
+			bwServerRefresher.RunWorkerAsync(hostPort);
+		}
+
+		private void BW_RefreshServers(object sender, DoWorkEventArgs e) //DoWork
+		{
+			int hostPort = (int)e.Argument;
+			IPEndPoint broadcastEP = new IPEndPoint(IPAddress.Broadcast, hostPort);
+
+
+			IPEndPoint hostEP = new IPEndPoint(IPAddress.Any, listenPort);
+
+			byte[] findServerMessage = Data.ToBytes(Command.ClientFindServers);
+			udpClient.Send(findServerMessage, findServerMessage.Length, broadcastEP);
+
+			bool searching = true;
+			while (searching)
+			{
+				Data received = new Data(udpClient.Receive(ref hostEP));
+				switch (received.Cmd)
+				{
+					case Command.HostFoundServer:
+						form.lBServers.Items.Add(hostEP);
+						break;
+					case Command.ClientStopServerRefresh: //not implemented
+						searching = false;
+						break;
+					default:
+						break;
+				}
+			}
+		}
+		private void BW_RefreshCompleted(object sender, RunWorkerCompletedEventArgs e) //Complete work
+		{
+
+		}
+
+
 
 		public void MoveSelfToWaitingRoom()
 		{
@@ -225,10 +282,10 @@ namespace Bambulanci
 			{
 				//clientSocket.Receive(data);
 				Command command = (Command)data[0];
-				if (command == Command.MoveToWaitingRoom)
+				if (command == Command.HostMoveToWaitingRoom)
 				{
 					byte id = (byte)data[1];
-					Console.WriteLine($"client id: {id}");
+					//Console.WriteLine($"client id: {id}");
 					form.ChangeGameState(GameState.ClientWaitingRoom);
 				}
 			}

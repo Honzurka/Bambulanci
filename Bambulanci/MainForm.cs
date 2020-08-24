@@ -67,10 +67,9 @@ namespace Bambulanci
 					EnableControl(lWaiting);
 					break;
 				case GameState.HostWaitingRoom: //musim pridat alespon text waiting room------------
-					DisableAllControls(); 
-					//vsem klientum napisu, ze se maji presunout do waiting room + pridam jejich ID (pozice)...
+					DisableAllControls();
+					EnableControl(lWaitRoom);
 					host.MoveClientsToWaitingRoom();
-					//chci nejakou grafiku....
 					break;
 				case GameState.ClientSearch:
 					DisableAllControls();
@@ -87,6 +86,7 @@ namespace Bambulanci
 					break;
 				case GameState.ClientWaitingRoom:
 					DisableAllControls();
+					EnableControl(lWaitRoom);
 					break;
 				default:
 					break;
@@ -109,14 +109,20 @@ namespace Bambulanci
 		private void bConnect_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.ClientSearch);
-			//client.StartClient();
+			client.StartClient();
 		}
 
-		private void bLogin_Click(object sender, EventArgs e)
+		private void bRefreshServers_Click(object sender, EventArgs e)
+		{
+			lBServers.Items.Clear();
+			client.BWServerRefresherStart((int)nHostPort.Value);
+		}
+
+		private void bLogin_Click(object sender, EventArgs e) //throws errors if no server is chosen -- disable button before refreshing...
 		{
 			IPEndPoint serverEP = (IPEndPoint)lBServers.SelectedItem;
-			byte[] loginMessage = Data.ToBytes(Command.Login);
-			client.client.Send(loginMessage, loginMessage.Length, serverEP);
+			byte[] loginMessage = Data.ToBytes(Command.ClientLogin);
+			client.udpClient.Send(loginMessage, loginMessage.Length, serverEP);
 			ChangeGameState(GameState.ClientWaiting); //asi bych mel pockat na potvrzeni serveru, muzou se najednou pripojovat 2 klienti
 
 			/*
@@ -125,28 +131,6 @@ namespace Bambulanci
 			client.clientSocket.SendTo(new byte[] { (byte)Command.Login }, serverEP);
 			ChangeGameState(GameState.ClientWaiting);
 			*/
-		}
-		private void bRefreshServers_Click(object sender, EventArgs e)
-		{
-			lBServers.Items.Clear();
-			int hostPort = (int)nHostPort.Value;
-			int listenPort = hostPort + 1; //odlisny od host portu pro stejny PC, jinak je to asi jedno?
-			IPEndPoint broadcastEP = new IPEndPoint(IPAddress.Broadcast, hostPort);
-			IPEndPoint hostEP = new IPEndPoint(IPAddress.Any, listenPort);
-
-			client.client = new UdpClient(new IPEndPoint(IPAddress.Any, listenPort)); //pri opetovanem refreshi na stejnem portu hazi chybu!!! -- snad vyresi backgroundWorker
-			
-			byte[] findServerMessage = Data.ToBytes(Command.FindServers);
-			client.client.Send(findServerMessage, findServerMessage.Length, broadcastEP);
-			while(true) //for (int i = 0; i < 1; i++)
-			{
-				Data received = new Data(client.client.Receive(ref hostEP));
-				if (received.Cmd == Command.FoundServer)
-				{
-					lBServers.Items.Add(hostEP);
-					break;
-				}
-			}
 		}
 
 		private void bExit_Click(object sender, EventArgs e)
@@ -160,9 +144,10 @@ namespace Bambulanci
 			host.BWCancelHost();
 		}
 
-		private void bIntro_Click(object sender, EventArgs e)
+		private void bIntro_Click(object sender, EventArgs e) //zatim spise nepouzivat, potrebuju zvlast pro clienta i hosta
 		{
 			ChangeGameState(GameState.Intro);
+			//close client/host socket
 		}
 	}
 }
