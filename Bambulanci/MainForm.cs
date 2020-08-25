@@ -68,7 +68,7 @@ namespace Bambulanci
 					break;
 				case GameState.HostWaitingRoom:
 					DisableAllControls();
-					EnableControl(lWaitRoom);
+					EnableControl(lWaitingRoom);
 					host.MoveClientsToWaitingRoom();
 					break;
 				case GameState.ClientSearch:
@@ -85,7 +85,7 @@ namespace Bambulanci
 					break;
 				case GameState.ClientWaitingRoom:
 					DisableAllControls();
-					EnableControl(lWaitRoom);
+					EnableControl(lWaitingRoom);
 					break;
 				default:
 					break;
@@ -122,8 +122,21 @@ namespace Bambulanci
 			ChangeGameState(GameState.ClientWaiting);
 			client.LoginSelectedServer();
 
-			//asi bych mel pockat na potvrzeni serveru, muzou se najednou pripojovat 2 klienti
+			//client.StartListening --nejspis takovato metoda parlelni
 
+			/* komunikace c-s po loginu:
+			 ja se naloguji na server
+			 server me prijme
+			 presunu se do waiting
+			 server mi da vedet, ze jsou ready vsichni hraci
+			 presunu se do waiting room
+				-cekam na start hry
+			 ------------------------------------------------------*/
+
+
+
+
+			//asi bych mel pockat na potvrzeni serveru, muzou se najednou pripojovat 2 klienti
 			//client.MoveSelfToWaitingRoom();
 		}
 

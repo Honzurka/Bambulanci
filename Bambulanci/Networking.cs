@@ -281,7 +281,7 @@ namespace Bambulanci
 		}
 		private void BW_RefreshCompleted(object sender, RunWorkerCompletedEventArgs e) //Complete work
 		{
-			//empty - prob wasnt necessary to make backgroundWorker
+			//empty -- while loop sem nikdy nepropadne, pokud nedokoncim implementaci "ClientStopServerRefresh"
 		}
 
 		public void LoginSelectedServer()
@@ -294,7 +294,7 @@ namespace Bambulanci
 		}
 
 
-		public void MoveSelfToWaitingRoom()
+		public void MoveSelfToWaitingRoom() //not done----------------------
 		{
 			byte[] data = new byte[1024]; //1024???
 			while (true)

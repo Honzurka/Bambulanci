@@ -41,7 +41,7 @@
 			this.bExit = new System.Windows.Forms.Button();
 			this.bCancelHost = new System.Windows.Forms.Button();
 			this.bIntro = new System.Windows.Forms.Button();
-			this.lWaitRoom = new System.Windows.Forms.Label();
+			this.lWaitingRoom = new System.Windows.Forms.Label();
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).BeginInit();
 			((System.ComponentModel.ISupportInitialize)(this.nHostPort)).BeginInit();
 			this.SuspendLayout();
@@ -231,24 +231,24 @@
 			this.bIntro.Visible = false;
 			this.bIntro.Click += new System.EventHandler(this.bIntro_Click);
 			// 
-			// lWaitRoom
+			// lWaitingRoom
 			// 
-			this.lWaitRoom.AutoSize = true;
-			this.lWaitRoom.Enabled = false;
-			this.lWaitRoom.Font = new System.Drawing.Font("Segoe UI", 18F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-			this.lWaitRoom.Location = new System.Drawing.Point(390, 9);
-			this.lWaitRoom.Name = "lWaitRoom";
-			this.lWaitRoom.Size = new System.Drawing.Size(125, 41);
-			this.lWaitRoom.TabIndex = 14;
-			this.lWaitRoom.Text = "Čekárna";
-			this.lWaitRoom.Visible = false;
+			this.lWaitingRoom.AutoSize = true;
+			this.lWaitingRoom.Enabled = false;
+			this.lWaitingRoom.Font = new System.Drawing.Font("Segoe UI", 18F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+			this.lWaitingRoom.Location = new System.Drawing.Point(390, 9);
+			this.lWaitingRoom.Name = "lWaitingRoom";
+			this.lWaitingRoom.Size = new System.Drawing.Size(125, 41);
+			this.lWaitingRoom.TabIndex = 14;
+			this.lWaitingRoom.Text = "Čekárna";
+			this.lWaitingRoom.Visible = false;
 			// 
 			// formBambulanci
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(914, 600);
-			this.Controls.Add(this.lWaitRoom);
+			this.Controls.Add(this.lWaitingRoom);
 			this.Controls.Add(this.bIntro);
 			this.Controls.Add(this.bCancelHost);
 			this.Controls.Add(this.bExit);
@@ -286,7 +286,7 @@
 		private System.Windows.Forms.Button bCancelHost;
 		private System.Windows.Forms.Button bIntro;
 		public System.Windows.Forms.Label lWaiting;
-		private System.Windows.Forms.Label lWaitRoom;
+		private System.Windows.Forms.Label lWaitingRoom;
 		public System.Windows.Forms.ListBox lBServers;
 	}
 }
