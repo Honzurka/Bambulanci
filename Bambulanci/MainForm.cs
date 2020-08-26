@@ -69,7 +69,7 @@ namespace Bambulanci
 				case GameState.HostWaitingRoom:
 					DisableAllControls();
 					EnableControl(lWaitingRoom);
-					host.MoveClientsToWaitingRoom();
+					EnableControl(bStartGame);
 					break;
 				case GameState.ClientSearch:
 					DisableAllControls();
@@ -86,6 +86,7 @@ namespace Bambulanci
 				case GameState.ClientWaitingRoom:
 					DisableAllControls();
 					EnableControl(lWaitingRoom);
+					bStartGame.Visible = true; //not necessary
 					break;
 				default:
 					break;
@@ -119,8 +120,7 @@ namespace Bambulanci
 
 		private void bLogin_Click(object sender, EventArgs e) //throws errors if no server is chosen -- disable button before refreshing...
 		{
-			ChangeGameState(GameState.ClientWaiting);
-			client.LoginSelectedServer();
+			client.LoginToSelectedServer();
 		}
 
 		private void bExit_Click(object sender, EventArgs e)
@@ -138,6 +138,11 @@ namespace Bambulanci
 		{
 			ChangeGameState(GameState.Intro);
 			//close client/host socket
+		}
+
+		private void bStartGame_Click(object sender, EventArgs e)
+		{
+			//--
 		}
 	}
 }

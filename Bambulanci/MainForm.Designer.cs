@@ -42,6 +42,7 @@
 			this.bCancelHost = new System.Windows.Forms.Button();
 			this.bIntro = new System.Windows.Forms.Button();
 			this.lWaitingRoom = new System.Windows.Forms.Label();
+			this.bStartGame = new System.Windows.Forms.Button();
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).BeginInit();
 			((System.ComponentModel.ISupportInitialize)(this.nHostPort)).BeginInit();
 			this.SuspendLayout();
@@ -243,11 +244,24 @@
 			this.lWaitingRoom.Text = "Čekárna";
 			this.lWaitingRoom.Visible = false;
 			// 
+			// bStartGame
+			// 
+			this.bStartGame.Enabled = false;
+			this.bStartGame.Location = new System.Drawing.Point(407, 62);
+			this.bStartGame.Name = "bStartGame";
+			this.bStartGame.Size = new System.Drawing.Size(94, 29);
+			this.bStartGame.TabIndex = 15;
+			this.bStartGame.Text = "Spustit Hru";
+			this.bStartGame.UseVisualStyleBackColor = true;
+			this.bStartGame.Visible = false;
+			this.bStartGame.Click += new System.EventHandler(this.bStartGame_Click);
+			// 
 			// formBambulanci
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(914, 600);
+			this.Controls.Add(this.bStartGame);
 			this.Controls.Add(this.lWaitingRoom);
 			this.Controls.Add(this.bIntro);
 			this.Controls.Add(this.bCancelHost);
@@ -288,6 +302,7 @@
 		public System.Windows.Forms.Label lWaiting;
 		private System.Windows.Forms.Label lWaitingRoom;
 		public System.Windows.Forms.ListBox lBServers;
+		private System.Windows.Forms.Button bStartGame;
 	}
 }
 

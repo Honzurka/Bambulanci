@@ -4,13 +4,15 @@ using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Bambulanci
 {
 	enum Command { ClientLogin, ClientLogout, ClientFindServers, 
-		HostFoundServer, HostMoveToWaitingRoom, HostCanceled, HostStopHosting,
-		ClientStopServerRefresh, HostLoginAccepted, HostLoginDeclined }
+		HostFoundServer, HostMoveToWaitingRoom, HostCanceled, HostPoisonPill,
+		ClientPoisonPill, HostLoginAccepted, HostLoginDeclined, HostStartGame
+	}
 	struct ClientInfo
 	{
 		public int id;
@@ -32,7 +34,7 @@ namespace Bambulanci
 		{
 			//1B command
 			Cmd = (Command)data[0];
-
+			//Console.WriteLine($"message translated: {Cmd}----------");
 			if (data.Length > 1)
 			{
 				//4B msg length
@@ -104,8 +106,8 @@ namespace Bambulanci
 		public void BWCancelHost()
 		{
 			//bwHostStarter.CancelAsync(); //zbytecne, nevyuzivam e.CancelationPending
-			byte[] cancel = Data.ToBytes(Command.HostStopHosting); //kind of poison pill
-			udpHost.Send(cancel, cancel.Length, (IPEndPoint)udpHost.Client.LocalEndPoint);
+			byte[] cancel = Data.ToBytes(Command.HostPoisonPill);
+			udpHost.Send(cancel, cancel.Length, (IPEndPoint)udpHost.Client.LocalEndPoint); //maybe should be localHost, not network IPv4
 		}
 
 		/// <summary>
@@ -135,6 +137,7 @@ namespace Bambulanci
 				switch (data.Cmd)
 				{
 					case Command.ClientLogin:
+						//Console.WriteLine("Host received ClientLogin");
 						ClientInfo clientInfo = new ClientInfo() { id = id, ipEndPoint = clientEP };
 						clientList.Add(clientInfo);
 						UpdateRemainingPlayers(numOfPlayers);
@@ -142,7 +145,9 @@ namespace Bambulanci
 
 						//potvrzeni pro klienta
 						byte[] loginConfirmed = Data.ToBytes(Command.HostLoginAccepted);
-						udpHost.Send(loginConfirmed, loginConfirmed.Length, clientEP);						
+
+						//Console.WriteLine($"Host sent HostLoginAccepted on ${clientEP}");
+						udpHost.Send(loginConfirmed, loginConfirmed.Length, clientEP);
 						break;
 					case Command.ClientLogout: //klient zatim neposila
 						int clientID = Int32.Parse(data.Msg);
@@ -153,10 +158,10 @@ namespace Bambulanci
 						byte[] serverInfo = Data.ToBytes(Command.HostFoundServer);
 						udpHost.Send(serverInfo, serverInfo.Length, clientEP);
 						break;
-					case Command.HostStopHosting:
+					case Command.HostPoisonPill:
 						hostClosed = true;
 						byte[] hostCanceledInfo = Data.ToBytes(Command.HostCanceled);
-						foreach (var client in clientList) //isn't implemented on client's side
+						foreach (var client in clientList)
 						{
 							udpHost.Send(hostCanceledInfo, hostCanceledInfo.Length, client.ipEndPoint);
 						}
@@ -181,6 +186,7 @@ namespace Bambulanci
 				throw new Exception(); //Error handling??----
 			else if (!e.Cancelled)//all clients are connected
 			{
+				MoveClientsToWaitingRoom();
 				form.ChangeGameState(GameState.HostWaitingRoom);
 			}
 		}
@@ -209,6 +215,7 @@ namespace Bambulanci
 			{
 				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom, client.id.ToString());
 				udpHost.Send(moveClientToWaitingRoom, moveClientToWaitingRoom.Length, client.ipEndPoint);
+				//Console.WriteLine($"Host sent HostMoveToWaitingRoom on ${client.ipEndPoint}");
 			}
 		}
 	}
@@ -271,10 +278,11 @@ namespace Bambulanci
 					case Command.HostFoundServer:
 						bwServerRefresher.ReportProgress(0, hostEP); //0 is ignored
 						break;
-					case Command.ClientStopServerRefresh: //not implemented
+					case Command.ClientPoisonPill:
 						searching = false;
 						break;
 					default:
+						//Console.WriteLine("my message got EATEN!!!------------------------");
 						break;
 				}
 			}
@@ -290,23 +298,33 @@ namespace Bambulanci
 			//empty -- while loop sem nikdy nepropadne, pokud nedokoncim implementaci "ClientStopServerRefresh"
 		}
 
-		public void LoginSelectedServer()
+		public void LoginToSelectedServer()
 		{
-			//stop refresh worker-------
-			
-			IPEndPoint serverEP = (IPEndPoint)form.lBServers.SelectedItem;
+			//send poison pill on localHost == stops server refreshing backgroundWorker
+			byte[] poisonPill = Data.ToBytes(Command.ClientPoisonPill);
+			IPEndPoint localhostEP = new IPEndPoint(IPAddress.Loopback, listenPort);
+			udpClient.Send(poisonPill, poisonPill.Length, localhostEP);
+
+
+			IPEndPoint hostSendEP = (IPEndPoint)form.lBServers.SelectedItem;
 			byte[] loginMessage = Data.ToBytes(Command.ClientLogin);
-			udpClient.Send(loginMessage, loginMessage.Length, serverEP);
+			System.Diagnostics.Debug.Print("test");
 
-			Data received = new Data(udpClient.Receive(ref serverEP)); //recyukluji serverEP, snad nevadi
+			udpClient.Send(loginMessage, loginMessage.Length, hostSendEP);
 
-			switch (received.Cmd)
+
+			//Console.WriteLine($"client listenPort: {listenPort}");
+			IPEndPoint hostReceiveEP = new IPEndPoint(IPAddress.Any, listenPort);
+			Data received = new Data(udpClient.Receive(ref hostReceiveEP)); //recyukluji serverEP, snad nevadi----uz nerecykluji, ale mam tu 2x hostEP??
+			//Console.WriteLine($"client received some message; {received.Cmd} AND {received.Msg}");
+			switch (received.Cmd)//sem nedojdu??-----------------------------------------------------------------------------
 			{
 				case Command.HostLoginAccepted:
 					form.ChangeGameState(GameState.ClientWaiting);
+					Console.WriteLine("client received HostLoginAccepted.");
 					break;
 				case Command.HostLoginDeclined:
-					//not implemented yetbwbw
+					//not implemented yet
 					break;
 				default:
 					break;
@@ -316,48 +334,72 @@ namespace Bambulanci
 			bwHostWaiter = new BackgroundWorker();
 			bwHostWaiter.WorkerReportsProgress = true;
 
-			bwHostWaiter.DoWork += BW_DoWork;
-			bwHostWaiter.ProgressChanged += BW_Progress;
-			bwHostWaiter.RunWorkerCompleted += BW_Completed;
+			bwHostWaiter.DoWork += BW_ClientWaiting;
+			bwHostWaiter.ProgressChanged += BW_WaitingProgress;
+			bwHostWaiter.RunWorkerCompleted += BW_WaitingCompleted;
 
-			bwHostWaiter.RunWorkerAsync();
+			bwHostWaiter.RunWorkerAsync(hostSendEP);
 		}
 
 		BackgroundWorker bwHostWaiter;
 
-		private void BW_DoWork(object sender, DoWorkEventArgs e)
+		private void BW_ClientWaiting(object sender, DoWorkEventArgs e)
 		{
+			IPEndPoint hostEP = (IPEndPoint)e.Argument; //po nekolikate pouzivam hostEP pod klientem, mohl bych dat globalni prom.?
 
-			//cekam na moveToWaitingRoom, pote se presunu
-			//dale cekam na startGame
-		}
-
-		private void BW_Progress(object sender, ProgressChangedEventArgs e)
-		{
-
-		}
-		
-		private void BW_Completed(object sender, RunWorkerCompletedEventArgs e)
-		{
-
-		}
-
-
-		public void MoveSelfToWaitingRoom() //not done----------------------
-		{
-			byte[] data = new byte[1024]; //1024???
-			while (true)
+			Data received = new Data(udpClient.Receive(ref hostEP)); //zmenim hostEP, mozna bych si nemusel posilat jako arg
+			//waiting for everyone to connect.
+			switch (received.Cmd)
 			{
-				//clientSocket.Receive(data);
-				Command command = (Command)data[0];
-				if (command == Command.HostMoveToWaitingRoom)
-				{
-					byte id = (byte)data[1];
-					//Console.WriteLine($"client id: {id}");
-					form.ChangeGameState(GameState.ClientWaitingRoom);
-				}
+				case Command.HostCanceled: //not implemented yet
+					bwHostWaiter.ReportProgress(-1); //not used yet??
+					break;
+				case Command.HostMoveToWaitingRoom:
+					bwHostWaiter.ReportProgress(0);
+					//mozna se chci dozvedet sve ID----
+					break;
+				default:
+					break;
+			}
+
+			received = new Data(udpClient.Receive(ref hostEP));
+			//waiting for host to start game
+			switch (received.Cmd)
+			{	case Command.HostCanceled: //not implemented yet
+					bwHostWaiter.ReportProgress(-1);
+					break;
+				case Command.HostStartGame: //not implemented yet
+					bwHostWaiter.ReportProgress(1);
+					break;
+			//pripadne posloucham zmeny nastaveni => loop
+				default:
+					break;
 			}
 		}
+
+		private void BW_WaitingProgress(object sender, ProgressChangedEventArgs e)
+		{
+			int num = e.ProgressPercentage;
+			switch (num) //hloupe pojmenovani.....----------------
+			{
+				case -1: //disconnect - not implemented yet
+					break;
+				case 0: //moved to waiting room
+					form.ChangeGameState(GameState.ClientWaitingRoom);
+					break;
+				case 1:
+					//start game
+					break;
+				default:
+					break;
+			}
+		}
+		
+		private void BW_WaitingCompleted(object sender, RunWorkerCompletedEventArgs e)
+		{
+
+		}
+
 	}
 
 }
