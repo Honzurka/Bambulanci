@@ -8,7 +8,9 @@ using System.Threading.Tasks;
 
 namespace Bambulanci
 {
-	enum Command { ClientLogin, ClientLogout, ClientFindServers, HostFoundServer, HostMoveToWaitingRoom, HostCanceled, HostStopHosting, ClientStopServerRefresh }
+	enum Command { ClientLogin, ClientLogout, ClientFindServers, 
+		HostFoundServer, HostMoveToWaitingRoom, HostCanceled, HostStopHosting,
+		ClientStopServerRefresh, HostLoginAccepted, HostLoginDeclined }
 	struct ClientInfo
 	{
 		public int id;
@@ -73,7 +75,7 @@ namespace Bambulanci
 
 		private BackgroundWorker bwHostStarter;
 		private List<ClientInfo> clientList;
-		private UdpClient host;
+		private UdpClient udpHost;
 
 
 		//https://docs.microsoft.com/en-us/dotnet/api/system.componentmodel.backgroundworker?view=netcore-3.1
@@ -103,7 +105,7 @@ namespace Bambulanci
 		{
 			//bwHostStarter.CancelAsync(); //zbytecne, nevyuzivam e.CancelationPending
 			byte[] cancel = Data.ToBytes(Command.HostStopHosting); //kind of poison pill
-			host.Send(cancel, cancel.Length, (IPEndPoint)host.Client.LocalEndPoint);
+			udpHost.Send(cancel, cancel.Length, (IPEndPoint)udpHost.Client.LocalEndPoint);
 		}
 
 		/// <summary>
@@ -121,7 +123,7 @@ namespace Bambulanci
 			clientList = new List<ClientInfo>();
 
 			IPAddress hostIP = getHostIP();
-			host = new UdpClient(new IPEndPoint(hostIP, listenPort));
+			udpHost = new UdpClient(new IPEndPoint(hostIP, listenPort));
 
 			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
 			int id = 1; //0 is host
@@ -129,7 +131,7 @@ namespace Bambulanci
 			UpdateRemainingPlayers(numOfPlayers);
 			while (!hostClosed && clientList.Count < numOfPlayers)
 			{
-				Data data = new Data(host.Receive(ref clientEP));
+				Data data = new Data(udpHost.Receive(ref clientEP));
 				switch (data.Cmd)
 				{
 					case Command.ClientLogin:
@@ -137,6 +139,10 @@ namespace Bambulanci
 						clientList.Add(clientInfo);
 						UpdateRemainingPlayers(numOfPlayers);
 						id++;
+
+						//potvrzeni pro klienta
+						byte[] loginConfirmed = Data.ToBytes(Command.HostLoginAccepted);
+						udpHost.Send(loginConfirmed, loginConfirmed.Length, clientEP);						
 						break;
 					case Command.ClientLogout: //klient zatim neposila
 						int clientID = Int32.Parse(data.Msg);
@@ -145,16 +151,16 @@ namespace Bambulanci
 						break;
 					case Command.ClientFindServers:
 						byte[] serverInfo = Data.ToBytes(Command.HostFoundServer);
-						host.Send(serverInfo, serverInfo.Length, clientEP);
+						udpHost.Send(serverInfo, serverInfo.Length, clientEP);
 						break;
 					case Command.HostStopHosting:
 						hostClosed = true;
 						byte[] hostCanceledInfo = Data.ToBytes(Command.HostCanceled);
 						foreach (var client in clientList) //isn't implemented on client's side
 						{
-							host.Send(hostCanceledInfo, hostCanceledInfo.Length, client.ipEndPoint);
+							udpHost.Send(hostCanceledInfo, hostCanceledInfo.Length, client.ipEndPoint);
 						}
-						host.Close();
+						udpHost.Close();
 						e.Cancel = true;
 						break;
 					default:
@@ -202,7 +208,7 @@ namespace Bambulanci
 			foreach (var client in clientList)
 			{
 				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom, client.id.ToString());
-				host.Send(moveClientToWaitingRoom, moveClientToWaitingRoom.Length, client.ipEndPoint);
+				udpHost.Send(moveClientToWaitingRoom, moveClientToWaitingRoom.Length, client.ipEndPoint);
 			}
 		}
 	}
@@ -291,6 +297,49 @@ namespace Bambulanci
 			IPEndPoint serverEP = (IPEndPoint)form.lBServers.SelectedItem;
 			byte[] loginMessage = Data.ToBytes(Command.ClientLogin);
 			udpClient.Send(loginMessage, loginMessage.Length, serverEP);
+
+			Data received = new Data(udpClient.Receive(ref serverEP)); //recyukluji serverEP, snad nevadi
+
+			switch (received.Cmd)
+			{
+				case Command.HostLoginAccepted:
+					form.ChangeGameState(GameState.ClientWaiting);
+					break;
+				case Command.HostLoginDeclined:
+					//not implemented yetbwbw
+					break;
+				default:
+					break;
+			}
+
+			//worker pro async cekani na MoveToWaitingRoom+HostStartGame --- ripadne chci mit moznost disconnect buttonu
+			bwHostWaiter = new BackgroundWorker();
+			bwHostWaiter.WorkerReportsProgress = true;
+
+			bwHostWaiter.DoWork += BW_DoWork;
+			bwHostWaiter.ProgressChanged += BW_Progress;
+			bwHostWaiter.RunWorkerCompleted += BW_Completed;
+
+			bwHostWaiter.RunWorkerAsync();
+		}
+
+		BackgroundWorker bwHostWaiter;
+
+		private void BW_DoWork(object sender, DoWorkEventArgs e)
+		{
+
+			//cekam na moveToWaitingRoom, pote se presunu
+			//dale cekam na startGame
+		}
+
+		private void BW_Progress(object sender, ProgressChangedEventArgs e)
+		{
+
+		}
+		
+		private void BW_Completed(object sender, RunWorkerCompletedEventArgs e)
+		{
+
 		}
 
 

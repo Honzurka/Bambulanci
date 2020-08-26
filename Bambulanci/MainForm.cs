@@ -121,23 +121,6 @@ namespace Bambulanci
 		{
 			ChangeGameState(GameState.ClientWaiting);
 			client.LoginSelectedServer();
-
-			//client.StartListening --nejspis takovato metoda parlelni
-
-			/* komunikace c-s po loginu:
-			 ja se naloguji na server
-			 server me prijme
-			 presunu se do waiting
-			 server mi da vedet, ze jsou ready vsichni hraci
-			 presunu se do waiting room
-				-cekam na start hry
-			 ------------------------------------------------------*/
-
-
-
-
-			//asi bych mel pockat na potvrzeni serveru, muzou se najednou pripojovat 2 klienti
-			//client.MoveSelfToWaitingRoom();
 		}
 
 		private void bExit_Click(object sender, EventArgs e)
