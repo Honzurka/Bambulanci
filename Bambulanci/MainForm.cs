@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Drawing;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -18,9 +19,14 @@ namespace Bambulanci
 		public formBambulanci()
 		{
 			InitializeComponent();
-			client = new Client(this);
+			/*client = new Client(this);
 			host = new Host(this);
 			ChangeGameState(GameState.Intro);
+			*/
+
+
+			//test only:
+			ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -140,9 +146,26 @@ namespace Bambulanci
 			//close client/host socket
 		}
 
+
+		//start game----------------------------------
+		Graphics g;
 		private void bStartGame_Click(object sender, EventArgs e)
 		{
-			//--
+			DisableAllControls();
+			TimerInGame.Enabled = true;
+
+			//test-----
+			g.DrawRectangle(Pens.Black, new Rectangle(1, 1, 10, 10));
+		}
+
+		private void TimerInGame_Tick(object sender, EventArgs e)
+		{
+			//refresh
+		}
+
+		private void formBambulanci_Paint(object sender, PaintEventArgs e)
+		{
+			g = e.Graphics;
 		}
 	}
 }

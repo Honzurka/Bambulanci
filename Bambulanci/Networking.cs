@@ -10,8 +10,8 @@ using System.Threading.Tasks;
 namespace Bambulanci
 {
 	enum Command { ClientLogin, ClientLogout, ClientFindServers, 
-		HostFoundServer, HostMoveToWaitingRoom, HostCanceled, HostPoisonPill,
-		ClientPoisonPill, HostLoginAccepted, HostLoginDeclined, HostStartGame
+		HostFoundServer, HostMoveToWaitingRoom, HostCanceled, HostStopHosting,
+		ClientStopRefreshing, HostLoginAccepted, HostLoginDeclined, HostStartGame
 	}
 	struct ClientInfo
 	{
@@ -106,7 +106,7 @@ namespace Bambulanci
 		public void BWCancelHost()
 		{
 			//bwHostStarter.CancelAsync(); //zbytecne, nevyuzivam e.CancelationPending
-			byte[] cancel = Data.ToBytes(Command.HostPoisonPill);
+			byte[] cancel = Data.ToBytes(Command.HostStopHosting);
 			udpHost.Send(cancel, cancel.Length, (IPEndPoint)udpHost.Client.LocalEndPoint); //maybe should be localHost, not network IPv4
 		}
 
@@ -158,7 +158,7 @@ namespace Bambulanci
 						byte[] serverInfo = Data.ToBytes(Command.HostFoundServer);
 						udpHost.Send(serverInfo, serverInfo.Length, clientEP);
 						break;
-					case Command.HostPoisonPill:
+					case Command.HostStopHosting:
 						hostClosed = true;
 						byte[] hostCanceledInfo = Data.ToBytes(Command.HostCanceled);
 						foreach (var client in clientList)
@@ -278,7 +278,7 @@ namespace Bambulanci
 					case Command.HostFoundServer:
 						bwServerRefresher.ReportProgress(0, hostEP); //0 is ignored
 						break;
-					case Command.ClientPoisonPill:
+					case Command.ClientStopRefreshing:
 						searching = false;
 						break;
 					default:
@@ -301,7 +301,7 @@ namespace Bambulanci
 		public void LoginToSelectedServer()
 		{
 			//send poison pill on localHost == stops server refreshing backgroundWorker
-			byte[] poisonPill = Data.ToBytes(Command.ClientPoisonPill);
+			byte[] poisonPill = Data.ToBytes(Command.ClientStopRefreshing);
 			IPEndPoint localhostEP = new IPEndPoint(IPAddress.Loopback, listenPort);
 			udpClient.Send(poisonPill, poisonPill.Length, localhostEP);
 

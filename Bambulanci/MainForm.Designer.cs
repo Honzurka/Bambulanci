@@ -28,6 +28,7 @@
 		/// </summary>
 		private void InitializeComponent()
 		{
+			this.components = new System.ComponentModel.Container();
 			this.bCreateGame = new System.Windows.Forms.Button();
 			this.bConnect = new System.Windows.Forms.Button();
 			this.lBNumOfPlayers = new System.Windows.Forms.ListBox();
@@ -43,6 +44,7 @@
 			this.bIntro = new System.Windows.Forms.Button();
 			this.lWaitingRoom = new System.Windows.Forms.Label();
 			this.bStartGame = new System.Windows.Forms.Button();
+			this.TimerInGame = new System.Windows.Forms.Timer(this.components);
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).BeginInit();
 			((System.ComponentModel.ISupportInitialize)(this.nHostPort)).BeginInit();
 			this.SuspendLayout();
@@ -256,6 +258,11 @@
 			this.bStartGame.Visible = false;
 			this.bStartGame.Click += new System.EventHandler(this.bStartGame_Click);
 			// 
+			// TimerInGame
+			// 
+			this.TimerInGame.Interval = 30;
+			this.TimerInGame.Tick += new System.EventHandler(this.TimerInGame_Tick);
+			// 
 			// formBambulanci
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
@@ -279,6 +286,7 @@
 			this.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.Name = "formBambulanci";
 			this.Text = "Bambulanci";
+			this.Paint += new System.Windows.Forms.PaintEventHandler(this.formBambulanci_Paint);
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).EndInit();
 			((System.ComponentModel.ISupportInitialize)(this.nHostPort)).EndInit();
 			this.ResumeLayout(false);
@@ -303,6 +311,7 @@
 		private System.Windows.Forms.Label lWaitingRoom;
 		public System.Windows.Forms.ListBox lBServers;
 		private System.Windows.Forms.Button bStartGame;
+		private System.Windows.Forms.Timer TimerInGame;
 	}
 }
 
