@@ -146,16 +146,28 @@ namespace Bambulanci
 			//close client/host socket
 		}
 
-
-		//start game----------------------------------
-		Graphics g;
+		//start game by host----------------------------------------------------------
+		Game game;
 		private void bStartGame_Click(object sender, EventArgs e)
 		{
 			DisableAllControls();
 			TimerInGame.Enabled = true;
 
-			//test-----
-			g.DrawRectangle(Pens.Black, new Rectangle(1, 1, 10, 10));
+
+			//mapa-zatim 1
+			//rezim hry-zatim1
+			//this.WindowState = FormWindowState.Maximized;
+
+
+			//hraci
+			game = new Game(this, Map.GetStandardMap(this));
+
+			
+			this.Refresh(); //refreshes form paint
+
+
+			
+			//wait some time so everyone can setup game--
 		}
 
 		private void TimerInGame_Tick(object sender, EventArgs e)
@@ -165,7 +177,12 @@ namespace Bambulanci
 
 		private void formBambulanci_Paint(object sender, PaintEventArgs e)
 		{
-			g = e.Graphics;
+			Graphics g = e.Graphics;
+			//all graphics events have to be called from here
+			if (game != null)
+			{
+				game.Draw(g);
+			}
 		}
 	}
 }
