@@ -46,18 +46,47 @@ namespace Bambulanci
 			return destImage;
 		}
 	}
-	class Player //struct?
+
+	enum PlayerMovement { Left, Right, Up, Down, Stay }
+	class Player
 	{
 		int id;
 
 		//coords
-		public int x;
-		public int y;
-		
-		//barva --
+		public float x; //public???
+		public float y;
+		private float speed = 3.3f;
 
+		private Color color;
 
 		//list strel
+		public void Move(PlayerMovement playerMovement)
+		{
+			float newX = 0;
+			float newY = 0;
+
+			switch (playerMovement)
+			{
+				case PlayerMovement.Left:
+					newX -= speed;
+					break;
+				case PlayerMovement.Right:
+					newX += speed;
+					break;
+				case PlayerMovement.Up:
+					newY -= speed;
+					break;
+				case PlayerMovement.Down:
+					newY += speed;
+					break;
+				default:
+					break;
+			}
+
+			//ohraniceni
+			x += newX;
+			y += newY;
+		}
 	}
 
 	class Map
@@ -144,7 +173,7 @@ namespace Bambulanci
 		public void Draw(Graphics g)
 		{
 			DrawBackground(g);
-			//DrawPlayers(g); //--------------
+			DrawPlayers(g); //--------------
 		}
 
 		private void DrawBackground(Graphics g)
@@ -164,7 +193,12 @@ namespace Bambulanci
 		}
 		private void DrawPlayers(Graphics g)
 		{
-			//g.FillRectangle(Brushes.Yellow, new Rectangle(player1.x, player1.y, 50, 50));
+			g.FillRectangle(Brushes.Yellow, new Rectangle((int)player1.x, (int)player1.y, 50, 50)); //provizorni
+		}
+
+		public void MoveObjects(PlayerMovement playerMovement)
+		{
+			player1.Move(playerMovement);
 		}
 	}
 }

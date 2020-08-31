@@ -181,7 +181,40 @@ namespace Bambulanci
 			//all graphics events have to be called from here
 			if (game != null)
 			{
+				game.MoveObjects(playerMovement);
 				game.Draw(g);
+			}
+		}
+
+		PlayerMovement playerMovement = PlayerMovement.Stay;
+		private void formBambulanci_KeyDown(object sender, KeyEventArgs e)
+		{
+			switch (e.KeyCode)
+			{
+				case Keys.Left:
+					playerMovement = PlayerMovement.Left;
+					break;
+				case Keys.Right:
+					playerMovement = PlayerMovement.Right;
+					break;
+				case Keys.Up:
+					playerMovement = PlayerMovement.Up;
+					break;
+				case Keys.Down:
+					playerMovement = PlayerMovement.Down;
+					break;
+				case Keys.Space: //shoot
+					break;
+				default:
+					break;
+			}
+		}
+
+		private void formBambulanci_KeyUp(object sender, KeyEventArgs e)
+		{
+			if (e.KeyCode == Keys.Left || e.KeyCode == Keys.Right || e.KeyCode == Keys.Up || e.KeyCode == Keys.Down)
+			{
+				playerMovement = PlayerMovement.Stay;
 			}
 		}
 	}

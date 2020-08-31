@@ -260,7 +260,7 @@
 			// 
 			// TimerInGame
 			// 
-			this.TimerInGame.Interval = 1000;
+			this.TimerInGame.Interval = 60;
 			this.TimerInGame.Tick += new System.EventHandler(this.TimerInGame_Tick);
 			// 
 			// formBambulanci
@@ -288,6 +288,8 @@
 			this.Name = "formBambulanci";
 			this.Text = "Bambulanci";
 			this.Paint += new System.Windows.Forms.PaintEventHandler(this.formBambulanci_Paint);
+			this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.formBambulanci_KeyDown);
+			this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.formBambulanci_KeyUp);
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).EndInit();
 			((System.ComponentModel.ISupportInitialize)(this.nHostPort)).EndInit();
 			this.ResumeLayout(false);
