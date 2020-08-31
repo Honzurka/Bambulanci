@@ -260,7 +260,7 @@
 			// 
 			// TimerInGame
 			// 
-			this.TimerInGame.Interval = 30;
+			this.TimerInGame.Interval = 1000;
 			this.TimerInGame.Tick += new System.EventHandler(this.TimerInGame_Tick);
 			// 
 			// formBambulanci
@@ -283,6 +283,7 @@
 			this.Controls.Add(this.lBNumOfPlayers);
 			this.Controls.Add(this.bConnect);
 			this.Controls.Add(this.bCreateGame);
+			this.DoubleBuffered = true;
 			this.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.Name = "formBambulanci";
 			this.Text = "Bambulanci";

@@ -156,14 +156,14 @@ namespace Bambulanci
 
 			//mapa-zatim 1
 			//rezim hry-zatim1
-			//this.WindowState = FormWindowState.Maximized;
+			this.WindowState = FormWindowState.Maximized;
 
 
 			//hraci
 			game = new Game(this, Map.GetStandardMap(this));
 
 			
-			this.Refresh(); //refreshes form paint
+			//this.Refresh(); //refreshes form paint
 
 
 			
@@ -172,7 +172,7 @@ namespace Bambulanci
 
 		private void TimerInGame_Tick(object sender, EventArgs e)
 		{
-			//refresh
+			Invalidate(); //?
 		}
 
 		private void formBambulanci_Paint(object sender, PaintEventArgs e)
