@@ -9,7 +9,7 @@ using System.Windows.Forms;
 
 namespace Bambulanci
 {
-	public enum GameState { Intro, HostSelect, HostWaiting, ClientWaiting, HostWaitingRoom, ClientWaitingRoom, ClientSearch }
+	public enum GameState { Intro, HostSelect, HostWaiting, ClientWaiting, HostWaitingRoom, ClientWaitingRoom, ClientSearch, ClientInGame }
 
 	public partial class formBambulanci : Form
 	{
@@ -20,14 +20,14 @@ namespace Bambulanci
 		public formBambulanci()
 		{
 			InitializeComponent();
-			/*client = new Client(this);
+			client = new Client(this);
 			host = new Host(this);
 			ChangeGameState(GameState.Intro);
-			*/
+			
 
 
 			//test only:
-			ChangeGameState(GameState.HostWaitingRoom);
+			//ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -95,6 +95,11 @@ namespace Bambulanci
 					EnableControl(lWaitingRoom);
 					bStartGame.Visible = true; //not necessary
 					break;
+				case GameState.ClientInGame:
+					DisableAllControls();
+					int borderHeight = this.Height - this.ClientRectangle.Height;
+					game = new Game(this.Width, this.Height - borderHeight, client.); //kazdy klient musi dostat seznam hracu------
+					break;
 				default:
 					break;
 			}
@@ -148,49 +153,56 @@ namespace Bambulanci
 		}
 
 		//start game by host----------------------------------------------------------
-		Game game;
-		private void bStartGame_Click(object sender, EventArgs e)
+		public Game game; //public for client to access
+		private void bStartGame_Click(object sender, EventArgs e) //host only
 		{
+			//poslat info vsem klientum o zacatku hry, host je normalni hrac jen s ID == 0 a posila data na localHost
+			//not working ------------
+			//host.clientList.Add(new ClientInfo(0, new IPEndPoint(IPAddress.Loopback, host.listenPort))); //hopefully right port
+			
+
+
+			//klienti zacnout poslouchat a podle prijatych informaci prekreslovat obrazovku - prace s ID, aby klient vedel, koho ma prekreslovat
+			host.StartClientGame();
+			host.StartGameListening();
+			
+
 			DisableAllControls();
 			TimerInGame.Enabled = true;
 
-
-			//mapa-zatim 1
-			//rezim hry-zatim1
-			this.WindowState = FormWindowState.Maximized;
+			//this.WindowState = FormWindowState.Maximized; //fullscreen ----------------------
 			
 			
-			
-			int borderHeight = this.Height - this.ClientRectangle.Height; //SystemInformation.Border3DSize.Height;
-			game = new Game(this.Width, this.Height - borderHeight);
-
-
-			//this.Refresh(); //refreshes form paint
-
-
-
+			int borderHeight = this.Height - this.ClientRectangle.Height;
+			game = new Game(this.Width, this.Height - borderHeight, host.clientList);
 			//wait some time so everyone can setup game--
 		}
 
-		private void TimerInGame_Tick(object sender, EventArgs e)
+		private void TimerInGame_Tick(object sender, EventArgs e) //host only--komunikace s klienty zde -- potrebuji poslouchat prichozi zpravy paralelne
 		{
-			Invalidate(); //?
+			Invalidate(); //redraw
+
+			if (game != null)
+			{
+				//game.MovePlayers(); //player tell me themselves when they want to be moved
+				host.RedrawClients();
+			}
 		}
 
-		private void formBambulanci_Paint(object sender, PaintEventArgs e)
+		private void formBambulanci_Paint(object sender, PaintEventArgs e) //probably only host should be moving objects-----------------
 		{
 			Graphics g = e.Graphics;
 			//all graphics events have to be called from here
 			if (game != null)
 			{
-				game.MoveObjects(playerMovement);
 				game.Draw(g);
 			}
 		}
 
-		PlayerMovement playerMovement = PlayerMovement.Stay;
+		public PlayerMovement playerMovement = PlayerMovement.Stay;
 		private void formBambulanci_KeyDown(object sender, KeyEventArgs e)
 		{
+			//Console.WriteLine("key press detected -- need for client");
 			switch (e.KeyCode)
 			{
 				case Keys.Left:

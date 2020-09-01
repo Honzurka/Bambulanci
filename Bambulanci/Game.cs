@@ -47,10 +47,11 @@ namespace Bambulanci
 		}
 	}
 
-	enum PlayerMovement { Left, Up, Right, Down, Stay }
-	class Player
+	public enum PlayerMovement { Left, Up, Right, Down, Stay }
+	public class Player
 	{
 		//int id;
+		//bool isAlive;
 
 		const float widthScaling = 32;
 		const float heightScaling = 18;
@@ -64,7 +65,7 @@ namespace Bambulanci
 		private int formHeight;
 
 		private float speed = 0.01f;
-		PlayerMovement lastMovementDirection = PlayerMovement.Left; //implicit value to avoid bugs
+		PlayerMovement direction;// = PlayerMovement.Left; //implicit value to avoid bugs
 
 		Bitmap[] playerDesigns;//left,up,right,down
 
@@ -104,13 +105,21 @@ namespace Bambulanci
 			return new Bitmap[] { b, b90, b180, b270 };
 		}
 
+		
 		//list strel--------
+		public List<Shot> shots; //public?
+		public class Shot
+		{
+
+		}
 
 
 		public void Move(PlayerMovement playerMovement)
 		{
-			if (playerMovement != PlayerMovement.Stay)
-				lastMovementDirection = playerMovement;
+			
+			if (this.direction != PlayerMovement.Stay)
+				this.direction = playerMovement;
+			
 
 			float newX = 0;
 			float newY = 0;
@@ -137,13 +146,13 @@ namespace Bambulanci
 			{
 				x += newX;
 				y += newY;
-				Console.WriteLine($"x:{x} y:{y}");
+				//Console.WriteLine($"x:{x} y:{y}");
 			}
 		}
 
 		public void Draw(Graphics g)
 		{
-			byte playerDirection = (byte)lastMovementDirection;
+			byte playerDirection = (byte)direction;
 			g.DrawImage(playerDesigns[playerDirection], x * formWidth, y * formHeight);
 		}
 	}
@@ -170,6 +179,7 @@ namespace Bambulanci
 			result.cols = 20;
 			result.rows = 12;
 			result.tileSizeScaled = new Size(formWidth / result.cols, formHeight / result.rows);
+			
 			//tileCache
 			result.tiles = new Bitmap[tileCount];
 			for (int i = 0; i < tileCount; i ++)
@@ -181,8 +191,7 @@ namespace Bambulanci
 				Bitmap tile = tileAtlas.Clone(cloneRect, tileAtlas.PixelFormat); //pixelFormat??
 				Bitmap tileScaled = Utility.ResizeImage(tile, result.tileSizeScaled.Width, result.tileSizeScaled.Height);
 
-				result.tiles[i] = tileScaled;
-				
+				result.tiles[i] = tileScaled;	
 			}
 
 			result.grid = new int[,]
@@ -211,22 +220,31 @@ namespace Bambulanci
 		}
 	}
 
-	class Game //nerozlisuji hosta a klienta
+	public class Game //nerozlisuji hosta a klienta
 	{
 		int formHeight;
 		int formWidth;
 
 		Map map;
-		List<Player> players = new List<Player>(); //prozatim vytvarim novy
-		public Game(int formWidth, int formHeight)
+		public List<ClientInfo> clientInfo;
+		public Game(int formWidth, int formHeight, List<ClientInfo> clientInfo)
 		{
 			this.formWidth = formWidth;
-			this.formHeight = formHeight; //SystemInformation.
+			this.formHeight = formHeight;
 			this.map = Map.GetStandardMap(formWidth, formHeight);
+			this.clientInfo = clientInfo;
+			Random rng = new Random();
 
-			//test
-			Player player1 = new Player(formWidth, formHeight, 0.5f, 0.5f, Brushes.Yellow);
-			players.Add(player1);
+
+			foreach (var client in clientInfo)
+			{
+				client.player = new Player(formWidth, formHeight, (float)rng.NextDouble(), (float)rng.NextDouble(), Brushes.Yellow);
+			}
+			
+			/*
+			//test:
+			Player player1 = new Player(formWidth, formHeight, 0.5f, 0.5f, Brushes.Yellow); //spawn on tile rather than coords
+			players.Add(player1);*/
 		}
 
 		public void Draw(Graphics g)
@@ -237,33 +255,28 @@ namespace Bambulanci
 
 		private void DrawBackground(Graphics g)
 		{
-			//cache image, then view somehow....-------
 			for (int column = 0; column < map.cols; column++)
 				for (int row = 0; row < map.rows; row++)
 				{
-					
-
 					Bitmap tile = map.GetTile(column, row);
-
 					tile.SetResolution(g.DpiX, g.DpiY); //?????------------------------------
-
 					g.DrawImage(tile, column * map.tileSizeScaled.Width, row * map.tileSizeScaled.Height);
 				}
 		}
 		private void DrawPlayers(Graphics g)
 		{
-			foreach (var player  in players)
+			foreach (var client in clientInfo)
 			{
-				player.Draw(g);
+				client.player.Draw(g);
 			}
 		}
 
-		public void MoveObjects(PlayerMovement playerMovement)
+		/*public void MovePlayers()
 		{
-			foreach (var player in players)
+			foreach (var client in clientInfo)
 			{
-				player.Move(playerMovement); //movement for each player----
+				client.player.Move(); //movement for each player----
 			}
-		}
+		}*/
 	}
 }

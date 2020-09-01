@@ -6,19 +6,29 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Linq; //added
+using System.Runtime.Serialization.Formatters.Binary;
 
 namespace Bambulanci
 {
 	enum Command { ClientLogin, ClientLogout, ClientFindServers, 
 		HostFoundServer, HostMoveToWaitingRoom, HostCanceled, HostStopHosting,
-		ClientStopRefreshing, HostLoginAccepted, HostLoginDeclined, HostStartGame
+		ClientStopRefreshing, HostLoginAccepted, HostLoginDeclined, HostStartGame,
+		
+		HostTick, ClientMove
 	}
-	struct ClientInfo
+	public class ClientInfo //struct??
 	{
-		public int id;
+		public int Id { get; }
 		//private string name; //bez newline?
 		//private Color color; //?
-		public IPEndPoint ipEndPoint;
+		public IPEndPoint IpEndPoint { get; }
+		public Player player; //inGame descriptor
+		public ClientInfo(int id, IPEndPoint ipEndPoint)
+		{
+			this.Id = id;
+			this.IpEndPoint = ipEndPoint;
+		}
 
 	}
 	
@@ -34,6 +44,7 @@ namespace Bambulanci
 		{
 			//1B command
 			Cmd = (Command)data[0];
+
 			//Console.WriteLine($"message translated: {Cmd}----------");
 			if (data.Length > 1)
 			{
@@ -76,9 +87,10 @@ namespace Bambulanci
 		}
 
 		private BackgroundWorker bwHostStarter;
-		private List<ClientInfo> clientList;
+		public List<ClientInfo> clientList;
 		private UdpClient udpHost;
 
+		public int listenPort; //for host's self id==0 client
 
 		//https://docs.microsoft.com/en-us/dotnet/api/system.componentmodel.backgroundworker?view=netcore-3.1
 		//https://docs.microsoft.com/en-us/dotnet/framework/winforms/controls/how-to-make-thread-safe-calls-to-windows-forms-controls
@@ -89,6 +101,8 @@ namespace Bambulanci
 		/// </summary>
 		public void BWStartHost(int numOfPlayers, int listenPort)
 		{
+			this.listenPort = listenPort; //used for host's id==0
+
 			bwHostStarter = new BackgroundWorker();
 			bwHostStarter.WorkerReportsProgress = true;
 			//bwHostStarter.WorkerSupportsCancellation = true; //mozna neni potreba
@@ -138,7 +152,7 @@ namespace Bambulanci
 				{
 					case Command.ClientLogin:
 						//Console.WriteLine("Host received ClientLogin");
-						ClientInfo clientInfo = new ClientInfo() { id = id, ipEndPoint = clientEP };
+						ClientInfo clientInfo = new ClientInfo(id, clientEP);
 						clientList.Add(clientInfo);
 						UpdateRemainingPlayers(numOfPlayers);
 						id++;
@@ -151,7 +165,7 @@ namespace Bambulanci
 						break;
 					case Command.ClientLogout: //klient zatim neposila
 						int clientID = Int32.Parse(data.Msg);
-						clientList.RemoveAll(client => client.id == clientID);
+						clientList.RemoveAll(client => client.Id == clientID);
 						UpdateRemainingPlayers(numOfPlayers);
 						break;
 					case Command.ClientFindServers:
@@ -163,7 +177,7 @@ namespace Bambulanci
 						byte[] hostCanceledInfo = Data.ToBytes(Command.HostCanceled);
 						foreach (var client in clientList)
 						{
-							udpHost.Send(hostCanceledInfo, hostCanceledInfo.Length, client.ipEndPoint);
+							udpHost.Send(hostCanceledInfo, hostCanceledInfo.Length, client.IpEndPoint);
 						}
 						udpHost.Close();
 						e.Cancel = true;
@@ -213,16 +227,98 @@ namespace Bambulanci
 		{
 			foreach (var client in clientList)
 			{
-				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom, client.id.ToString());
-				udpHost.Send(moveClientToWaitingRoom, moveClientToWaitingRoom.Length, client.ipEndPoint);
+				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom, client.Id.ToString()); //u klienta nectu jeho ID....
+				udpHost.Send(moveClientToWaitingRoom, moveClientToWaitingRoom.Length, client.IpEndPoint);
 				//Console.WriteLine($"Host sent HostMoveToWaitingRoom on ${client.ipEndPoint}");
 			}
 		}
+
+		public void StartClientGame()
+		{
+			foreach (var client in clientList)
+			{
+				//serialize clientList: https://stackoverflow.com/questions/42298064/how-to-send-and-receive-list-using-tcp-networkstream-c-sharp
+				BinaryFormatter bf = new BinaryFormatter();
+				bf.Serialize(, clientList);
+				//-------------------------------------
+
+				byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
+				udpHost.Send(hostStartGame, hostStartGame.Length, client.IpEndPoint);
+			}
+		}
+
+		public void RedrawClients()
+		{
+			foreach (var client in clientList)
+			{
+				byte[] hostRedraw = Data.ToBytes(Command.HostTick);
+				udpHost.Send(hostRedraw, hostRedraw.Length, client.IpEndPoint);
+			}
+		}
+
+		BackgroundWorker bwGameListener;
+		public void StartGameListening()
+		{
+			bwGameListener = new BackgroundWorker();
+			bwGameListener.WorkerReportsProgress = true;
+
+			bwGameListener.DoWork += GL_DoWork;
+			bwGameListener.ProgressChanged += GL_Progress;
+			bwGameListener.RunWorkerCompleted += GL_Completed;
+
+
+			bwGameListener.RunWorkerAsync();
+		}
+		private void GL_DoWork(object sender, DoWorkEventArgs e)
+		{
+			Console.WriteLine($"host starts to listen on port:{listenPort}");
+			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
+			while (true)
+			{
+				Data data = new Data(udpHost.Receive(ref clientEP));
+				
+
+				Console.WriteLine($"data received: {data.Cmd}");
+				switch (data.Cmd)
+				{
+					case Command.ClientMove:
+						PlayerMovement playerMovement = (PlayerMovement) int.Parse(data.Msg);
+
+						//nastavim movement hraci, od ktereho jsem dostal prikaz
+						foreach (var client in form.game.clientInfo) //will it work??
+						{
+							if (client.IpEndPoint == clientEP)
+							{
+								client.player.Move(playerMovement);
+							}
+						}
+						
+						Console.WriteLine($"player moved: {playerMovement}");
+						break;
+					default:
+						break;
+				}
+			}
+		}
+		private void GL_Progress(object sender, ProgressChangedEventArgs e)
+		{
+
+		}
+		private void GL_Completed(object sender, RunWorkerCompletedEventArgs e)
+		{
+
+		}
+
 	}
 
 	class Client
 	{
 		private formBambulanci form;
+
+		
+		private bool inGame = false;
+		private IPEndPoint hostEPGlobal;
+
 		public Client(formBambulanci form)
 		{
 			this.form = form;
@@ -307,6 +403,7 @@ namespace Bambulanci
 
 
 			IPEndPoint hostSendEP = (IPEndPoint)form.lBServers.SelectedItem;
+			hostEPGlobal = hostSendEP;
 			byte[] loginMessage = Data.ToBytes(Command.ClientLogin);
 			System.Diagnostics.Debug.Print("test");
 
@@ -321,7 +418,6 @@ namespace Bambulanci
 			{
 				case Command.HostLoginAccepted:
 					form.ChangeGameState(GameState.ClientWaiting);
-					Console.WriteLine("client received HostLoginAccepted.");
 					break;
 				case Command.HostLoginDeclined:
 					//not implemented yet
@@ -369,7 +465,7 @@ namespace Bambulanci
 					bwHostWaiter.ReportProgress(-1);
 					break;
 				case Command.HostStartGame: //not implemented yet
-					bwHostWaiter.ReportProgress(1);
+					bwHostWaiter.ReportProgress(1, received.Msg);
 					break;
 			//pripadne posloucham zmeny nastaveni => loop
 				default:
@@ -388,7 +484,9 @@ namespace Bambulanci
 					form.ChangeGameState(GameState.ClientWaitingRoom);
 					break;
 				case 1:
-					//start game
+					//start game----------------
+					inGame = true;
+					object clientList = e.UserState; //---------------------------------toDo clientList from host
 					break;
 				default:
 					break;
@@ -396,6 +494,51 @@ namespace Bambulanci
 		}
 		
 		private void BW_WaitingCompleted(object sender, RunWorkerCompletedEventArgs e)
+		{
+			//after startGame/hostCanceled
+			if (inGame)
+			{
+				form.ChangeGameState(GameState.ClientInGame); //ok redrawing is allowed
+															  //form.Invalidate(); //allows first redraw--useless, since i have no info about player positions -_-
+
+				bwInGameListener = new BackgroundWorker();
+				bwInGameListener.WorkerReportsProgress = true;
+				bwInGameListener.DoWork += IGL_DoWork;
+				bwInGameListener.ProgressChanged += IGL_RedrawProgress;
+				bwInGameListener.RunWorkerCompleted += IGL_Completed;
+
+				bwInGameListener.RunWorkerAsync();
+			}
+
+		}
+
+		BackgroundWorker bwInGameListener;
+		private void IGL_DoWork(object sender, DoWorkEventArgs e)
+		{
+			while (true)
+			{
+				Data received = new Data(udpClient.Receive(ref hostEPGlobal));
+				switch (received.Cmd)
+				{
+					case Command.HostTick:
+						bwInGameListener.ReportProgress(0); //0 not needed
+						break;
+					default:
+						break;
+				}
+			}
+		}
+		private void IGL_RedrawProgress(object sender, ProgressChangedEventArgs e)
+		{
+			form.Invalidate(); //redraws form
+
+			//sends info about movement
+			byte[] clientMove = Data.ToBytes(Command.ClientMove, ((int)form.playerMovement).ToString()); //shouldn't be string
+			udpClient.Send(clientMove, clientMove.Length, hostEPGlobal);
+			Console.WriteLine($"movement command sent  to {hostEPGlobal}");
+
+		}
+		private void IGL_Completed(object sender, RunWorkerCompletedEventArgs e)
 		{
 
 		}
