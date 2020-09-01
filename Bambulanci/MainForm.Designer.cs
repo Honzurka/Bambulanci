@@ -260,7 +260,7 @@
 			// 
 			// TimerInGame
 			// 
-			this.TimerInGame.Interval = 60;
+			this.TimerInGame.Interval = 30;
 			this.TimerInGame.Tick += new System.EventHandler(this.TimerInGame_Tick);
 			// 
 			// formBambulanci

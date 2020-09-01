@@ -13,7 +13,7 @@ namespace Bambulanci
 {
 	class Utility
 	{
-		//https://stackoverflow.com/questions/1922040/how-to-resize-an-image-c-sharp
+		//taken from: https://stackoverflow.com/questions/1922040/how-to-resize-an-image-c-sharp
 		/// <summary>
 		/// Resize the image to the specified width and height.
 		/// </summary>
@@ -47,21 +47,71 @@ namespace Bambulanci
 		}
 	}
 
-	enum PlayerMovement { Left, Right, Up, Down, Stay }
+	enum PlayerMovement { Left, Up, Right, Down, Stay }
 	class Player
 	{
-		int id;
+		//int id;
 
-		//coords
-		public float x; //public???
-		public float y;
-		private float speed = 3.3f;
+		const float widthScaling = 32;
+		const float heightScaling = 18;
 
-		private Color color;
+		//coords between 0 and 1
+		private float x;
+		private float y;
 
-		//list strel
+
+		private int formWidth;
+		private int formHeight;
+
+		private float speed = 0.01f;
+		PlayerMovement lastMovementDirection = PlayerMovement.Left; //implicit value to avoid bugs
+
+		Bitmap[] playerDesigns;//left,up,right,down
+
+		public Player(int formWidth, int formHeight, float x, float y, Brush playerColor)
+		{
+			this.formWidth = formWidth;
+			this.formHeight = formHeight;
+			this.x = x;
+			this.y = y;
+			playerDesigns = Player.CreatePlayerDesign(formWidth,formHeight, playerColor);
+		}
+
+		private static Bitmap[] CreatePlayerDesign(int formWidth, int formHeight, Brush playerColor)
+		{
+			int playerWidth = (int)(formWidth / widthScaling);
+			int playerHeight = (int)(formHeight / heightScaling);
+
+			Bitmap b = new Bitmap(playerWidth, playerHeight);
+			var g = Graphics.FromImage(b);
+
+			int w = playerWidth / 3;
+			int h = playerHeight / 3;
+			int offset = (playerWidth / 2 - w) / 2;
+			g.FillRectangle(playerColor, new Rectangle(0, 0, playerWidth, playerHeight));
+			g.FillEllipse(Brushes.Black, new Rectangle(0, offset, w, h));
+			g.FillEllipse(Brushes.Black, new Rectangle(0, offset + playerHeight / 2, w, h));
+
+			Bitmap b90 = (Bitmap)b.Clone();
+			b90.RotateFlip(RotateFlipType.Rotate90FlipNone);
+
+			Bitmap b180 = (Bitmap)b.Clone();
+			b180.RotateFlip(RotateFlipType.Rotate180FlipNone);
+
+			Bitmap b270 = (Bitmap)b.Clone();
+			b270.RotateFlip(RotateFlipType.Rotate270FlipNone);
+
+			return new Bitmap[] { b, b90, b180, b270 };
+		}
+
+		//list strel--------
+
+
 		public void Move(PlayerMovement playerMovement)
 		{
+			if (playerMovement != PlayerMovement.Stay)
+				lastMovementDirection = playerMovement;
+
 			float newX = 0;
 			float newY = 0;
 
@@ -83,9 +133,18 @@ namespace Bambulanci
 					break;
 			}
 
-			//ohraniceni
-			x += newX;
-			y += newY;
+			if (x + newX >= 0 && x + newX <= 1 - 1 / widthScaling && y + newY >= 0 && y + newY <= 1 - 1 / heightScaling)
+			{
+				x += newX;
+				y += newY;
+				Console.WriteLine($"x:{x} y:{y}");
+			}
+		}
+
+		public void Draw(Graphics g)
+		{
+			byte playerDirection = (byte)lastMovementDirection;
+			g.DrawImage(playerDesigns[playerDirection], x * formWidth, y * formHeight);
 		}
 	}
 
@@ -99,7 +158,7 @@ namespace Bambulanci
 		private int[,] grid;
 
 		private Map() { }
-		public static Map GetStandardMap(Form form)
+		public static Map GetStandardMap(int formWidth, int formHeight)
 		{
 			Map result = new Map();
 
@@ -108,9 +167,9 @@ namespace Bambulanci
 			int tileCount = 24;
 			Size tileSize = new Size(48, 48);
 
-			result.cols = 20; //32
-			result.rows = 12; //18
-			result.tileSizeScaled = new Size(form.Width / result.cols, form.Height / result.rows);
+			result.cols = 20;
+			result.rows = 12;
+			result.tileSizeScaled = new Size(formWidth / result.cols, formHeight / result.rows);
 			//tileCache
 			result.tiles = new Bitmap[tileCount];
 			for (int i = 0; i < tileCount; i ++)
@@ -154,26 +213,26 @@ namespace Bambulanci
 
 	class Game //nerozlisuji hosta a klienta
 	{
-		int height;
-		int width;
+		int formHeight;
+		int formWidth;
+
 		Map map;
-		Player player1;
-		public Game(Form form, Map map)
+		List<Player> players = new List<Player>(); //prozatim vytvarim novy
+		public Game(int formWidth, int formHeight)
 		{
-			height = form.Height;
-			width = form.Width;
-			this.map = map;
+			this.formWidth = formWidth;
+			this.formHeight = formHeight; //SystemInformation.
+			this.map = Map.GetStandardMap(formWidth, formHeight);
 
 			//test
-			player1 = new Player();
-			player1.x = 100;
-			player1.y = 100;
+			Player player1 = new Player(formWidth, formHeight, 0.5f, 0.5f, Brushes.Yellow);
+			players.Add(player1);
 		}
 
 		public void Draw(Graphics g)
 		{
 			DrawBackground(g);
-			DrawPlayers(g); //--------------
+			DrawPlayers(g);
 		}
 
 		private void DrawBackground(Graphics g)
@@ -193,12 +252,18 @@ namespace Bambulanci
 		}
 		private void DrawPlayers(Graphics g)
 		{
-			g.FillRectangle(Brushes.Yellow, new Rectangle((int)player1.x, (int)player1.y, 50, 50)); //provizorni
+			foreach (var player  in players)
+			{
+				player.Draw(g);
+			}
 		}
 
 		public void MoveObjects(PlayerMovement playerMovement)
 		{
-			player1.Move(playerMovement);
+			foreach (var player in players)
+			{
+				player.Move(playerMovement); //movement for each player----
+			}
 		}
 	}
 }

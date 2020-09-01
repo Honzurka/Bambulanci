@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.Net;
 using System.Net.Sockets;
@@ -157,16 +158,17 @@ namespace Bambulanci
 			//mapa-zatim 1
 			//rezim hry-zatim1
 			this.WindowState = FormWindowState.Maximized;
-
-
-			//hraci
-			game = new Game(this, Map.GetStandardMap(this));
-
 			
+			
+			
+			int borderHeight = this.Height - this.ClientRectangle.Height; //SystemInformation.Border3DSize.Height;
+			game = new Game(this.Width, this.Height - borderHeight);
+
+
 			//this.Refresh(); //refreshes form paint
 
 
-			
+
 			//wait some time so everyone can setup game--
 		}
 
