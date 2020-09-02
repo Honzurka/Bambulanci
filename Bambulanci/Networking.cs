@@ -243,7 +243,6 @@ namespace Bambulanci
 			bwGameListener.ProgressChanged += GL_Progress;
 			bwGameListener.RunWorkerCompleted += GL_Completed;
 
-
 			bwGameListener.RunWorkerAsync();
 		}
 		private void GL_DoWork(object sender, DoWorkEventArgs e)
@@ -262,7 +261,7 @@ namespace Bambulanci
 						PlayerMovement playerMovement = (PlayerMovement) byte.Parse(data.Msg);
 						//Console.WriteLine($"host: clientMove received clientEP: {clientEP}"); //OK
 						//nastavim movement hraci, od ktereho jsem dostal prikaz
-						foreach (var client in form.game.clientInfo) //will it work??
+						foreach (var client in clientList) //will it work??
 						{
 							//Console.WriteLine("host: searching"); //OK
 							if (client.IpEndPoint.Equals(clientEP)) //find client who send me move command
@@ -292,8 +291,7 @@ namespace Bambulanci
 	{
 		private formBambulanci form;
 
-		
-		private bool inGame = false;
+		public bool InGame { get; private set; }
 		private IPEndPoint hostEPGlobal;
 
 		public Client(formBambulanci form)
@@ -463,7 +461,7 @@ namespace Bambulanci
 					break;
 				case 1:
 					//start game----------------
-					inGame = true;
+					InGame = true;
 					break;
 				default:
 					break;
@@ -473,9 +471,9 @@ namespace Bambulanci
 		private void BW_WaitingCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
 			//after startGame/hostCanceled
-			if (inGame)
+			if (InGame)
 			{
-				form.ChangeGameState(GameState.ClientInGame);
+				form.ChangeGameState(GameState.InGame);
 				
 				bwInGameListener = new BackgroundWorker();
 				bwInGameListener.WorkerReportsProgress = true;
@@ -509,7 +507,7 @@ namespace Bambulanci
 		public ConcurrentQueue<ImageWithLocation> toBeDrawn;
 		private void IGL_DoWork(object sender, DoWorkEventArgs e)
 		{
-			form.Invalidate();
+			//form.Invalidate();
 			toBeDrawn = new ConcurrentQueue<ImageWithLocation>();
 			while (true)
 			{

@@ -5,11 +5,12 @@ using System.Drawing;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace Bambulanci
 {
-	public enum GameState { Intro, HostSelect, HostWaiting, ClientWaiting, HostWaitingRoom, ClientWaitingRoom, ClientSearch, ClientInGame }
+	public enum GameState { Intro, HostSelect, HostWaiting, ClientWaiting, HostWaitingRoom, ClientWaitingRoom, ClientSearch, InGame }
 
 	public partial class formBambulanci : Form
 	{
@@ -23,8 +24,7 @@ namespace Bambulanci
 			client = new Client(this);
 			host = new Host(this);
 			ChangeGameState(GameState.Intro);
-			
-			//test game only: //ChangeGameState(GameState.HostWaitingRoom);
+			//test game only: ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -49,8 +49,7 @@ namespace Bambulanci
 
 		public void ChangeGameState(GameState newState)
 		{
-			currentGameState = newState;
-			switch (currentGameState)
+			switch (newState)
 			{
 				case GameState.Intro:;
 					DisableAllControls();
@@ -92,16 +91,19 @@ namespace Bambulanci
 					EnableControl(lWaitingRoom);
 					bStartGame.Visible = true; //not necessary
 					break;
-				case GameState.ClientInGame:
+				case GameState.InGame:
 					DisableAllControls();
+					//this.WindowState = FormWindowState.Maximized; //fullscreen
 					int borderHeight = this.Height - this.ClientRectangle.Height;
-					game = new Game(this.Width, this.Height - borderHeight, null); //shouldnt be null
+					graphicsDrawer = new GraphicsDrawer(this.Width, this.Height - borderHeight);
+					//game = new Game(this.Width, this.Height - borderHeight, null); //what about hosts clientList??-----
 					break;
 				default:
 					break;
 			}
+			currentGameState = newState;
 		}
-		
+
 		private void bCreateGame_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.HostSelect);
@@ -150,38 +152,35 @@ namespace Bambulanci
 		}
 
 		//start game by host----------------------------------------------------------
-		public Game game; //public for client to access
+		//public Game game; //public for client to access
+		private GraphicsDrawer graphicsDrawer;
 		private void bStartGame_Click(object sender, EventArgs e) //host only
 		{
-			//poslat info vsem klientum o zacatku hry, host je normalni hrac jen s ID == 0 a posila data na localHost
-			//not working ------------
-			//host.clientList.Add(new ClientInfo(0, new IPEndPoint(IPAddress.Loopback, host.listenPort))); //hopefully right port
-			
-
-
-			//klienti zacnout poslouchat a podle prijatych informaci prekreslovat obrazovku - prace s ID, aby klient vedel, koho ma prekreslovat
 			byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
 			host.BroadcastMessage(hostStartGame);
 
 			host.StartGameListening();
+
+			ChangeGameState(GameState.InGame);
 			
 
-			DisableAllControls();
+			//set each client's player -- prob will be different in the future...
+			Random rng = new Random();
+			foreach (var client in host.clientList)
+			{
+				client.player = new Player(this.Width, this.Height, (float)rng.NextDouble(), (float)rng.NextDouble()); //spawn on tiles instead of pixels?
+			}
+
 			TimerInGame.Enabled = true;
-
-			//this.WindowState = FormWindowState.Maximized; //fullscreen ----------------------
-			
-
-			int borderHeight = this.Height - this.ClientRectangle.Height;
-			game = new Game(this.Width, this.Height - borderHeight, host.clientList);
-			//wait some time so everyone can setup game--
+			//poslat info vsem klientum o zacatku hry, host je normalni hrac jen s ID == 0 a posila data na localHost
+			//host.clientList.Add(new ClientInfo(0, new IPEndPoint(IPAddress.Loopback, host.listenPort))); //not working
 		}
 
 		private void TimerInGame_Tick(object sender, EventArgs e) //host only--komunikace s klienty zde -- potrebuji poslouchat prichozi zpravy paralelne
 		{
 			Invalidate(); //redraw
 
-			if (game != null)
+			if (currentGameState == GameState.InGame) //should be-- maybe not necessary to check
 			{
 				byte[] hostTick = Data.ToBytes(Command.HostTick);
 				host.BroadcastMessage(hostTick);
@@ -195,15 +194,15 @@ namespace Bambulanci
 			}
 		}
 
-		private void formBambulanci_Paint(object sender, PaintEventArgs e) //probably only host should be moving objects-----------------
+		private void formBambulanci_Paint(object sender, PaintEventArgs e)
 		{
 			Graphics g = e.Graphics;
 			//all graphics events have to be called from here
-			if (game != null)
+			if (currentGameState == GameState.InGame)
 			{
-				game.DrawBackground(g);
+				graphicsDrawer.DrawBackground(g);
 
-				if (client.toBeDrawn != null)//client only
+				if (client.InGame)//client only
 				{
 					while (client.toBeDrawn.Count > 0)
 					{
@@ -212,9 +211,9 @@ namespace Bambulanci
 						while (!b) //spravna implementace??--------------------------------------------------
 						{
 							b = client.toBeDrawn.TryDequeue(out imageWithLocation);
-							Console.WriteLine("unable to dequeue image ---------------------------");
+							//Console.WriteLine("unable to dequeue image ---------------------------");
 						}
-						Console.WriteLine($"client: image toBeDrawn dequeued");
+						//Console.WriteLine($"client: image toBeDrawn dequeued");
 						//var image = client.toBeDrawn.Dequeue();
 						imageWithLocation.Draw(g,this.Width,this.Height);
 					}

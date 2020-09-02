@@ -4,6 +4,7 @@ using System.Configuration;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows.Forms;
@@ -221,40 +222,28 @@ namespace Bambulanci
 		}
 	}
 
-	public class Game //nerozlisuji hosta a klienta??????----------
+	public class GraphicsDrawer
 	{
-		int formHeight;
-		int formWidth;
-
-		Map map;
-		public List<ClientInfo> clientInfo; //host only...
-		public Game(int formWidth, int formHeight, List<ClientInfo> clientInfo)
+		private int formWidth;
+		private int formHeight;
+		private Map map;
+		public GraphicsDrawer(int formWidth, int formHeight)
 		{
 			this.formWidth = formWidth;
 			this.formHeight = formHeight;
-			this.map = Map.GetStandardMap(formWidth, formHeight);
-			this.clientInfo = clientInfo;
-			Random rng = new Random();
-
-			if (clientInfo != null) //host only
-			{
-				foreach (var client in clientInfo)
-				{ 
-					//spawn on tiles instead of pixels?
-					client.player = new Player(formWidth, formHeight, (float)rng.NextDouble(),(float)rng.NextDouble());
-				}
-			}
+			map = Map.GetStandardMap(formWidth, formHeight);
 		}
-
 		public void DrawBackground(Graphics g)
 		{
 			for (int column = 0; column < map.cols; column++)
 				for (int row = 0; row < map.rows; row++)
 				{
 					Bitmap tile = map.GetTile(column, row);
-					tile.SetResolution(g.DpiX, g.DpiY); //?????------------------------------
+					tile.SetResolution(g.DpiX, g.DpiY); //???
 					g.DrawImage(tile, column * map.tileSizeScaled.Width, row * map.tileSizeScaled.Height);
 				}
 		}
+
+		//playerDesigns
 	}
 }
