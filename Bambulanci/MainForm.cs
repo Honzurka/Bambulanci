@@ -153,7 +153,7 @@ namespace Bambulanci
 
 		//start game by host----------------------------------------------------------
 		//public Game game; //public for client to access
-		private GraphicsDrawer graphicsDrawer;
+		public GraphicsDrawer graphicsDrawer; //public for client to generate designs of players
 		private void bStartGame_Click(object sender, EventArgs e) //host only
 		{
 			byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
@@ -204,7 +204,7 @@ namespace Bambulanci
 
 				if (client.InGame)//client only
 				{
-					while (client.toBeDrawn.Count > 0)
+					while (client.toBeDrawn != null && client.toBeDrawn.Count > 0) //was throwing null ref errors--quick fix
 					{
 						Client.ImageWithLocation imageWithLocation;
 						bool b = client.toBeDrawn.TryDequeue(out imageWithLocation);
@@ -213,8 +213,6 @@ namespace Bambulanci
 							b = client.toBeDrawn.TryDequeue(out imageWithLocation);
 							//Console.WriteLine("unable to dequeue image ---------------------------");
 						}
-						//Console.WriteLine($"client: image toBeDrawn dequeued");
-						//var image = client.toBeDrawn.Dequeue();
 						imageWithLocation.Draw(g,this.Width,this.Height);
 					}
 				}
@@ -222,13 +220,13 @@ namespace Bambulanci
 				{
 					foreach (var client in host.clientList) //draw clients on host's form
 					{
-						Player player = client.player;
+						int id = client.Id;
+						byte direction = (byte)client.player.direction;
+						float x = client.player.x;
+						float y = client.player.y;
 
-						if (Player.playerDesigns == null) //create skin for host only
-							Player.playerDesigns = Player.CreatePlayerDesign(this.Width, this.Height);
-
-						g.DrawImage(Player.playerDesigns[(client.Id * 4 + (byte)player.direction) % (Player.allowedColors.Length * 4)],
-							player.x * this.Width, player.y * this.Height);
+						Bitmap playerDesign = graphicsDrawer.GetPlayerDesign(id, direction);
+						g.DrawImage(playerDesign, x * this.Width, y * this.Height);
 					}
 				}
 			}

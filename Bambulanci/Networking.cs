@@ -47,7 +47,6 @@ namespace Bambulanci
 			//1B command
 			Cmd = (Command)data[0];
 
-			//Console.WriteLine($"message translated: {Cmd}----------");
 			if (data.Length > 1)
 			{
 				//4B msg length
@@ -153,7 +152,6 @@ namespace Bambulanci
 				switch (data.Cmd)
 				{
 					case Command.ClientLogin:
-						//Console.WriteLine("Host received ClientLogin");
 						ClientInfo clientInfo = new ClientInfo(id, clientEP);
 						clientList.Add(clientInfo);
 						UpdateRemainingPlayers(numOfPlayers);
@@ -162,7 +160,6 @@ namespace Bambulanci
 						//potvrzeni pro klienta
 						byte[] loginConfirmed = Data.ToBytes(Command.HostLoginAccepted);
 
-						//Console.WriteLine($"Host sent HostLoginAccepted on ${clientEP}");
 						udpHost.Send(loginConfirmed, loginConfirmed.Length, clientEP);
 						break;
 					case Command.ClientLogout: //klient zatim neposila
@@ -247,27 +244,19 @@ namespace Bambulanci
 		}
 		private void GL_DoWork(object sender, DoWorkEventArgs e)
 		{
-			//Console.WriteLine($"host starts to listen on port:{listenPort}");
 			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
 			while (true)
 			{
 				Data data = new Data(udpHost.Receive(ref clientEP));
-				
-
-				//Console.WriteLine($"data received: {data.Cmd}"); //OK---
 				switch (data.Cmd)
 				{
-					case Command.ClientMove:
+					case Command.ClientMove: //moves player who sends me command
 						PlayerMovement playerMovement = (PlayerMovement) byte.Parse(data.Msg);
-						//Console.WriteLine($"host: clientMove received clientEP: {clientEP}"); //OK
-						//nastavim movement hraci, od ktereho jsem dostal prikaz
-						foreach (var client in clientList) //will it work??
+						foreach (var client in clientList)
 						{
-							//Console.WriteLine("host: searching"); //OK
 							if (client.IpEndPoint.Equals(clientEP)) //find client who send me move command
 							{
 								client.player.Move(playerMovement);
-								//Console.WriteLine($"player moved: {playerMovement}, coords: x:{client.player.x} y:{client.player.y}"); //OK
 							}
 						}
 						break;
@@ -386,12 +375,9 @@ namespace Bambulanci
 			
 			udpClient.Send(loginMessage, loginMessage.Length, hostSendEP);
 
-
-			//Console.WriteLine($"client listenPort: {listenPort}");
 			IPEndPoint hostReceiveEP = new IPEndPoint(IPAddress.Any, listenPort);
 			Data received = new Data(udpClient.Receive(ref hostReceiveEP)); //recyukluji serverEP, snad nevadi----uz nerecykluji, ale mam tu 2x hostEP??
-			//Console.WriteLine($"client received some message; {received.Cmd} AND {received.Msg}");
-			switch (received.Cmd)//sem nedojdu??-----------------------------------------------------------------------------
+			switch (received.Cmd)
 			{
 				case Command.HostLoginAccepted:
 					form.ChangeGameState(GameState.ClientWaiting);
@@ -403,7 +389,6 @@ namespace Bambulanci
 					break;
 			}
 
-			//worker pro async cekani na MoveToWaitingRoom+HostStartGame --- ripadne chci mit moznost disconnect buttonu
 			bwHostWaiter = new BackgroundWorker();
 			bwHostWaiter.WorkerReportsProgress = true;
 
@@ -518,19 +503,14 @@ namespace Bambulanci
 						bwInGameListener.ReportProgress(0); //0 not needed
 						break;
 					case Command.HostPlayerMovement: //string isnt as effective...
-						Console.WriteLine($"client received HostPlayerMovement:{received.Msg}"); //dostavam same direction 4 -----------
 						string[] tokens = received.Msg.Split('|');
 						int playerId = int.Parse(tokens[0]);
 						byte direction = byte.Parse(tokens[1]);
 						float x = float.Parse(tokens[2]);
 						float y = float.Parse(tokens[3]);
 
-						if (Player.playerDesigns == null)
-							Player.playerDesigns = Player.CreatePlayerDesign(form.Width, form.Height);
-
-						Bitmap image = Player.playerDesigns[(playerId * 4 + direction) % (Player.allowedColors.Length * 4)];
-						//Console.WriteLine($"client enques: dir:{direction}, x:{x}, y:{y} "); //OK********************
-						toBeDrawn.Enqueue(new ImageWithLocation(image, x, y));
+						Bitmap playerDesign = form.graphicsDrawer.GetPlayerDesign(playerId, direction);
+						toBeDrawn.Enqueue(new ImageWithLocation(playerDesign, x, y));
 						break;
 					default:
 						break;
@@ -544,7 +524,6 @@ namespace Bambulanci
 			//sends info about movement
 			byte[] clientMove = Data.ToBytes(Command.ClientMove, ((byte)form.playerMovement).ToString()); //shouldn't be string
 			udpClient.Send(clientMove, clientMove.Length, hostEPGlobal);
-			//Console.WriteLine($"movement command sent  to {hostEPGlobal}"); //OK
 		}
 		private void IGL_Completed(object sender, RunWorkerCompletedEventArgs e)
 		{
