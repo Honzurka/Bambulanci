@@ -191,6 +191,7 @@ namespace Bambulanci
 					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"999|{(byte)client.player.direction}|{client.player.x}|{client.player.y}");
 					host.BroadcastMessage(hostPlayerMovement);
 				}
+
 			}
 		}
 
@@ -202,7 +203,7 @@ namespace Bambulanci
 			{
 				game.DrawBackground(g);
 
-				if (client.toBeDrawn != null)//what about host??-----------------------
+				if (client.toBeDrawn != null)//client only
 				{
 					while (client.toBeDrawn.Count > 0)
 					{
@@ -216,6 +217,19 @@ namespace Bambulanci
 						Console.WriteLine($"client: image toBeDrawn dequeued");
 						//var image = client.toBeDrawn.Dequeue();
 						imageWithLocation.Draw(g,this.Width,this.Height);
+					}
+				}
+				else //host only
+				{
+					foreach (var client in host.clientList) //draw clients on host's form
+					{
+						Player player = client.player;
+
+						if (Player.playerDesigns == null) //quick fix
+							Player.playerDesigns = Player.CreatePlayerDesign(this.Width, this.Height, Brushes.Yellow);
+
+						
+						g.DrawImage(Player.playerDesigns[(byte)player.direction % 4], player.x * this.Width, player.y * this.Height);
 					}
 				}
 			}

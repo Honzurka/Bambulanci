@@ -65,8 +65,8 @@ namespace Bambulanci
 		private int formHeight;
 
 		private float speed = 0.01f;
-		public PlayerMovement direction;// = PlayerMovement.Left; //implicit value to avoid bugs
-
+		public PlayerMovement direction = PlayerMovement.Left; //implicit value to avoid bugs
+		
 		public static Bitmap[] playerDesigns;//left,up,right,down //public static so i can point to them from server's message
 
 		public Player(int formWidth, int formHeight, float x, float y, Brush playerColor)
@@ -113,16 +113,13 @@ namespace Bambulanci
 
 		}
 
-
 		public void Move(PlayerMovement playerMovement)
 		{
-			direction = playerMovement;
-			Console.WriteLine($"writing playerMovement : {playerMovement}");
-			/*
-			if (this.direction != PlayerMovement.Stay)
-				this.direction = playerMovement;
-			*/
+			if (playerMovement != PlayerMovement.Stay)
+				direction = playerMovement;
 
+			//Console.WriteLine($"writing playerMovement : {playerMovement}"); //OK
+			
 			float newX = 0;
 			float newY = 0;
 
@@ -151,12 +148,6 @@ namespace Bambulanci
 				//Console.WriteLine($"x:{x} y:{y}");
 			}
 		}
-
-		/*public void Draw(Graphics g)
-		{
-			byte playerDirection = (byte)direction;
-			g.DrawImage(playerDesigns[playerDirection], x * formWidth, y * formHeight);
-		}*/
 	}
 
 	class Map

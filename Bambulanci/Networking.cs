@@ -302,13 +302,13 @@ namespace Bambulanci
 				switch (data.Cmd)
 				{
 					case Command.ClientMove:
-						PlayerMovement playerMovement = (PlayerMovement) int.Parse(data.Msg);
+						PlayerMovement playerMovement = (PlayerMovement) byte.Parse(data.Msg);
 						//Console.WriteLine($"host: clientMove received clientEP: {clientEP}"); //OK
 						//nastavim movement hraci, od ktereho jsem dostal prikaz
 						foreach (var client in form.game.clientInfo) //will it work??
 						{
 							//Console.WriteLine("host: searching"); //OK
-							if (client.IpEndPoint.Equals(clientEP)) // == wont work
+							if (client.IpEndPoint.Equals(clientEP)) //find client who send me move command
 							{
 								client.player.Move(playerMovement);
 								//Console.WriteLine($"player moved: {playerMovement}, coords: x:{client.player.x} y:{client.player.y}"); //OK
@@ -576,9 +576,9 @@ namespace Bambulanci
 						}
 
 						//in case of direction 4 I should be using last Player's direction
-						direction = (byte) (direction % 4); //quick fix for stay movement
+						//direction = (byte) (direction % 4); //quick fix for stay movement
 						Bitmap image = Player.playerDesigns[direction];
-						Console.WriteLine($"client enques: dir:{direction}, x:{x}, y:{y} "); //OK********************
+						//Console.WriteLine($"client enques: dir:{direction}, x:{x}, y:{y} "); //OK********************
 						toBeDrawn.Enqueue(new ImageWithLocation(image, x, y));
 						break;
 					default:
@@ -591,7 +591,7 @@ namespace Bambulanci
 			form.Invalidate(); //redraws form
 			
 			//sends info about movement
-			byte[] clientMove = Data.ToBytes(Command.ClientMove, ((int)form.playerMovement).ToString()); //shouldn't be string
+			byte[] clientMove = Data.ToBytes(Command.ClientMove, ((byte)form.playerMovement).ToString()); //shouldn't be string
 			udpClient.Send(clientMove, clientMove.Length, hostEPGlobal);
 			//Console.WriteLine($"movement command sent  to {hostEPGlobal}"); //OK
 		}
