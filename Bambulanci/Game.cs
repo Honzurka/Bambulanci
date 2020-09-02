@@ -222,7 +222,7 @@ namespace Bambulanci
 		}
 	}
 
-	public class Game //nerozlisuji hosta a klienta
+	public class Game //nerozlisuji hosta a klienta??????----------
 	{
 		int formHeight;
 		int formWidth;
@@ -244,18 +244,7 @@ namespace Bambulanci
 					client.player = new Player(formWidth, formHeight, (float)rng.NextDouble(), (float)rng.NextDouble(), Brushes.Yellow);
 				}
 			}
-			
-			/*
-			//test:
-			Player player1 = new Player(formWidth, formHeight, 0.5f, 0.5f, Brushes.Yellow); //spawn on tile rather than coords
-			players.Add(player1);*/
 		}
-
-		/*public void Draw(Graphics g)
-		{
-			DrawBackground(g);
-			DrawPlayers(g);
-		}*/
 
 		public void DrawBackground(Graphics g)
 		{
@@ -267,20 +256,5 @@ namespace Bambulanci
 					g.DrawImage(tile, column * map.tileSizeScaled.Width, row * map.tileSizeScaled.Height);
 				}
 		}
-		/*private void DrawPlayers(Graphics g)
-		{
-			foreach (var client in clientInfo)
-			{
-				client.player.Draw(g);
-			}
-		}*/
-
-		/*public void MovePlayers()
-		{
-			foreach (var client in clientInfo)
-			{
-				client.player.Move(); //movement for each player----
-			}
-		}*/
 	}
 }

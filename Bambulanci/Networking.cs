@@ -202,7 +202,9 @@ namespace Bambulanci
 				throw new Exception(); //Error handling??----
 			else if (!e.Cancelled)//all clients are connected
 			{
-				MoveClientsToWaitingRoom();
+				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom);
+				BroadcastMessage(moveClientToWaitingRoom);
+
 				form.ChangeGameState(GameState.HostWaitingRoom);
 			}
 		}
@@ -226,7 +228,12 @@ namespace Bambulanci
 		}
 		
 
-		//...4+ similar methods
+		public void BroadcastMessage(byte[] message)
+		{
+			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
+		}
+
+		/*
 		public void MoveClientsToWaitingRoom()
 		{
 			foreach (var client in clientList)
@@ -252,8 +259,13 @@ namespace Bambulanci
 			{
 				byte[] hostRedraw = Data.ToBytes(Command.HostTick);
 				udpHost.Send(hostRedraw, hostRedraw.Length, client.IpEndPoint);
+
+				//draw them on host's form
+
 			}
 		}
+		
+
 		public void MoveClients()
 		{
 			foreach (var client in clientList)
@@ -262,7 +274,7 @@ namespace Bambulanci
 				byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"999|{(byte)client.player.direction}|{client.player.x}|{client.player.y}");
 				udpHost.Send(hostPlayerMovement, hostPlayerMovement.Length, client.IpEndPoint);
 				}
-		}
+		}*/
 
 		BackgroundWorker bwGameListener;
 		public void StartGameListening()
@@ -333,12 +345,15 @@ namespace Bambulanci
 		}
 
 		private UdpClient udpClient;
-		private int listenPort; //lze ziskat i z udpClienta...
+		public static int listenPort = 60000; //lze ziskat i z udpClienta...
 
 		public void StartClient()
 		{
+			/*
 			Random rnd = new Random();
-			listenPort = rnd.Next(60000, 65536); //random port to be able to have 2 clients on 1 PC---------
+			listenPort = 60000; //allows only 1 client on 1 PC but allows broadcasting messages from host to clients
+			//rnd.Next(60000, 65536); //random port to be able to have 2 clients on 1 PC---------
+			*/
 			udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, listenPort));
 		}
 
@@ -565,7 +580,6 @@ namespace Bambulanci
 						Bitmap image = Player.playerDesigns[direction];
 						Console.WriteLine($"client enques: dir:{direction}, x:{x}, y:{y} "); //OK********************
 						toBeDrawn.Enqueue(new ImageWithLocation(image, x, y));
-						Console.WriteLine($"number of enqued items: {toBeDrawn.Count}"); //---------------
 						break;
 					default:
 						break;

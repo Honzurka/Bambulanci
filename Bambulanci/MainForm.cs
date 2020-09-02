@@ -24,10 +24,7 @@ namespace Bambulanci
 			host = new Host(this);
 			ChangeGameState(GameState.Intro);
 			
-
-
-			//test only:
-			//ChangeGameState(GameState.HostWaitingRoom);
+			//test game only: //ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -163,7 +160,9 @@ namespace Bambulanci
 
 
 			//klienti zacnout poslouchat a podle prijatych informaci prekreslovat obrazovku - prace s ID, aby klient vedel, koho ma prekreslovat
-			host.StartClientGame();
+			byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
+			host.BroadcastMessage(hostStartGame);
+
 			host.StartGameListening();
 			
 
@@ -180,12 +179,18 @@ namespace Bambulanci
 
 		private void TimerInGame_Tick(object sender, EventArgs e) //host only--komunikace s klienty zde -- potrebuji poslouchat prichozi zpravy paralelne
 		{
-			//Invalidate(); //redraw
+			Invalidate(); //redraw
 
 			if (game != null)
 			{
-				host.RedrawClients();
-				host.MoveClients();
+				byte[] hostTick = Data.ToBytes(Command.HostTick);
+				host.BroadcastMessage(hostTick);
+
+				foreach (var client in host.clientList)
+				{
+					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"999|{(byte)client.player.direction}|{client.player.x}|{client.player.y}");
+					host.BroadcastMessage(hostPlayerMovement);
+				}
 			}
 		}
 
@@ -199,8 +204,6 @@ namespace Bambulanci
 
 				if (client.toBeDrawn != null)//what about host??-----------------------
 				{
-					Console.WriteLine($"redraw @ {client.toBeDrawn.Count}"); //----------------------------------toBeDrawn becomes null somehow????
-
 					while (client.toBeDrawn.Count > 0)
 					{
 						Client.ImageWithLocation imageWithLocation;
