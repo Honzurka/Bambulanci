@@ -171,7 +171,7 @@ namespace Bambulanci
 
 			//this.WindowState = FormWindowState.Maximized; //fullscreen ----------------------
 			
-			
+
 			int borderHeight = this.Height - this.ClientRectangle.Height;
 			game = new Game(this.Width, this.Height - borderHeight, host.clientList);
 			//wait some time so everyone can setup game--
@@ -188,7 +188,7 @@ namespace Bambulanci
 
 				foreach (var client in host.clientList)
 				{
-					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"999|{(byte)client.player.direction}|{client.player.x}|{client.player.y}");
+					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"{client.Id}|{(byte)client.player.direction}|{client.player.x}|{client.player.y}");
 					host.BroadcastMessage(hostPlayerMovement);
 				}
 
@@ -225,11 +225,11 @@ namespace Bambulanci
 					{
 						Player player = client.player;
 
-						if (Player.playerDesigns == null) //quick fix
-							Player.playerDesigns = Player.CreatePlayerDesign(this.Width, this.Height, Brushes.Yellow);
+						if (Player.playerDesigns == null) //create skin for host only
+							Player.playerDesigns = Player.CreatePlayerDesign(this.Width, this.Height);
 
-						
-						g.DrawImage(Player.playerDesigns[(byte)player.direction % 4], player.x * this.Width, player.y * this.Height);
+						g.DrawImage(Player.playerDesigns[(client.Id * 4 + (byte)player.direction) % (Player.allowedColors.Length * 4)],
+							player.x * this.Width, player.y * this.Height);
 					}
 				}
 			}

@@ -233,49 +233,6 @@ namespace Bambulanci
 			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
 		}
 
-		/*
-		public void MoveClientsToWaitingRoom()
-		{
-			foreach (var client in clientList)
-			{
-				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom, client.Id.ToString()); //u klienta nectu jeho ID....
-				udpHost.Send(moveClientToWaitingRoom, moveClientToWaitingRoom.Length, client.IpEndPoint);
-				//Console.WriteLine($"Host sent HostMoveToWaitingRoom on ${client.ipEndPoint}");
-			}
-		}
-
-		public void StartClientGame()
-		{
-			foreach (var client in clientList) //couldn't it be broadcast??----
-			{
-				byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
-				udpHost.Send(hostStartGame, hostStartGame.Length, client.IpEndPoint);
-			}
-		}
-
-		public void RedrawClients()
-		{
-			foreach (var client in clientList)
-			{
-				byte[] hostRedraw = Data.ToBytes(Command.HostTick);
-				udpHost.Send(hostRedraw, hostRedraw.Length, client.IpEndPoint);
-
-				//draw them on host's form
-
-			}
-		}
-		
-
-		public void MoveClients()
-		{
-			foreach (var client in clientList)
-			{
-				//Console.WriteLine("host moves clients"); //OK
-				byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"999|{(byte)client.player.direction}|{client.player.x}|{client.player.y}");
-				udpHost.Send(hostPlayerMovement, hostPlayerMovement.Length, client.IpEndPoint);
-				}
-		}*/
-
 		BackgroundWorker bwGameListener;
 		public void StartGameListening()
 		{
@@ -565,19 +522,15 @@ namespace Bambulanci
 					case Command.HostPlayerMovement: //string isnt as effective...
 						Console.WriteLine($"client received HostPlayerMovement:{received.Msg}"); //dostavam same direction 4 -----------
 						string[] tokens = received.Msg.Split('|');
-						int playerSkin = int.Parse(tokens[0]);
+						int playerId = int.Parse(tokens[0]);
 						byte direction = byte.Parse(tokens[1]);
 						float x = float.Parse(tokens[2]);
 						float y = float.Parse(tokens[3]);
 
-						if (Player.playerDesigns == null) //for now...
-						{
-							Player.playerDesigns = Player.CreatePlayerDesign(form.Width, form.Height, Brushes.Yellow);
-						}
+						if (Player.playerDesigns == null)
+							Player.playerDesigns = Player.CreatePlayerDesign(form.Width, form.Height);
 
-						//in case of direction 4 I should be using last Player's direction
-						//direction = (byte) (direction % 4); //quick fix for stay movement
-						Bitmap image = Player.playerDesigns[direction];
+						Bitmap image = Player.playerDesigns[(playerId * 4 + direction) % (Player.allowedColors.Length * 4)];
 						//Console.WriteLine($"client enques: dir:{direction}, x:{x}, y:{y} "); //OK********************
 						toBeDrawn.Enqueue(new ImageWithLocation(image, x, y));
 						break;
