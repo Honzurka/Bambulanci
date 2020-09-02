@@ -98,7 +98,7 @@ namespace Bambulanci
 				case GameState.ClientInGame:
 					DisableAllControls();
 					int borderHeight = this.Height - this.ClientRectangle.Height;
-					game = new Game(this.Width, this.Height - borderHeight, client.); //kazdy klient musi dostat seznam hracu------
+					game = new Game(this.Width, this.Height - borderHeight, null); //shouldnt be null
 					break;
 				default:
 					break;
@@ -180,12 +180,12 @@ namespace Bambulanci
 
 		private void TimerInGame_Tick(object sender, EventArgs e) //host only--komunikace s klienty zde -- potrebuji poslouchat prichozi zpravy paralelne
 		{
-			Invalidate(); //redraw
+			//Invalidate(); //redraw
 
 			if (game != null)
 			{
-				//game.MovePlayers(); //player tell me themselves when they want to be moved
 				host.RedrawClients();
+				host.MoveClients();
 			}
 		}
 
@@ -195,14 +195,32 @@ namespace Bambulanci
 			//all graphics events have to be called from here
 			if (game != null)
 			{
-				game.Draw(g);
+				game.DrawBackground(g);
+
+				if (client.toBeDrawn != null)//what about host??-----------------------
+				{
+					Console.WriteLine($"redraw @ {client.toBeDrawn.Count}"); //----------------------------------toBeDrawn becomes null somehow????
+
+					while (client.toBeDrawn.Count > 0)
+					{
+						Client.ImageWithLocation imageWithLocation;
+						bool b = client.toBeDrawn.TryDequeue(out imageWithLocation);
+						while (!b) //spravna implementace??--------------------------------------------------
+						{
+							b = client.toBeDrawn.TryDequeue(out imageWithLocation);
+							Console.WriteLine("unable to dequeue image ---------------------------");
+						}
+						Console.WriteLine($"client: image toBeDrawn dequeued");
+						//var image = client.toBeDrawn.Dequeue();
+						imageWithLocation.Draw(g,this.Width,this.Height);
+					}
+				}
 			}
 		}
 
 		public PlayerMovement playerMovement = PlayerMovement.Stay;
 		private void formBambulanci_KeyDown(object sender, KeyEventArgs e)
 		{
-			//Console.WriteLine("key press detected -- need for client");
 			switch (e.KeyCode)
 			{
 				case Keys.Left:

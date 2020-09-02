@@ -57,17 +57,17 @@ namespace Bambulanci
 		const float heightScaling = 18;
 
 		//coords between 0 and 1
-		private float x;
-		private float y;
+		public float x; //get only or private --should be
+		public float y;
 
 
 		private int formWidth;
 		private int formHeight;
 
 		private float speed = 0.01f;
-		PlayerMovement direction;// = PlayerMovement.Left; //implicit value to avoid bugs
+		public PlayerMovement direction;// = PlayerMovement.Left; //implicit value to avoid bugs
 
-		Bitmap[] playerDesigns;//left,up,right,down
+		public static Bitmap[] playerDesigns;//left,up,right,down //public static so i can point to them from server's message
 
 		public Player(int formWidth, int formHeight, float x, float y, Brush playerColor)
 		{
@@ -75,10 +75,10 @@ namespace Bambulanci
 			this.formHeight = formHeight;
 			this.x = x;
 			this.y = y;
-			playerDesigns = Player.CreatePlayerDesign(formWidth,formHeight, playerColor);
+			//playerDesigns = Player.CreatePlayerDesign(formWidth,formHeight, playerColor);
 		}
 
-		private static Bitmap[] CreatePlayerDesign(int formWidth, int formHeight, Brush playerColor)
+		public static Bitmap[] CreatePlayerDesign(int formWidth, int formHeight, Brush playerColor)
 		{
 			int playerWidth = (int)(formWidth / widthScaling);
 			int playerHeight = (int)(formHeight / heightScaling);
@@ -116,10 +116,12 @@ namespace Bambulanci
 
 		public void Move(PlayerMovement playerMovement)
 		{
-			
+			direction = playerMovement;
+			Console.WriteLine($"writing playerMovement : {playerMovement}");
+			/*
 			if (this.direction != PlayerMovement.Stay)
 				this.direction = playerMovement;
-			
+			*/
 
 			float newX = 0;
 			float newY = 0;
@@ -150,11 +152,11 @@ namespace Bambulanci
 			}
 		}
 
-		public void Draw(Graphics g)
+		/*public void Draw(Graphics g)
 		{
 			byte playerDirection = (byte)direction;
 			g.DrawImage(playerDesigns[playerDirection], x * formWidth, y * formHeight);
-		}
+		}*/
 	}
 
 	class Map
@@ -235,10 +237,12 @@ namespace Bambulanci
 			this.clientInfo = clientInfo;
 			Random rng = new Random();
 
-
-			foreach (var client in clientInfo)
+			if (clientInfo != null) //host only
 			{
-				client.player = new Player(formWidth, formHeight, (float)rng.NextDouble(), (float)rng.NextDouble(), Brushes.Yellow);
+				foreach (var client in clientInfo)
+				{
+					client.player = new Player(formWidth, formHeight, (float)rng.NextDouble(), (float)rng.NextDouble(), Brushes.Yellow);
+				}
 			}
 			
 			/*
@@ -247,13 +251,13 @@ namespace Bambulanci
 			players.Add(player1);*/
 		}
 
-		public void Draw(Graphics g)
+		/*public void Draw(Graphics g)
 		{
 			DrawBackground(g);
 			DrawPlayers(g);
-		}
+		}*/
 
-		private void DrawBackground(Graphics g)
+		public void DrawBackground(Graphics g)
 		{
 			for (int column = 0; column < map.cols; column++)
 				for (int row = 0; row < map.rows; row++)
@@ -263,13 +267,13 @@ namespace Bambulanci
 					g.DrawImage(tile, column * map.tileSizeScaled.Width, row * map.tileSizeScaled.Height);
 				}
 		}
-		private void DrawPlayers(Graphics g)
+		/*private void DrawPlayers(Graphics g)
 		{
 			foreach (var client in clientInfo)
 			{
 				client.player.Draw(g);
 			}
-		}
+		}*/
 
 		/*public void MovePlayers()
 		{

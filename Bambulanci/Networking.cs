@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Linq; //added
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Drawing;
+using System.Collections.Concurrent;
 
 namespace Bambulanci
 {
@@ -15,7 +17,7 @@ namespace Bambulanci
 		HostFoundServer, HostMoveToWaitingRoom, HostCanceled, HostStopHosting,
 		ClientStopRefreshing, HostLoginAccepted, HostLoginDeclined, HostStartGame,
 		
-		HostTick, ClientMove
+		HostTick, ClientMove, HostPlayerMovement
 	}
 	public class ClientInfo //struct??
 	{
@@ -223,6 +225,8 @@ namespace Bambulanci
 			return hostIP;
 		}
 		
+
+		//...4+ similar methods
 		public void MoveClientsToWaitingRoom()
 		{
 			foreach (var client in clientList)
@@ -235,13 +239,8 @@ namespace Bambulanci
 
 		public void StartClientGame()
 		{
-			foreach (var client in clientList)
+			foreach (var client in clientList) //couldn't it be broadcast??----
 			{
-				//serialize clientList: https://stackoverflow.com/questions/42298064/how-to-send-and-receive-list-using-tcp-networkstream-c-sharp
-				BinaryFormatter bf = new BinaryFormatter();
-				bf.Serialize(, clientList);
-				//-------------------------------------
-
 				byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
 				udpHost.Send(hostStartGame, hostStartGame.Length, client.IpEndPoint);
 			}
@@ -254,6 +253,15 @@ namespace Bambulanci
 				byte[] hostRedraw = Data.ToBytes(Command.HostTick);
 				udpHost.Send(hostRedraw, hostRedraw.Length, client.IpEndPoint);
 			}
+		}
+		public void MoveClients()
+		{
+			foreach (var client in clientList)
+			{
+				//Console.WriteLine("host moves clients"); //OK
+				byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"999|{(byte)client.player.direction}|{client.player.x}|{client.player.y}");
+				udpHost.Send(hostPlayerMovement, hostPlayerMovement.Length, client.IpEndPoint);
+				}
 		}
 
 		BackgroundWorker bwGameListener;
@@ -271,29 +279,29 @@ namespace Bambulanci
 		}
 		private void GL_DoWork(object sender, DoWorkEventArgs e)
 		{
-			Console.WriteLine($"host starts to listen on port:{listenPort}");
+			//Console.WriteLine($"host starts to listen on port:{listenPort}");
 			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
 			while (true)
 			{
 				Data data = new Data(udpHost.Receive(ref clientEP));
 				
 
-				Console.WriteLine($"data received: {data.Cmd}");
+				//Console.WriteLine($"data received: {data.Cmd}"); //OK---
 				switch (data.Cmd)
 				{
 					case Command.ClientMove:
 						PlayerMovement playerMovement = (PlayerMovement) int.Parse(data.Msg);
-
+						//Console.WriteLine($"host: clientMove received clientEP: {clientEP}"); //OK
 						//nastavim movement hraci, od ktereho jsem dostal prikaz
 						foreach (var client in form.game.clientInfo) //will it work??
 						{
-							if (client.IpEndPoint == clientEP)
+							//Console.WriteLine("host: searching"); //OK
+							if (client.IpEndPoint.Equals(clientEP)) // == wont work
 							{
 								client.player.Move(playerMovement);
+								//Console.WriteLine($"player moved: {playerMovement}, coords: x:{client.player.x} y:{client.player.y}"); //OK
 							}
 						}
-						
-						Console.WriteLine($"player moved: {playerMovement}");
 						break;
 					default:
 						break;
@@ -405,8 +413,7 @@ namespace Bambulanci
 			IPEndPoint hostSendEP = (IPEndPoint)form.lBServers.SelectedItem;
 			hostEPGlobal = hostSendEP;
 			byte[] loginMessage = Data.ToBytes(Command.ClientLogin);
-			System.Diagnostics.Debug.Print("test");
-
+			
 			udpClient.Send(loginMessage, loginMessage.Length, hostSendEP);
 
 
@@ -464,10 +471,9 @@ namespace Bambulanci
 			{	case Command.HostCanceled: //not implemented yet
 					bwHostWaiter.ReportProgress(-1);
 					break;
-				case Command.HostStartGame: //not implemented yet
-					bwHostWaiter.ReportProgress(1, received.Msg);
+				case Command.HostStartGame:
+					bwHostWaiter.ReportProgress(1);
 					break;
-			//pripadne posloucham zmeny nastaveni => loop
 				default:
 					break;
 			}
@@ -486,7 +492,6 @@ namespace Bambulanci
 				case 1:
 					//start game----------------
 					inGame = true;
-					object clientList = e.UserState; //---------------------------------toDo clientList from host
 					break;
 				default:
 					break;
@@ -498,9 +503,8 @@ namespace Bambulanci
 			//after startGame/hostCanceled
 			if (inGame)
 			{
-				form.ChangeGameState(GameState.ClientInGame); //ok redrawing is allowed
-															  //form.Invalidate(); //allows first redraw--useless, since i have no info about player positions -_-
-
+				form.ChangeGameState(GameState.ClientInGame);
+				
 				bwInGameListener = new BackgroundWorker();
 				bwInGameListener.WorkerReportsProgress = true;
 				bwInGameListener.DoWork += IGL_DoWork;
@@ -513,8 +517,28 @@ namespace Bambulanci
 		}
 
 		BackgroundWorker bwInGameListener;
+		public struct ImageWithLocation
+		{
+			private Bitmap image;
+			private float x;
+			private float y;
+			public ImageWithLocation(Bitmap image, float x, float y)
+			{
+				this.image = image;
+				this.x = x;
+				this.y = y;
+			}
+			public void Draw(Graphics g, int formWidth, int formHeight)
+			{
+				g.DrawImage(image, x * formWidth, y * formHeight);
+			}
+		}
+		//list of toBeDrawn objects -----
+		public ConcurrentQueue<ImageWithLocation> toBeDrawn;
 		private void IGL_DoWork(object sender, DoWorkEventArgs e)
 		{
+			form.Invalidate();
+			toBeDrawn = new ConcurrentQueue<ImageWithLocation>();
 			while (true)
 			{
 				Data received = new Data(udpClient.Receive(ref hostEPGlobal));
@@ -522,6 +546,26 @@ namespace Bambulanci
 				{
 					case Command.HostTick:
 						bwInGameListener.ReportProgress(0); //0 not needed
+						break;
+					case Command.HostPlayerMovement: //string isnt as effective...
+						Console.WriteLine($"client received HostPlayerMovement:{received.Msg}"); //dostavam same direction 4 -----------
+						string[] tokens = received.Msg.Split('|');
+						int playerSkin = int.Parse(tokens[0]);
+						byte direction = byte.Parse(tokens[1]);
+						float x = float.Parse(tokens[2]);
+						float y = float.Parse(tokens[3]);
+
+						if (Player.playerDesigns == null) //for now...
+						{
+							Player.playerDesigns = Player.CreatePlayerDesign(form.Width, form.Height, Brushes.Yellow);
+						}
+
+						//in case of direction 4 I should be using last Player's direction
+						direction = (byte) (direction % 4); //quick fix for stay movement
+						Bitmap image = Player.playerDesigns[direction];
+						Console.WriteLine($"client enques: dir:{direction}, x:{x}, y:{y} "); //OK********************
+						toBeDrawn.Enqueue(new ImageWithLocation(image, x, y));
+						Console.WriteLine($"number of enqued items: {toBeDrawn.Count}"); //---------------
 						break;
 					default:
 						break;
@@ -531,12 +575,11 @@ namespace Bambulanci
 		private void IGL_RedrawProgress(object sender, ProgressChangedEventArgs e)
 		{
 			form.Invalidate(); //redraws form
-
+			
 			//sends info about movement
 			byte[] clientMove = Data.ToBytes(Command.ClientMove, ((int)form.playerMovement).ToString()); //shouldn't be string
 			udpClient.Send(clientMove, clientMove.Length, hostEPGlobal);
-			Console.WriteLine($"movement command sent  to {hostEPGlobal}");
-
+			//Console.WriteLine($"movement command sent  to {hostEPGlobal}"); //OK
 		}
 		private void IGL_Completed(object sender, RunWorkerCompletedEventArgs e)
 		{
