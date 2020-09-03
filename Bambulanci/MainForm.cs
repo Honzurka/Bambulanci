@@ -118,7 +118,7 @@ namespace Bambulanci
 		private void bConnect_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.ClientSearch);
-			client.StartClient();
+			client.StartClient(IPAddress.Any);
 		}
 
 		private void bRefreshServers_Click(object sender, EventArgs e)
@@ -153,13 +153,13 @@ namespace Bambulanci
 		private void bStartGame_Click(object sender, EventArgs e) //host only
 		{
 			//create host's client
-			client.StartClient();
-			client.hostEPGlobal = new IPEndPoint(host.getHostIP(), host.listenPort); //49152 -- ip.loopback wont work
+			client.StartClient(IPAddress.Loopback);
+			client.hostEPGlobal = new IPEndPoint(IPAddress.Loopback, host.listenPort); //49152 -- ip.loopback wont work
 			
 			client.InGame = true;
 			client.BW_WaitingCompleted(null, null); //will it work??----
 
-			host.clientList.Add(new ClientInfo(0, new IPEndPoint(host.getHostIP(), Client.listenPort))); //IpEP doesnt work
+			host.clientList.Add(new ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort))); //IpEP doesnt work
 			//------------
 
 
@@ -191,7 +191,7 @@ namespace Bambulanci
 
 				//doubled messages--------------------
 				host.BroadcastMessage(hostTick);
-				host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(host.getHostIP(), 60000)); //jde
+				host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(IPAddress.Loopback, 60000)); //jde
 				//host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(IPAddress.Parse("127.0.0.1"), 60000)); //nejde
 				
 
@@ -200,7 +200,7 @@ namespace Bambulanci
 					//doubled messages--------------------
 					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"{client1.Id}|{(byte)client1.player.direction}|{client1.player.x}|{client1.player.y}");
 					host.BroadcastMessage(hostPlayerMovement);
-					host.udpHost.Send(hostPlayerMovement, hostPlayerMovement.Length, new IPEndPoint(host.getHostIP(), 60000));
+					host.udpHost.Send(hostPlayerMovement, hostPlayerMovement.Length, new IPEndPoint(IPAddress.Loopback, 60000));
 					//host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(IPAddress.Parse("127.0.0.1"), 60000)); //doesnt work for some reason--look at udpHost ctor
 				}
 			}

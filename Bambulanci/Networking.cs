@@ -283,15 +283,6 @@ namespace Bambulanci
 		public UdpClient udpClient; //public for tests only
 		public static int listenPort = 60000; //lze ziskat i z udpClienta...
 
-		public void StartClient()
-		{
-			/*
-			Random rnd = new Random();
-			listenPort = 60000; //allows only 1 client on 1 PC but allows broadcasting messages from host to clients
-			//rnd.Next(60000, 65536); //random port to be able to have 2 clients on 1 PC---------
-			*/
-			udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, listenPort));
-		}
 		public void StartClient(IPAddress iPAddress) //startClient for host-client : maybe wont use it
 		{
 			udpClient = new UdpClient(new IPEndPoint(iPAddress, listenPort));
