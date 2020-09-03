@@ -105,7 +105,7 @@ namespace Bambulanci
 		{
 			this.listenPort = listenPort; //used for host's id==0
 
-			ParallelBW.ActivateWorker(bwHostStarter, true, BW_DoWork, BW_ProgressChanged, BW_RunWorkerCompleted, new ValueTuple<int, int>(numOfPlayers, listenPort));
+			ParallelBW.ActivateWorker(ref bwHostStarter, true, BW_DoWork, BW_ProgressChanged, BW_RunWorkerCompleted, new ValueTuple<int, int>(numOfPlayers, listenPort));
 			//bwHostStarter.WorkerSupportsCancellation = true; //mozna neni potreba
 		}
 		
@@ -227,7 +227,7 @@ namespace Bambulanci
 		BackgroundWorker bwGameListener;
 		public void StartGameListening()
 		{
-			ParallelBW.ActivateWorker(bwGameListener, true, GL_DoWork, GL_Progress, GL_Completed);
+			ParallelBW.ActivateWorker(ref bwGameListener, true, GL_DoWork, GL_Progress, GL_Completed);
 		}
 		private void GL_DoWork(object sender, DoWorkEventArgs e)
 		{
@@ -300,7 +300,7 @@ namespace Bambulanci
 			if (bwServerRefresher != null)
 				bwServerRefresher.Dispose();
 			*/
-			ParallelBW.ActivateWorker(bwServerRefresher, true, BW_RefreshServers, BW_ServerFound, BW_RefreshCompleted, hostPort);
+			ParallelBW.ActivateWorker(ref bwServerRefresher, true, BW_RefreshServers, BW_ServerFound, BW_RefreshCompleted, hostPort);
 		}
 
 		private void BW_RefreshServers(object sender, DoWorkEventArgs e) //DoWork
@@ -371,7 +371,7 @@ namespace Bambulanci
 					break;
 			}
 
-			ParallelBW.ActivateWorker(bwHostWaiter, true, BW_ClientWaiting, BW_WaitingProgress, BW_WaitingCompleted, hostSendEP);
+			ParallelBW.ActivateWorker(ref bwHostWaiter, true, BW_ClientWaiting, BW_WaitingProgress, BW_WaitingCompleted, hostSendEP);
 		}
 
 		BackgroundWorker bwHostWaiter;
@@ -434,7 +434,7 @@ namespace Bambulanci
 			if (InGame)
 			{
 				form.ChangeGameState(GameState.InGame);
-				ParallelBW.ActivateWorker(bwInGameListener, true, IGL_DoWork, IGL_RedrawProgress, IGL_Completed);
+				ParallelBW.ActivateWorker(ref bwInGameListener, true, IGL_DoWork, IGL_RedrawProgress, IGL_Completed);
 			}
 
 		}
@@ -504,7 +504,7 @@ namespace Bambulanci
 	{
 		private ParallelBW() { }
 
-		public static void ActivateWorker(BackgroundWorker worker, bool reportsProgress, DoWorkEventHandler work,
+		public static void ActivateWorker(ref BackgroundWorker worker, bool reportsProgress, DoWorkEventHandler work,
 			   ProgressChangedEventHandler progress, RunWorkerCompletedEventHandler completed, object runArg = null)
 		{
 			worker = new BackgroundWorker();
