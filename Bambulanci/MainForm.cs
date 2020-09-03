@@ -152,15 +152,14 @@ namespace Bambulanci
 		public GraphicsDrawer graphicsDrawer; //public for client to generate designs of players
 		private void bStartGame_Click(object sender, EventArgs e) //host only
 		{
-
 			//create host's client
 			client.StartClient();
-			client.hostEPGlobal = new IPEndPoint(host.getHostIP(), 49152 /*host.listenPort*/); //ip.loopback wont work
+			client.hostEPGlobal = new IPEndPoint(host.getHostIP(), host.listenPort); //49152 -- ip.loopback wont work
+			
 			client.InGame = true;
-
 			client.BW_WaitingCompleted(null, null); //will it work??----
 
-			host.clientList.Add(new ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort))); //IpEP doesnt work
+			host.clientList.Add(new ClientInfo(0, new IPEndPoint(host.getHostIP(), Client.listenPort))); //IpEP doesnt work
 			//------------
 
 
@@ -192,8 +191,6 @@ namespace Bambulanci
 
 				//doubled messages--------------------
 				host.BroadcastMessage(hostTick);
-
-				Console.WriteLine($"message sent to: {host.getHostIP()}:{60000}");
 				host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(host.getHostIP(), 60000)); //jde
 				//host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(IPAddress.Parse("127.0.0.1"), 60000)); //nejde
 				

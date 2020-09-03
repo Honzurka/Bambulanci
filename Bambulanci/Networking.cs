@@ -135,7 +135,8 @@ namespace Bambulanci
 			clientList = new List<ClientInfo>();
 
 			IPAddress hostIP = getHostIP();
-			udpHost = new UdpClient(new IPEndPoint(hostIP, listenPort));
+			udpHost = new UdpClient(new IPEndPoint(IPAddress.Any /*hostIP*/, listenPort)); //IPAddress.Any allows localHost send
+			//udpHost.EnableBroadcast //how is it true when default is false??----
 
 			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
 			int id = 1; //0 is host
@@ -245,6 +246,7 @@ namespace Bambulanci
 							if (client.IpEndPoint.Equals(clientEP)) //find client who send me move command
 							{
 								client.player.Move(playerMovement);
+								Console.WriteLine($"{playerMovement} : COORDS: {client.player.x} : {client.player.y}"); //wont receive host movement
 							}
 						}
 						break;
@@ -470,7 +472,7 @@ namespace Bambulanci
 			while (true)
 			{
 				Data received = new Data(udpClient.Receive(ref hostEPGlobal));
-				Console.WriteLine($"client-host received: {received} from {hostEPGlobal}"); //for loopback messages testing
+				//Console.WriteLine($"client-host received: {received} from {hostEPGlobal}"); //for loopback messages testing
 				switch (received.Cmd)
 				{
 					case Command.HostTick:
@@ -496,7 +498,7 @@ namespace Bambulanci
 			form.Invalidate(); //redraws form
 
 			//sends info about movement
-			Console.WriteLine($"Host-client: client moved:{form.playerMovement} send to: {hostEPGlobal}");
+			//Console.WriteLine($"Host-client: client moved:{form.playerMovement} send to: {hostEPGlobal}");
 			byte[] clientMove = Data.ToBytes(Command.ClientMove, ((byte)form.playerMovement).ToString()); //shouldn't be string
 			udpClient.Send(clientMove, clientMove.Length, hostEPGlobal);
 		}
