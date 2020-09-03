@@ -196,7 +196,7 @@ namespace Bambulanci
 			else if (!e.Cancelled)//all clients are connected
 			{
 				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom);
-				BroadcastMessage(moveClientToWaitingRoom);
+				BroadcastLocalMessage(moveClientToWaitingRoom);
 
 				form.ChangeGameState(GameState.HostWaitingRoom);
 			}
@@ -221,9 +221,13 @@ namespace Bambulanci
 		}
 		
 
-		public void BroadcastMessage(byte[] message)
+		/// <summary>
+		/// broadcast on network and localhost
+		/// </summary>
+		public void BroadcastLocalMessage(byte[] message)
 		{
 			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
+			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort));
 		}
 
 		BackgroundWorker bwGameListener;

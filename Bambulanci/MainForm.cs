@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks.Dataflow;
 using System.Windows.Forms;
 
 namespace Bambulanci
@@ -164,7 +165,7 @@ namespace Bambulanci
 
 
 			byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
-			host.BroadcastMessage(hostStartGame);
+			host.BroadcastLocalMessage(hostStartGame);
 
 			host.StartGameListening();
 
@@ -189,19 +190,17 @@ namespace Bambulanci
 			{
 				byte[] hostTick = Data.ToBytes(Command.HostTick);
 
-				//doubled messages--------------------
-				host.BroadcastMessage(hostTick);
-				host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(IPAddress.Loopback, 60000)); //jde
-				//host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(IPAddress.Parse("127.0.0.1"), 60000)); //nejde
+				//doubled messages--------------------broadcast wont affect localHost
+				host.BroadcastLocalMessage(hostTick);
+				//host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(IPAddress.Loopback, 60000)); //jde
 				
 
 				foreach (var client1 in host.clientList)
 				{
 					//doubled messages--------------------
 					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"{client1.Id}|{(byte)client1.player.direction}|{client1.player.x}|{client1.player.y}");
-					host.BroadcastMessage(hostPlayerMovement);
-					host.udpHost.Send(hostPlayerMovement, hostPlayerMovement.Length, new IPEndPoint(IPAddress.Loopback, 60000));
-					//host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(IPAddress.Parse("127.0.0.1"), 60000)); //doesnt work for some reason--look at udpHost ctor
+					host.BroadcastLocalMessage(hostPlayerMovement);
+					//host.udpHost.Send(hostPlayerMovement, hostPlayerMovement.Length, new IPEndPoint(IPAddress.Loopback, 60000));
 				}
 			}
 		}
