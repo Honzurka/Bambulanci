@@ -152,16 +152,17 @@ namespace Bambulanci
 		public GraphicsDrawer graphicsDrawer; //public for client to generate designs of players
 		private void bStartGame_Click(object sender, EventArgs e) //host only
 		{
-			/*
+
 			//create host's client
-			client.hostEPGlobal = new IPEndPoint(IPAddress.Loopback, host.listenPort);
+			client.StartClient();
+			client.hostEPGlobal = new IPEndPoint(host.getHostIP(), 49152 /*host.listenPort*/); //ip.loopback wont work
 			client.InGame = true;
 
-			client.ActivateWorker(client.bwInGameListener, true, client.IGL_DoWork, client.IGL_RedrawProgress, client.IGL_Completed);
+			client.BW_WaitingCompleted(null, null); //will it work??----
 
-			host.clientList.Add(new ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
+			host.clientList.Add(new ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort))); //IpEP doesnt work
 			//------------
-			*/
+
 
 			byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
 			host.BroadcastMessage(hostStartGame);
@@ -185,19 +186,26 @@ namespace Bambulanci
 
 		private void TimerInGame_Tick(object sender, EventArgs e) //host only--komunikace s klienty zde -- potrebuji poslouchat prichozi zpravy paralelne
 		{
-			//Invalidate(); //redraw--disable, Invalidate should be called from client
-
 			if (currentGameState == GameState.InGame) //should be-- maybe not necessary to check
 			{
 				byte[] hostTick = Data.ToBytes(Command.HostTick);
+
+				//doubled messages--------------------
 				host.BroadcastMessage(hostTick);
 
-				foreach (var client in host.clientList)
-				{
-					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"{client.Id}|{(byte)client.player.direction}|{client.player.x}|{client.player.y}");
-					host.BroadcastMessage(hostPlayerMovement);
-				}
+				Console.WriteLine($"message sent to: {host.getHostIP()}:{60000}");
+				host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(host.getHostIP(), 60000)); //jde
+				//host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(IPAddress.Parse("127.0.0.1"), 60000)); //nejde
+				
 
+				foreach (var client1 in host.clientList)
+				{
+					//doubled messages--------------------
+					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"{client1.Id}|{(byte)client1.player.direction}|{client1.player.x}|{client1.player.y}");
+					host.BroadcastMessage(hostPlayerMovement);
+					host.udpHost.Send(hostPlayerMovement, hostPlayerMovement.Length, new IPEndPoint(host.getHostIP(), 60000));
+					//host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(IPAddress.Parse("127.0.0.1"), 60000)); //doesnt work for some reason--look at udpHost ctor
+				}
 			}
 		}
 

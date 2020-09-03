@@ -11,6 +11,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Drawing;
 using System.Collections.Concurrent;
 using System.DirectoryServices.ActiveDirectory;
+using System.Net.NetworkInformation;
 
 namespace Bambulanci
 {
@@ -90,7 +91,7 @@ namespace Bambulanci
 
 		private BackgroundWorker bwHostStarter;
 		public List<ClientInfo> clientList;
-		private UdpClient udpHost;
+		public UdpClient udpHost; //public for testing only
 
 		public int listenPort; //for host's self id==0 client
 
@@ -203,7 +204,7 @@ namespace Bambulanci
 		/// <summary>
 		/// Returns first IPv4 address of Host -- in case of multiple IPv4 addresses might not work correctly
 		/// </summary>
-		private IPAddress getHostIP()
+		public IPAddress getHostIP() //public for test
 		{
 			IPAddress hostIP = null;
 			IPAddress[] addresses = Dns.GetHostAddresses(Dns.GetHostName());
@@ -277,7 +278,7 @@ namespace Bambulanci
 			this.form = form;
 		}
 
-		private UdpClient udpClient;
+		public UdpClient udpClient; //public for tests only
 		public static int listenPort = 60000; //lze ziskat i z udpClienta...
 
 		public void StartClient()
@@ -288,6 +289,10 @@ namespace Bambulanci
 			//rnd.Next(60000, 65536); //random port to be able to have 2 clients on 1 PC---------
 			*/
 			udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, listenPort));
+		}
+		public void StartClient(IPAddress iPAddress) //startClient for host-client : maybe wont use it
+		{
+			udpClient = new UdpClient(new IPEndPoint(iPAddress, listenPort));
 		}
 
 		/// <summary>
@@ -428,7 +433,7 @@ namespace Bambulanci
 			}
 		}
 		
-		private void BW_WaitingCompleted(object sender, RunWorkerCompletedEventArgs e)
+		public void BW_WaitingCompleted(object sender, RunWorkerCompletedEventArgs e) //public so its usable outside for host----
 		{
 			//after startGame/hostCanceled
 			if (InGame)
@@ -465,6 +470,7 @@ namespace Bambulanci
 			while (true)
 			{
 				Data received = new Data(udpClient.Receive(ref hostEPGlobal));
+				Console.WriteLine($"client-host received: {received} from {hostEPGlobal}"); //for loopback messages testing
 				switch (received.Cmd)
 				{
 					case Command.HostTick:
@@ -488,8 +494,9 @@ namespace Bambulanci
 		private void IGL_RedrawProgress(object sender, ProgressChangedEventArgs e)
 		{
 			form.Invalidate(); //redraws form
-			
+
 			//sends info about movement
+			Console.WriteLine($"Host-client: client moved:{form.playerMovement} send to: {hostEPGlobal}");
 			byte[] clientMove = Data.ToBytes(Command.ClientMove, ((byte)form.playerMovement).ToString()); //shouldn't be string
 			udpClient.Send(clientMove, clientMove.Length, hostEPGlobal);
 		}
