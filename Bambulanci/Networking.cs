@@ -10,6 +10,7 @@ using System.Linq; //added
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Drawing;
 using System.Collections.Concurrent;
+using System.DirectoryServices.ActiveDirectory;
 
 namespace Bambulanci
 {
@@ -104,15 +105,8 @@ namespace Bambulanci
 		{
 			this.listenPort = listenPort; //used for host's id==0
 
-			bwHostStarter = new BackgroundWorker();
-			bwHostStarter.WorkerReportsProgress = true;
+			ParallelBW.ActivateWorker(bwHostStarter, true, BW_DoWork, BW_ProgressChanged, BW_RunWorkerCompleted, new ValueTuple<int, int>(numOfPlayers, listenPort));
 			//bwHostStarter.WorkerSupportsCancellation = true; //mozna neni potreba
-
-			bwHostStarter.DoWork += new DoWorkEventHandler(BW_DoWork);
-			bwHostStarter.RunWorkerCompleted += new RunWorkerCompletedEventHandler(BW_RunWorkerCompleted);
-			bwHostStarter.ProgressChanged += new ProgressChangedEventHandler(BW_ProgressChanged);
-
-			bwHostStarter.RunWorkerAsync(new ValueTuple<int, int>(numOfPlayers, listenPort));
 		}
 		
 		/// <summary>
@@ -233,14 +227,7 @@ namespace Bambulanci
 		BackgroundWorker bwGameListener;
 		public void StartGameListening()
 		{
-			bwGameListener = new BackgroundWorker();
-			bwGameListener.WorkerReportsProgress = true;
-
-			bwGameListener.DoWork += GL_DoWork;
-			bwGameListener.ProgressChanged += GL_Progress;
-			bwGameListener.RunWorkerCompleted += GL_Completed;
-
-			bwGameListener.RunWorkerAsync();
+			ParallelBW.ActivateWorker(bwGameListener, true, GL_DoWork, GL_Progress, GL_Completed);
 		}
 		private void GL_DoWork(object sender, DoWorkEventArgs e)
 		{
@@ -280,8 +267,10 @@ namespace Bambulanci
 	{
 		private formBambulanci form;
 
-		public bool InGame { get; private set; }
-		private IPEndPoint hostEPGlobal;
+		public bool InGame;
+		public IPEndPoint hostEPGlobal;
+		//public bool InGame { get; private set; }
+		//private IPEndPoint hostEPGlobal;
 
 		public Client(formBambulanci form)
 		{
@@ -311,14 +300,7 @@ namespace Bambulanci
 			if (bwServerRefresher != null)
 				bwServerRefresher.Dispose();
 			*/
-			bwServerRefresher = new BackgroundWorker();
-			bwServerRefresher.WorkerReportsProgress = true;
-
-			bwServerRefresher.DoWork += new DoWorkEventHandler(BW_RefreshServers);
-			bwServerRefresher.RunWorkerCompleted += new RunWorkerCompletedEventHandler(BW_RefreshCompleted);
-			bwServerRefresher.ProgressChanged += new ProgressChangedEventHandler(BW_ServerFound);
-			
-			bwServerRefresher.RunWorkerAsync(hostPort);
+			ParallelBW.ActivateWorker(bwServerRefresher, true, BW_RefreshServers, BW_ServerFound, BW_RefreshCompleted, hostPort);
 		}
 
 		private void BW_RefreshServers(object sender, DoWorkEventArgs e) //DoWork
@@ -389,14 +371,7 @@ namespace Bambulanci
 					break;
 			}
 
-			bwHostWaiter = new BackgroundWorker();
-			bwHostWaiter.WorkerReportsProgress = true;
-
-			bwHostWaiter.DoWork += BW_ClientWaiting;
-			bwHostWaiter.ProgressChanged += BW_WaitingProgress;
-			bwHostWaiter.RunWorkerCompleted += BW_WaitingCompleted;
-
-			bwHostWaiter.RunWorkerAsync(hostSendEP);
+			ParallelBW.ActivateWorker(bwHostWaiter, true, BW_ClientWaiting, BW_WaitingProgress, BW_WaitingCompleted, hostSendEP);
 		}
 
 		BackgroundWorker bwHostWaiter;
@@ -459,14 +434,7 @@ namespace Bambulanci
 			if (InGame)
 			{
 				form.ChangeGameState(GameState.InGame);
-				
-				bwInGameListener = new BackgroundWorker();
-				bwInGameListener.WorkerReportsProgress = true;
-				bwInGameListener.DoWork += IGL_DoWork;
-				bwInGameListener.ProgressChanged += IGL_RedrawProgress;
-				bwInGameListener.RunWorkerCompleted += IGL_Completed;
-
-				bwInGameListener.RunWorkerAsync();
+				ParallelBW.ActivateWorker(bwInGameListener, true, IGL_DoWork, IGL_RedrawProgress, IGL_Completed);
 			}
 
 		}
@@ -532,4 +500,20 @@ namespace Bambulanci
 
 	}
 
+	class ParallelBW
+	{
+		private ParallelBW() { }
+
+		public static void ActivateWorker(BackgroundWorker worker, bool reportsProgress, DoWorkEventHandler work,
+			   ProgressChangedEventHandler progress, RunWorkerCompletedEventHandler completed, object runArg = null)
+		{
+			worker = new BackgroundWorker();
+			worker.WorkerReportsProgress = reportsProgress;
+			worker.DoWork += work;
+			worker.ProgressChanged += progress;
+			worker.RunWorkerCompleted += completed;
+
+			worker.RunWorkerAsync(runArg);
+		}
+	}
 }

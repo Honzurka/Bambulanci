@@ -24,7 +24,6 @@ namespace Bambulanci
 			client = new Client(this);
 			host = new Host(this);
 			ChangeGameState(GameState.Intro);
-			//test game only: ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -96,7 +95,6 @@ namespace Bambulanci
 					//this.WindowState = FormWindowState.Maximized; //fullscreen
 					int borderHeight = this.Height - this.ClientRectangle.Height;
 					graphicsDrawer = new GraphicsDrawer(this.Width, this.Height - borderHeight);
-					//game = new Game(this.Width, this.Height - borderHeight, null); //what about hosts clientList??-----
 					break;
 				default:
 					break;
@@ -151,11 +149,20 @@ namespace Bambulanci
 			//close client/host socket
 		}
 
-		//start game by host----------------------------------------------------------
-		//public Game game; //public for client to access
 		public GraphicsDrawer graphicsDrawer; //public for client to generate designs of players
 		private void bStartGame_Click(object sender, EventArgs e) //host only
 		{
+			/*
+			//create host's client
+			client.hostEPGlobal = new IPEndPoint(IPAddress.Loopback, host.listenPort);
+			client.InGame = true;
+
+			client.ActivateWorker(client.bwInGameListener, true, client.IGL_DoWork, client.IGL_RedrawProgress, client.IGL_Completed);
+
+			host.clientList.Add(new ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
+			//------------
+			*/
+
 			byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
 			host.BroadcastMessage(hostStartGame);
 
@@ -168,7 +175,7 @@ namespace Bambulanci
 			Random rng = new Random();
 			foreach (var client in host.clientList)
 			{
-				client.player = new Player(this.Width, this.Height, (float)rng.NextDouble(), (float)rng.NextDouble()); //spawn on tiles instead of pixels?
+				client.player = new Player((float)rng.NextDouble(), (float)rng.NextDouble()); //spawn on tiles instead of pixels?
 			}
 
 			TimerInGame.Enabled = true;
@@ -178,7 +185,7 @@ namespace Bambulanci
 
 		private void TimerInGame_Tick(object sender, EventArgs e) //host only--komunikace s klienty zde -- potrebuji poslouchat prichozi zpravy paralelne
 		{
-			Invalidate(); //redraw
+			//Invalidate(); //redraw--disable, Invalidate should be called from client
 
 			if (currentGameState == GameState.InGame) //should be-- maybe not necessary to check
 			{
@@ -211,12 +218,12 @@ namespace Bambulanci
 						while (!b) //spravna implementace??--------------------------------------------------
 						{
 							b = client.toBeDrawn.TryDequeue(out imageWithLocation);
-							//Console.WriteLine("unable to dequeue image ---------------------------");
+							//Console.WriteLine("unable to dequeue image");
 						}
 						imageWithLocation.Draw(g,this.Width,this.Height);
 					}
 				}
-				else //host only
+				else //host only -- do budoucna na hostovy asi vytvorim klienta, sjednotim to tedy s ostatnimi klienty a nasledujici nebude potreba
 				{
 					foreach (var client in host.clientList) //draw clients on host's form
 					{

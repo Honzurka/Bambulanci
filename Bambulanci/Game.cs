@@ -61,61 +61,16 @@ namespace Bambulanci
 		public float x; //get only or private --should be
 		public float y;
 
-
-		private int formWidth;
-		private int formHeight;
-
 		private float speed = 0.01f;
 		public PlayerMovement direction = PlayerMovement.Left; //implicit value to avoid bugs
 
 		//public static Bitmap[] playerDesigns; //left, up, right, down
-		public Player(int formWidth, int formHeight, float x, float y)
+		public Player(float x, float y)
 		{
-			this.formWidth = formWidth;
-			this.formHeight = formHeight;
 			this.x = x;
 			this.y = y;
 		}
 
-		/*
-		public static Brush[] allowedColors = new Brush[] { Brushes.Yellow, Brushes.Red, Brushes.Aqua, Brushes.BlueViolet, Brushes.Chocolate };
-		public static Bitmap[] CreatePlayerDesign(int formWidth, int formHeight)
-		{
-			Bitmap[] result = new Bitmap[allowedColors.Length * 4];
-			for (int i = 0; i < allowedColors.Length; i++)
-			{
-				Brush playerColor = allowedColors[i];
-				int playerWidth = (int)(formWidth / widthScaling);
-				int playerHeight = (int)(formHeight / heightScaling);
-
-				Bitmap b = new Bitmap(playerWidth, playerHeight);
-				var g = Graphics.FromImage(b);
-
-				int w = playerWidth / 3;
-				int h = playerHeight / 3;
-				int offset = (playerWidth / 2 - w) / 2;
-				g.FillRectangle(playerColor, new Rectangle(0, 0, playerWidth, playerHeight));
-				g.FillEllipse(Brushes.Black, new Rectangle(0, offset, w, h));
-				g.FillEllipse(Brushes.Black, new Rectangle(0, offset + playerHeight / 2, w, h));
-
-				Bitmap b90 = (Bitmap)b.Clone();
-				b90.RotateFlip(RotateFlipType.Rotate90FlipNone);
-
-				Bitmap b180 = (Bitmap)b.Clone();
-				b180.RotateFlip(RotateFlipType.Rotate180FlipNone);
-
-				Bitmap b270 = (Bitmap)b.Clone();
-				b270.RotateFlip(RotateFlipType.Rotate270FlipNone);
-
-				result[4 * i] = b;
-				result[4 * i + 1] = b90;
-				result[4 * i + 2] = b180;
-				result[4 * i + 3] = b270;
-			}
-			return result;
-		}
-		*/
-		
 		//list strel--------
 		public List<Shot> shots; //public?
 		public class Shot
@@ -303,9 +258,7 @@ namespace Bambulanci
 
 
 
-		//DrawPlayer--------------------------
-		//g, x, y, playerID==designID
-		public Bitmap GetPlayerDesign(int designID, byte direction)
+		public Bitmap GetPlayerDesign(int designID, byte direction) //can't draw because of client's system of drawing players through queue
 		{
 			//Bitmap image = Player.playerDesigns[(playerId * 4 + direction) % (Player.allowedColors.Length * 4)]; //from client
 
