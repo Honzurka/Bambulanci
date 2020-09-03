@@ -155,23 +155,16 @@ namespace Bambulanci
 		{
 			//create host's client
 			client.StartClient(IPAddress.Loopback);
-			client.hostEPGlobal = new IPEndPoint(IPAddress.Loopback, host.listenPort); //49152 -- ip.loopback wont work
-			
+			client.hostEPGlobal = new IPEndPoint(IPAddress.Loopback, host.listenPort);
 			client.InGame = true;
 			client.BW_WaitingCompleted(null, null); //will it work??----
-
-			host.clientList.Add(new ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort))); //IpEP doesnt work
-			//------------
-
-
+			host.clientList.Add(new ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
+			
 			byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
-			host.BroadcastLocalMessage(hostStartGame);
-
+			host.LocalhostAndBroadcastMessage(hostStartGame); //localHost not needed
 			host.StartGameListening();
-
 			ChangeGameState(GameState.InGame);
 			
-
 			//set each client's player -- prob will be different in the future...
 			Random rng = new Random();
 			foreach (var client in host.clientList)
@@ -180,27 +173,24 @@ namespace Bambulanci
 			}
 
 			TimerInGame.Enabled = true;
-			//poslat info vsem klientum o zacatku hry, host je normalni hrac jen s ID == 0 a posila data na localHost
-			//host.clientList.Add(new ClientInfo(0, new IPEndPoint(IPAddress.Loopback, host.listenPort))); //not working
 		}
 
-		private void TimerInGame_Tick(object sender, EventArgs e) //host only--komunikace s klienty zde -- potrebuji poslouchat prichozi zpravy paralelne
+		private void TimerInGame_Tick(object sender, EventArgs e)
 		{
 			if (currentGameState == GameState.InGame) //should be-- maybe not necessary to check
 			{
 				byte[] hostTick = Data.ToBytes(Command.HostTick);
-
-				//doubled messages--------------------broadcast wont affect localHost
-				host.BroadcastLocalMessage(hostTick);
-				//host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(IPAddress.Loopback, 60000)); //jde
+				host.LocalhostAndBroadcastMessage(hostTick);
+				//host.BroadcastMessage(hostTick);
+				//working if written here, not working if under BroadcastMessage -_-
 				
-
+				//host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort)); //...
 				foreach (var client1 in host.clientList)
 				{
-					//doubled messages--------------------
 					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"{client1.Id}|{(byte)client1.player.direction}|{client1.player.x}|{client1.player.y}");
-					host.BroadcastLocalMessage(hostPlayerMovement);
-					//host.udpHost.Send(hostPlayerMovement, hostPlayerMovement.Length, new IPEndPoint(IPAddress.Loopback, 60000));
+					host.LocalhostAndBroadcastMessage(hostPlayerMovement);
+					//host.BroadcastMessage(hostPlayerMovement);
+					//host.udpHost.Send(hostPlayerMovement, hostPlayerMovement.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort));//...
 				}
 			}
 		}
@@ -213,32 +203,16 @@ namespace Bambulanci
 			{
 				graphicsDrawer.DrawBackground(g);
 
-				if (client.InGame)//client only
+				while (client.toBeDrawn != null && client.toBeDrawn.Count > 0) //was throwing null ref errors--quick fix
 				{
-					while (client.toBeDrawn != null && client.toBeDrawn.Count > 0) //was throwing null ref errors--quick fix
+					Client.ImageWithLocation imageWithLocation;
+					bool b = client.toBeDrawn.TryDequeue(out imageWithLocation);
+					while (!b) //spravna implementace??--------------------------------------------------
 					{
-						Client.ImageWithLocation imageWithLocation;
-						bool b = client.toBeDrawn.TryDequeue(out imageWithLocation);
-						while (!b) //spravna implementace??--------------------------------------------------
-						{
-							b = client.toBeDrawn.TryDequeue(out imageWithLocation);
-							//Console.WriteLine("unable to dequeue image");
-						}
-						imageWithLocation.Draw(g,this.Width,this.Height);
+						b = client.toBeDrawn.TryDequeue(out imageWithLocation);
+						//Console.WriteLine("unable to dequeue image");
 					}
-				}
-				else //host only -- do budoucna na hostovy asi vytvorim klienta, sjednotim to tedy s ostatnimi klienty a nasledujici nebude potreba
-				{
-					foreach (var client in host.clientList) //draw clients on host's form
-					{
-						int id = client.Id;
-						byte direction = (byte)client.player.direction;
-						float x = client.player.x;
-						float y = client.player.y;
-
-						Bitmap playerDesign = graphicsDrawer.GetPlayerDesign(id, direction);
-						g.DrawImage(playerDesign, x * this.Width, y * this.Height);
-					}
+					imageWithLocation.Draw(g,this.Width,this.Height);
 				}
 			}
 		}

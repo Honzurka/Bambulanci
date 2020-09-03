@@ -91,7 +91,7 @@ namespace Bambulanci
 
 		private BackgroundWorker bwHostStarter;
 		public List<ClientInfo> clientList;
-		public UdpClient udpHost; //public for testing only
+		public UdpClient udpHost; //public for test purposes
 
 		public int listenPort; //for host's self id==0 client
 
@@ -196,8 +196,8 @@ namespace Bambulanci
 			else if (!e.Cancelled)//all clients are connected
 			{
 				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom);
-				BroadcastLocalMessage(moveClientToWaitingRoom);
-
+				BroadcastMessage(moveClientToWaitingRoom); //bugged if used with localHost
+				
 				form.ChangeGameState(GameState.HostWaitingRoom);
 			}
 		}
@@ -205,7 +205,7 @@ namespace Bambulanci
 		/// <summary>
 		/// Returns first IPv4 address of Host -- in case of multiple IPv4 addresses might not work correctly
 		/// </summary>
-		public IPAddress getHostIP() //public for test
+		private IPAddress getHostIP()
 		{
 			IPAddress hostIP = null;
 			IPAddress[] addresses = Dns.GetHostAddresses(Dns.GetHostName());
@@ -221,10 +221,16 @@ namespace Bambulanci
 		}
 		
 
+		public void BroadcastMessage(byte[] message) //zalezi na poradi, z nejakeho duvodu neodesila 2. send
+		{
+			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
+		}
+
+
 		/// <summary>
 		/// broadcast on network and localhost
 		/// </summary>
-		public void BroadcastLocalMessage(byte[] message)
+		public void LocalhostAndBroadcastMessage(byte[] message)
 		{
 			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
 			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort));
@@ -284,7 +290,7 @@ namespace Bambulanci
 			this.form = form;
 		}
 
-		public UdpClient udpClient; //public for tests only
+		private UdpClient udpClient;
 		public static int listenPort = 60000; //lze ziskat i z udpClienta...
 
 		public void StartClient(IPAddress iPAddress) //startClient for host-client : maybe wont use it
@@ -467,7 +473,6 @@ namespace Bambulanci
 			while (true)
 			{
 				Data received = new Data(udpClient.Receive(ref hostEPGlobal));
-				//Console.WriteLine($"client-host received: {received} from {hostEPGlobal}"); //for loopback messages testing
 				switch (received.Cmd)
 				{
 					case Command.HostTick:
