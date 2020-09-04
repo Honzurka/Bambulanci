@@ -24,7 +24,7 @@ namespace Bambulanci
 	{
 		public Command Cmd { get; private set; }
 		public string Msg { get; private set; }
-
+		public byte b;
 		public ValueTuple<int, byte, float, float> movementInfo;
 		public Data(byte[] data)
 		{
@@ -37,6 +37,10 @@ namespace Bambulanci
 				float x = BitConverter.ToSingle(data, 6);
 				float y = BitConverter.ToSingle(data, 10);
 				movementInfo = (id, direction, x, y);
+			}
+			else if (Cmd == Command.ClientMove)
+			{
+				b = data[1];
 			}
 			else
 			{
@@ -54,7 +58,7 @@ namespace Bambulanci
 			}
 		}
 
-		public static byte[] ToBytes(Command cmd, string msg = null, (int id, byte direction, float x, float y) values = default)
+		public static byte[] ToBytes(Command cmd, string msg = null, byte b = 0, (int id, byte direction, float x, float y) values = default)
 		{
 			List<byte> result = new List<byte>() { (byte)cmd };
 			if (cmd == Command.HostPlayerMovement)
@@ -63,6 +67,11 @@ namespace Bambulanci
 				result.Add(values.direction);
 				result.AddRange(BitConverter.GetBytes(values.x));
 				result.AddRange(BitConverter.GetBytes(values.y));
+			}
+
+			if (cmd == Command.ClientMove)
+			{
+				result.Add(b);
 			}
 
 			if (msg != null)
@@ -222,7 +231,7 @@ namespace Bambulanci
 				switch (data.Cmd)
 				{
 					case Command.ClientMove: //moves player who sends me command
-						PlayerMovement playerMovement = (PlayerMovement) byte.Parse(data.Msg);
+						PlayerMovement playerMovement = (PlayerMovement)data.b;
 						foreach (var client in clientList)
 						{
 							if (client.IpEndPoint.Equals(clientEP)) //find client who send me move command
@@ -430,7 +439,7 @@ namespace Bambulanci
 					case Command.HostTick:
 						bwInGameListener.ReportProgress(0); //0 not needed
 						break;
-					case Command.HostPlayerMovement: //string isnt as effective...------------- => improve Data class-----------
+					case Command.HostPlayerMovement:
 						(int playerId, byte direction, float x, float y) = received.movementInfo;
 
 						Bitmap playerDesign = form.graphicsDrawer.GetPlayerDesign(playerId, direction);
@@ -446,7 +455,7 @@ namespace Bambulanci
 			form.Invalidate(); //redraws form
 
 			//sends info about movement
-			byte[] clientMove = Data.ToBytes(Command.ClientMove, ((byte)form.playerMovement).ToString()); //shouldn't be string----------leads to data class improvement
+			byte[] clientMove = Data.ToBytes(Command.ClientMove, b: (byte)form.playerMovement);
 			udpClient.Send(clientMove, clientMove.Length, hostEP);
 		}
 		private void IGL_Completed(object sender, RunWorkerCompletedEventArgs e)//not used yet -due to infinite ingame loop

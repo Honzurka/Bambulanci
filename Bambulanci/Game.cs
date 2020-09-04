@@ -54,7 +54,7 @@ namespace Bambulanci
 		public float Y { get; private set; }
 
 		private const float speed = 0.01f;
-		public PlayerMovement direction = PlayerMovement.Right; //should be left
+		public PlayerMovement direction = PlayerMovement.Left;
 
 		public Player(float x, float y)
 		{
