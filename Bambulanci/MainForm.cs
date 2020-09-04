@@ -174,9 +174,10 @@ namespace Bambulanci
 			{
 				byte[] hostTick = Data.ToBytes(Command.HostTick);
 				host.LocalhostAndBroadcastMessage(hostTick);
-				foreach (var client1 in host.clientList)
+				foreach (var client1 in host.clientList) //nechci prekryvat client
 				{
-					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"{client1.Id}|{(byte)client1.player.direction}|{client1.player.X}|{client1.player.Y}");
+					Player player = client1.player;
+					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, values: (client1.Id, (byte)player.direction, player.X, player.Y));
 					host.LocalhostAndBroadcastMessage(hostPlayerMovement);
 				}
 			}

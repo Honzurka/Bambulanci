@@ -43,7 +43,7 @@ namespace Bambulanci
 	public enum PlayerMovement { Left, Up, Right, Down, Stay }
 	public class Player //host only for now...----------------------
 	{
-		//int id;
+		//int id; //duplicity - also in ClientInfo
 		//bool isAlive;
 
 		public const float widthScaling = 32;
@@ -54,7 +54,7 @@ namespace Bambulanci
 		public float Y { get; private set; }
 
 		private const float speed = 0.01f;
-		public PlayerMovement direction = PlayerMovement.Left; //implicit value to avoid bugs
+		public PlayerMovement direction = PlayerMovement.Right; //should be left
 
 		public Player(float x, float y)
 		{

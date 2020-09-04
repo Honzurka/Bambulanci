@@ -25,32 +25,45 @@ namespace Bambulanci
 		public Command Cmd { get; private set; }
 		public string Msg { get; private set; }
 
+		public ValueTuple<int, byte, float, float> movementInfo;
 		public Data(byte[] data)
 		{
 			//1B command
 			Cmd = (Command)data[0];
-
-			if (data.Length > 1)
+			if (Cmd == Command.HostPlayerMovement)
 			{
-				//4B msg length
-				int msgLen = BitConverter.ToInt32(data, 1);
-
-				//rest is message
-				if (msgLen > 0)
+				int id = BitConverter.ToInt32(data, 1); //idea: shots could have negative id so i can reuse code
+				byte direction = data[5];
+				float x = BitConverter.ToSingle(data, 6);
+				float y = BitConverter.ToSingle(data, 10);
+				movementInfo = (id, direction, x, y);
+			}
+			else
+			{
+				if (data.Length > 1)
 				{
-					Msg = Encoding.ASCII.GetString(data, 5, msgLen);
+					//4B msg length
+					int msgLen = BitConverter.ToInt32(data, 1);
+
+					//rest is message
+					if (msgLen > 0)
+					{
+						Msg = Encoding.ASCII.GetString(data, 5, msgLen);
+					}
 				}
 			}
 		}
 
-		public static byte[] ToBytes(Command cmd)
+		public static byte[] ToBytes(Command cmd, string msg = null, (int id, byte direction, float x, float y) values = default)
 		{
-			return ToBytes(cmd, null);
-		}
-
-		public static byte[] ToBytes(Command cmd, string msg)
-		{
-			List<byte> result = new List<byte>() { (byte)cmd};
+			List<byte> result = new List<byte>() { (byte)cmd };
+			if (cmd == Command.HostPlayerMovement)
+			{
+				result.AddRange(BitConverter.GetBytes(values.id));
+				result.Add(values.direction);
+				result.AddRange(BitConverter.GetBytes(values.x));
+				result.AddRange(BitConverter.GetBytes(values.y));
+			}
 
 			if (msg != null)
 			{
@@ -418,11 +431,7 @@ namespace Bambulanci
 						bwInGameListener.ReportProgress(0); //0 not needed
 						break;
 					case Command.HostPlayerMovement: //string isnt as effective...------------- => improve Data class-----------
-						string[] tokens = received.Msg.Split('|');
-						int playerId = int.Parse(tokens[0]);
-						byte direction = byte.Parse(tokens[1]);
-						float x = float.Parse(tokens[2]);
-						float y = float.Parse(tokens[3]);
+						(int playerId, byte direction, float x, float y) = received.movementInfo;
 
 						Bitmap playerDesign = form.graphicsDrawer.GetPlayerDesign(playerId, direction);
 						toBeDrawn.Enqueue(new ImageWithLocation(playerDesign, x, y));
