@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Runtime.CompilerServices;
 
 namespace Bambulanci
 {
@@ -111,7 +112,7 @@ namespace Bambulanci
 		}
 	}
 
-	class Map
+	public class Map
 	{
 		public readonly int cols;
 		public readonly int rows;
@@ -119,6 +120,10 @@ namespace Bambulanci
 
 		private Bitmap[] tiles;
 		private int[,] grid;
+		private int[] wallTiles;
+
+		private int formWidth;
+		private int formHeight;
 
 		private Map(int cols, int rows, Size tileSizeScaled)
 		{
@@ -139,7 +144,9 @@ namespace Bambulanci
 			int tileCount = 24;
 			Size tileSize = new Size(48, 48);
 
-			
+			result.formWidth = formWidth;
+			result.formHeight = formHeight;
+
 			//tileCache
 			result.tiles = new Bitmap[tileCount];
 			for (int i = 0; i < tileCount; i ++)
@@ -170,6 +177,7 @@ namespace Bambulanci
 				{ 9,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,8 },
 			};
 
+			result.wallTiles = new int[] { 6, 7, 8, 9, 18, 19, 20, 21 };
 			return result;
 		}
 
@@ -178,6 +186,26 @@ namespace Bambulanci
 			int tileNum = grid[row, column];
 			return tiles[tileNum];
 		}
+
+
+		Random rng = new Random();
+		/// <summary>
+		/// Return spawn coords on tile that is not a wall.
+		/// </summary>
+		/// <returns> Coords scaled between 0 and 1. </returns>
+		public (float,float) GetSpawnCoords()
+		{
+			int col = rng.Next(cols);
+			int row = rng.Next(rows);
+
+			while (Array.IndexOf(wallTiles, grid[row,col]) != -1)
+			{
+				col = rng.Next(cols);
+				row = rng.Next(rows);
+
+			}
+			return ((float)col * tileSizeScaled.Width / formWidth, (float)row * tileSizeScaled.Height / formHeight);
+		}
 	}
 
 	public class GraphicsDrawer
@@ -185,11 +213,11 @@ namespace Bambulanci
 		private readonly int formWidth;
 		private readonly int formHeight;
 		private readonly Map map;
-		public GraphicsDrawer(int formWidth, int formHeight)
+		public GraphicsDrawer(int formWidth, int formHeight, Map map)
 		{
 			this.formWidth = formWidth;
 			this.formHeight = formHeight;
-			map = Map.GetStandardMap(formWidth, formHeight); //might be delegate in case of multiple maps
+			this.map = map;
 			playerDesigns = CreatePlayerDesign();
 		}
 
@@ -269,6 +297,17 @@ namespace Bambulanci
 			int mod = allowedColors.Length * colorsPerPlayer;
 			Bitmap playerBitmap = playerDesigns[i % mod];
 			g.DrawImage(playerBitmap, player.X * formWidth, player.Y * formHeight);
+		}
+	}
+
+	class Game
+	{
+		public readonly GraphicsDrawer graphicsDrawer;
+		public readonly Map map;
+		public Game(int formWidth, int formHeight)
+		{
+			map = Map.GetStandardMap(formWidth, formHeight); //might be delegate in case of multiple maps
+			graphicsDrawer = new GraphicsDrawer(formWidth, formHeight, map);
 		}
 	}
 }

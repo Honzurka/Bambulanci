@@ -89,7 +89,7 @@ namespace Bambulanci
 					DisableAllControls();
 					//this.WindowState = FormWindowState.Maximized; //fullscreen
 					int borderHeight = this.Height - this.ClientRectangle.Height;
-					graphicsDrawer = new GraphicsDrawer(this.Width, this.Height - borderHeight);
+					game = new Game(this.Width, this.Height - borderHeight);
 					break;
 				default:
 					break;
@@ -144,7 +144,7 @@ namespace Bambulanci
 			//close client/host socket
 		}
 
-		public GraphicsDrawer graphicsDrawer;
+		private Game game;
 		private void BStartGame_Click(object sender, EventArgs e) //host only
 		{
 			//create host's client
@@ -159,10 +159,10 @@ namespace Bambulanci
 			host.StartGameListening();
 			ChangeGameState(GameState.InGame);
 			
-			Random rng = new Random();
 			foreach (var client in host.clientList)
 			{
-				client.player = new Player((float)rng.NextDouble(), (float)rng.NextDouble()); //spawn on tiles instead of pixels?
+				(float x, float y) = game.map.GetSpawnCoords();
+				client.player = new Player(x, y);
 			}
 
 			TimerInGame.Enabled = true;
@@ -188,10 +188,10 @@ namespace Bambulanci
 			Graphics g = e.Graphics;
 			if (currentGameState == GameState.InGame)
 			{
-				graphicsDrawer.DrawBackground(g);
+				game.graphicsDrawer.DrawBackground(g);
 				foreach (var player in client.Players)
 				{
-					graphicsDrawer.DrawPlayer(g, player);
+					game.graphicsDrawer.DrawPlayer(g, player);
 				}
 			}
 		}
