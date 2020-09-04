@@ -177,7 +177,7 @@ namespace Bambulanci
 				foreach (var client1 in host.clientList) //nechci prekryvat client
 				{
 					Player player = client1.player;
-					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, values: (client1.Id, (byte)player.direction, player.X, player.Y));
+					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, values: (client1.Id, (byte)player.Direction, player.X, player.Y));
 					host.LocalhostAndBroadcastMessage(hostPlayerMovement);
 				}
 			}
@@ -189,16 +189,9 @@ namespace Bambulanci
 			if (currentGameState == GameState.InGame)
 			{
 				graphicsDrawer.DrawBackground(g);
-
-				while (client.toBeDrawn != null && client.toBeDrawn.Count > 0) //was throwing null ref errors--quick fix
+				foreach (var player in client.Players)
 				{
-					bool b = client.toBeDrawn.TryDequeue(out Client.ImageWithLocation imageWithLocation);
-					while (!b) //spravna implementace??--------------------------------------------------
-					{
-						b = client.toBeDrawn.TryDequeue(out imageWithLocation);
-						//Console.WriteLine("unable to dequeue image");
-					}
-					imageWithLocation.Draw(g,this.Width,this.Height);
+					graphicsDrawer.DrawPlayer(g, player);
 				}
 			}
 		}

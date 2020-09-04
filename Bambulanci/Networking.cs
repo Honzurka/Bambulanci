@@ -236,7 +236,7 @@ namespace Bambulanci
 						{
 							if (client.IpEndPoint.Equals(clientEP)) //find client who send me move command
 							{
-								client.player.Move(playerMovement);
+								client.player.MoveByHost(playerMovement);
 							}
 						}
 						break;
@@ -261,6 +261,7 @@ namespace Bambulanci
 		private readonly FormBambulanci form;
 
 		public bool InGame;
+		public List<Player> Players { get; private set; } = new List<Player>();
 		public IPEndPoint hostEP;
 		//public bool InGame { get; private set; }
 		//private IPEndPoint hostEPGlobal;
@@ -411,26 +412,8 @@ namespace Bambulanci
 		}
 
 		BackgroundWorker bwInGameListener;
-		public struct ImageWithLocation
-		{
-			private readonly Bitmap image;
-			private readonly float x;
-			private readonly float y;
-			public ImageWithLocation(Bitmap image, float x, float y)
-			{
-				this.image = image;
-				this.x = x;
-				this.y = y;
-			}
-			public void Draw(Graphics g, int formWidth, int formHeight)
-			{
-				g.DrawImage(image, x * formWidth, y * formHeight);
-			}
-		}
-		public ConcurrentQueue<ImageWithLocation> toBeDrawn;
 		private void IGL_DoWork(object sender, DoWorkEventArgs e)
 		{
-			toBeDrawn = new ConcurrentQueue<ImageWithLocation>();
 			while (true)
 			{
 				Data received = new Data(udpClient.Receive(ref hostEP));
@@ -442,8 +425,15 @@ namespace Bambulanci
 					case Command.HostPlayerMovement:
 						(int playerId, byte direction, float x, float y) = received.movementInfo;
 
-						Bitmap playerDesign = form.graphicsDrawer.GetPlayerDesign(playerId, direction);
-						toBeDrawn.Enqueue(new ImageWithLocation(playerDesign, x, y));
+						int index = Players.FindIndex(p => p.id == playerId);
+						if (index == -1)
+						{
+							Players.Add(new Player(x, y, playerId, (PlayerMovement)direction));
+						}
+						else
+						{
+							Players[index].MoveByClient((PlayerMovement)direction, x, y);
+						}
 						break;
 					default:
 						break;

@@ -41,9 +41,9 @@ namespace Bambulanci
 	}
 	
 	public enum PlayerMovement { Left, Up, Right, Down, Stay }
-	public class Player //host only for now...----------------------
+	public class Player
 	{
-		//int id; //duplicity - also in ClientInfo
+		public readonly int id; //duplicity - also in ClientInfo
 		//bool isAlive;
 
 		public const float widthScaling = 32;
@@ -54,12 +54,14 @@ namespace Bambulanci
 		public float Y { get; private set; }
 
 		private const float speed = 0.01f;
-		public PlayerMovement direction = PlayerMovement.Left;
+		public PlayerMovement Direction { get; private set; }
 
-		public Player(float x, float y)
+		public Player(float x, float y, int id = -1, PlayerMovement direction = PlayerMovement.Left)
 		{
 			this.X = x;
 			this.Y = y;
+			this.id = id;
+			this.Direction = direction;
 		}
 
 		/*
@@ -69,10 +71,10 @@ namespace Bambulanci
 
 		}*/
 
-		public void Move(PlayerMovement playerMovement)//colision detection in the future
+		public void MoveByHost(PlayerMovement playerMovement)//host only //colision detection in the future
 		{
 			if (playerMovement != PlayerMovement.Stay)
-				direction = playerMovement;
+				Direction = playerMovement;
 
 			float newX = 0;
 			float newY = 0;
@@ -100,6 +102,12 @@ namespace Bambulanci
 				X += newX;
 				Y += newY;
 			}
+		}
+		public void MoveByClient(PlayerMovement direction, float x, float y)
+		{
+			this.Direction = direction;
+			this.X = x;
+			this.Y = y;
 		}
 	}
 
@@ -253,6 +261,14 @@ namespace Bambulanci
 			int i = designID * colorsPerPlayer + direction;
 			int mod = allowedColors.Length * colorsPerPlayer;
 			return playerDesigns[i % mod];
+		}
+
+		public void DrawPlayer(Graphics g, Player player)
+		{
+			int i = player.id * colorsPerPlayer + (byte)player.Direction;
+			int mod = allowedColors.Length * colorsPerPlayer;
+			Bitmap playerBitmap = playerDesigns[i % mod];
+			g.DrawImage(playerBitmap, player.X * formWidth, player.Y * formHeight);
 		}
 	}
 }
