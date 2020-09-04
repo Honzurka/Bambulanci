@@ -1,6 +1,6 @@
 ﻿namespace Bambulanci
 {
-	partial class formBambulanci
+	partial class FormBambulanci
 	{
 		/// <summary>
 		///  Required designer variable.
@@ -60,7 +60,7 @@
 			this.bCreateGame.Text = "Vytvořit hru";
 			this.bCreateGame.UseVisualStyleBackColor = true;
 			this.bCreateGame.Visible = false;
-			this.bCreateGame.Click += new System.EventHandler(this.bCreateGame_Click);
+			this.bCreateGame.Click += new System.EventHandler(this.BCreateGame_Click);
 			// 
 			// bConnect
 			// 
@@ -73,7 +73,7 @@
 			this.bConnect.Text = "Připojit se";
 			this.bConnect.UseVisualStyleBackColor = true;
 			this.bConnect.Visible = false;
-			this.bConnect.Click += new System.EventHandler(this.bConnect_Click);
+			this.bConnect.Click += new System.EventHandler(this.BConnect_Click);
 			// 
 			// lBNumOfPlayers
 			// 
@@ -101,7 +101,7 @@
 			this.bCreateGame2.Text = "Vytvorit";
 			this.bCreateGame2.UseVisualStyleBackColor = true;
 			this.bCreateGame2.Visible = false;
-			this.bCreateGame2.Click += new System.EventHandler(this.bCreateGame2_Click);
+			this.bCreateGame2.Click += new System.EventHandler(this.BCreateGame2_Click);
 			// 
 			// lWaiting
 			// 
@@ -160,7 +160,7 @@
 			this.bLogin.Text = "Připojit";
 			this.bLogin.UseVisualStyleBackColor = true;
 			this.bLogin.Visible = false;
-			this.bLogin.Click += new System.EventHandler(this.bLogin_Click);
+			this.bLogin.Click += new System.EventHandler(this.BLogin_Click);
 			// 
 			// nHostPort
 			// 
@@ -196,7 +196,7 @@
 			this.bRefreshServers.Text = "Vyhledat servery";
 			this.bRefreshServers.UseVisualStyleBackColor = true;
 			this.bRefreshServers.Visible = false;
-			this.bRefreshServers.Click += new System.EventHandler(this.bRefreshServers_Click);
+			this.bRefreshServers.Click += new System.EventHandler(this.BRefreshServers_Click);
 			// 
 			// bExit
 			// 
@@ -208,7 +208,7 @@
 			this.bExit.Text = "Ukončit hru";
 			this.bExit.UseVisualStyleBackColor = true;
 			this.bExit.Visible = false;
-			this.bExit.Click += new System.EventHandler(this.bExit_Click);
+			this.bExit.Click += new System.EventHandler(this.BExit_Click);
 			// 
 			// bCancelHost
 			// 
@@ -220,7 +220,7 @@
 			this.bCancelHost.Text = "Zpět";
 			this.bCancelHost.UseVisualStyleBackColor = true;
 			this.bCancelHost.Visible = false;
-			this.bCancelHost.Click += new System.EventHandler(this.bCancelHost_Click);
+			this.bCancelHost.Click += new System.EventHandler(this.BCancelHost_Click);
 			// 
 			// bIntro
 			// 
@@ -232,7 +232,7 @@
 			this.bIntro.Text = "Zpět";
 			this.bIntro.UseVisualStyleBackColor = true;
 			this.bIntro.Visible = false;
-			this.bIntro.Click += new System.EventHandler(this.bIntro_Click);
+			this.bIntro.Click += new System.EventHandler(this.BIntro_Click);
 			// 
 			// lWaitingRoom
 			// 
@@ -256,14 +256,14 @@
 			this.bStartGame.Text = "Spustit Hru";
 			this.bStartGame.UseVisualStyleBackColor = true;
 			this.bStartGame.Visible = false;
-			this.bStartGame.Click += new System.EventHandler(this.bStartGame_Click);
+			this.bStartGame.Click += new System.EventHandler(this.BStartGame_Click);
 			// 
 			// TimerInGame
 			// 
 			this.TimerInGame.Interval = 30;
 			this.TimerInGame.Tick += new System.EventHandler(this.TimerInGame_Tick);
 			// 
-			// formBambulanci
+			// FormBambulanci
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -285,11 +285,11 @@
 			this.Controls.Add(this.bCreateGame);
 			this.DoubleBuffered = true;
 			this.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-			this.Name = "formBambulanci";
+			this.Name = "FormBambulanci";
 			this.Text = "Bambulanci";
-			this.Paint += new System.Windows.Forms.PaintEventHandler(this.formBambulanci_Paint);
-			this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.formBambulanci_KeyDown);
-			this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.formBambulanci_KeyUp);
+			this.Paint += new System.Windows.Forms.PaintEventHandler(this.FormBambulanci_Paint);
+			this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.FormBambulanci_KeyDown);
+			this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.FormBambulanci_KeyUp);
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).EndInit();
 			((System.ComponentModel.ISupportInitialize)(this.nHostPort)).EndInit();
 			this.ResumeLayout(false);
@@ -304,7 +304,6 @@
 		private System.Windows.Forms.ListBox lBNumOfPlayers;
 		private System.Windows.Forms.Button bCreateGame2;
 		private System.Windows.Forms.NumericUpDown nListenPort;
-		private System.Windows.Forms.Button bLogin;
 		private System.Windows.Forms.NumericUpDown nHostPort;
 		private System.Windows.Forms.Button bRefreshServers;
 		private System.Windows.Forms.Button bExit;
@@ -315,6 +314,7 @@
 		public System.Windows.Forms.ListBox lBServers;
 		private System.Windows.Forms.Button bStartGame;
 		private System.Windows.Forms.Timer TimerInGame;
+		public System.Windows.Forms.Button bLogin;
 	}
 }
 

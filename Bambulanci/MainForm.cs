@@ -1,25 +1,19 @@
 ﻿using System;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.Drawing;
 using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks.Dataflow;
 using System.Windows.Forms;
 
 namespace Bambulanci
 {
 	public enum GameState { Intro, HostSelect, HostWaiting, ClientWaiting, HostWaitingRoom, ClientWaitingRoom, ClientSearch, InGame }
 
-	public partial class formBambulanci : Form
+	public partial class FormBambulanci : Form
 	{
 		private GameState currentGameState;
-		private Client client;
-		private Host host;
+		private readonly Client client;
+		private readonly Host host;
 
-		public formBambulanci()
+		public FormBambulanci()
 		{
 			InitializeComponent();
 			client = new Client(this);
@@ -77,7 +71,7 @@ namespace Bambulanci
 				case GameState.ClientSearch:
 					DisableAllControls();
 					EnableControl(lBServers);
-					EnableControl(bLogin);
+					bLogin.Visible = true;
 					EnableControl(nHostPort);
 					EnableControl(bRefreshServers);
 					EnableControl(bIntro);
@@ -89,7 +83,7 @@ namespace Bambulanci
 				case GameState.ClientWaitingRoom:
 					DisableAllControls();
 					EnableControl(lWaitingRoom);
-					bStartGame.Visible = true; //not necessary
+					bStartGame.Visible = true;
 					break;
 				case GameState.InGame:
 					DisableAllControls();
@@ -103,69 +97,68 @@ namespace Bambulanci
 			currentGameState = newState;
 		}
 
-		private void bCreateGame_Click(object sender, EventArgs e)
+		private void BCreateGame_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.HostSelect);
 			lBNumOfPlayers.SelectedIndex = 0; //default select
 		}
 
-		private void bCreateGame2_Click(object sender, EventArgs e)
+		private void BCreateGame2_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.HostWaiting);
 			int numOfPlayers = lBNumOfPlayers.SelectedIndex + 1;
-			host.BWStartHost(numOfPlayers, (int)nListenPort.Value);
+			host.BWStartHostStarter(numOfPlayers, (int)nListenPort.Value);
 		}
 
-		private void bConnect_Click(object sender, EventArgs e)
+		private void BConnect_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.ClientSearch);
 			client.StartClient(IPAddress.Any);
 		}
 
-		private void bRefreshServers_Click(object sender, EventArgs e)
+		private void BRefreshServers_Click(object sender, EventArgs e)
 		{
 			lBServers.Items.Clear();
 			client.BWServerRefresherStart((int)nHostPort.Value);
 		}
 
-		private void bLogin_Click(object sender, EventArgs e) //throws errors if no server is chosen -- disable button before refreshing...
+		private void BLogin_Click(object sender, EventArgs e)
 		{
 			client.LoginToSelectedServer();
 		}
 
-		private void bExit_Click(object sender, EventArgs e)
+		private void BExit_Click(object sender, EventArgs e)
 		{
 			this.Close();
 		}
 
-		private void bCancelHost_Click(object sender, EventArgs e)
+		private void BCancelHost_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.HostSelect);
-			host.BWCancelHost();
+			host.BWCancelHostStarter();
 		}
 
-		private void bIntro_Click(object sender, EventArgs e) //zatim spise nepouzivat, potrebuju zvlast pro clienta i hosta
+		private void BIntro_Click(object sender, EventArgs e) //zatim spise nepouzivat, potrebuju zvlast pro clienta i hosta
 		{
 			ChangeGameState(GameState.Intro);
 			//close client/host socket
 		}
 
-		public GraphicsDrawer graphicsDrawer; //public for client to generate designs of players
-		private void bStartGame_Click(object sender, EventArgs e) //host only
+		public GraphicsDrawer graphicsDrawer;
+		private void BStartGame_Click(object sender, EventArgs e) //host only
 		{
 			//create host's client
 			client.StartClient(IPAddress.Loopback);
-			client.hostEPGlobal = new IPEndPoint(IPAddress.Loopback, host.listenPort);
+			client.hostEP = new IPEndPoint(IPAddress.Loopback, host.ListenPort);
 			client.InGame = true;
-			client.BW_WaitingCompleted(null, null); //will it work??----
-			host.clientList.Add(new ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
+			client.BW_WaitingCompleted(null, null);
+			host.clientList.Add(new Host.ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
 			
 			byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
 			host.LocalhostAndBroadcastMessage(hostStartGame); //localHost not needed
 			host.StartGameListening();
 			ChangeGameState(GameState.InGame);
 			
-			//set each client's player -- prob will be different in the future...
 			Random rng = new Random();
 			foreach (var client in host.clientList)
 			{
@@ -181,32 +174,24 @@ namespace Bambulanci
 			{
 				byte[] hostTick = Data.ToBytes(Command.HostTick);
 				host.LocalhostAndBroadcastMessage(hostTick);
-				//host.BroadcastMessage(hostTick);
-				//working if written here, not working if under BroadcastMessage -_-
-				
-				//host.udpHost.Send(hostTick, hostTick.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort)); //...
 				foreach (var client1 in host.clientList)
 				{
-					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"{client1.Id}|{(byte)client1.player.direction}|{client1.player.x}|{client1.player.y}");
+					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, $"{client1.Id}|{(byte)client1.player.direction}|{client1.player.X}|{client1.player.Y}");
 					host.LocalhostAndBroadcastMessage(hostPlayerMovement);
-					//host.BroadcastMessage(hostPlayerMovement);
-					//host.udpHost.Send(hostPlayerMovement, hostPlayerMovement.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort));//...
 				}
 			}
 		}
 
-		private void formBambulanci_Paint(object sender, PaintEventArgs e)
+		private void FormBambulanci_Paint(object sender, PaintEventArgs e)
 		{
 			Graphics g = e.Graphics;
-			//all graphics events have to be called from here
 			if (currentGameState == GameState.InGame)
 			{
 				graphicsDrawer.DrawBackground(g);
 
 				while (client.toBeDrawn != null && client.toBeDrawn.Count > 0) //was throwing null ref errors--quick fix
 				{
-					Client.ImageWithLocation imageWithLocation;
-					bool b = client.toBeDrawn.TryDequeue(out imageWithLocation);
+					bool b = client.toBeDrawn.TryDequeue(out Client.ImageWithLocation imageWithLocation);
 					while (!b) //spravna implementace??--------------------------------------------------
 					{
 						b = client.toBeDrawn.TryDequeue(out imageWithLocation);
@@ -218,7 +203,7 @@ namespace Bambulanci
 		}
 
 		public PlayerMovement playerMovement = PlayerMovement.Stay;
-		private void formBambulanci_KeyDown(object sender, KeyEventArgs e)
+		private void FormBambulanci_KeyDown(object sender, KeyEventArgs e)
 		{
 			switch (e.KeyCode)
 			{
@@ -241,7 +226,7 @@ namespace Bambulanci
 			}
 		}
 
-		private void formBambulanci_KeyUp(object sender, KeyEventArgs e)
+		private void FormBambulanci_KeyUp(object sender, KeyEventArgs e)
 		{
 			if (e.KeyCode == Keys.Left || e.KeyCode == Keys.Right || e.KeyCode == Keys.Up || e.KeyCode == Keys.Down)
 			{

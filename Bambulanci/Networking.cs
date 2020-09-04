@@ -4,42 +4,23 @@ using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Linq; //added
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Drawing;
 using System.Collections.Concurrent;
-using System.DirectoryServices.ActiveDirectory;
 using System.Net.NetworkInformation;
 
 namespace Bambulanci
 {
-	enum Command { ClientLogin, ClientLogout, ClientFindServers, 
+	enum Command { ClientLogin, ClientLogout, ClientFindServers, ClientStopRefreshing,
 		HostFoundServer, HostMoveToWaitingRoom, HostCanceled, HostStopHosting,
-		ClientStopRefreshing, HostLoginAccepted, HostLoginDeclined, HostStartGame,
+		HostLoginAccepted, HostLoginDeclined, HostStartGame,
 		
 		HostTick, ClientMove, HostPlayerMovement
-	}
-	public class ClientInfo //struct??
-	{
-		public int Id { get; }
-		//private string name; //bez newline?
-		//private Color color; //?
-		public IPEndPoint IpEndPoint { get; }
-		public Player player; //inGame descriptor
-		public ClientInfo(int id, IPEndPoint ipEndPoint)
-		{
-			this.Id = id;
-			this.IpEndPoint = ipEndPoint;
-		}
-
 	}
 	
 	/// <summary>
 	/// Data parser for network communication.
 	/// </summary>
-	class Data
+	class Data //should be more sofisticated---------------------------
 	{
 		public Command Cmd { get; private set; }
 		public string Msg { get; private set; }
@@ -69,9 +50,8 @@ namespace Bambulanci
 
 		public static byte[] ToBytes(Command cmd, string msg)
 		{
-			List<byte> result = new List<byte>();
+			List<byte> result = new List<byte>() { (byte)cmd};
 
-			result.Add((byte)cmd);
 			if (msg != null)
 			{
 				result.AddRange(BitConverter.GetBytes(msg.Length));
@@ -83,45 +63,44 @@ namespace Bambulanci
 	}
 	class Host
 	{
-		private formBambulanci form;
-		public Host(formBambulanci form)
-		{
-			this.form = form;
-		}
+		private readonly FormBambulanci form;
+		public Host(FormBambulanci form) => this.form = form;
 
 		private BackgroundWorker bwHostStarter;
 		public List<ClientInfo> clientList;
-		public UdpClient udpHost; //public for test purposes
+		public class ClientInfo
+		{
+			public int Id { get; }
+			public IPEndPoint IpEndPoint { get; }
+			public Player player; //inGame descriptor
+			public ClientInfo(int id, IPEndPoint ipEndPoint)
+			{
+				this.Id = id;
+				this.IpEndPoint = ipEndPoint;
+			}
 
-		public int listenPort; //for host's self id==0 client
+		}
+		private UdpClient udpHost;
 
-		//https://docs.microsoft.com/en-us/dotnet/api/system.componentmodel.backgroundworker?view=netcore-3.1
-		//https://docs.microsoft.com/en-us/dotnet/framework/winforms/controls/how-to-make-thread-safe-calls-to-windows-forms-controls
-		//https://docs.microsoft.com/en-us/dotnet/framework/winforms/controls/multithreading-in-windows-forms-controls
+		public int ListenPort { get; private set; }
 
 		/// <summary>
-		/// Async - Starts BackgroundWorker which waits for numOfPlayers to connect to host.
+		/// Async - Starts BackgroundWorker who waits for numOfPlayers to connect to host.
 		/// </summary>
-		public void BWStartHost(int numOfPlayers, int listenPort)
+		public void BWStartHostStarter(int numOfPlayers, int listenPort)
 		{
-			this.listenPort = listenPort; //used for host's id==0
-
+			ListenPort = listenPort;
 			ParallelBW.ActivateWorker(ref bwHostStarter, true, BW_DoWork, BW_ProgressChanged, BW_RunWorkerCompleted, new ValueTuple<int, int>(numOfPlayers, listenPort));
-			//bwHostStarter.WorkerSupportsCancellation = true; //mozna neni potreba
 		}
 		
-		/// <summary>
-		/// Cancels backgroundWorker.
-		/// </summary>
-		public void BWCancelHost()
+		public void BWCancelHostStarter()
 		{
-			//bwHostStarter.CancelAsync(); //zbytecne, nevyuzivam e.CancelationPending
 			byte[] cancel = Data.ToBytes(Command.HostStopHosting);
-			udpHost.Send(cancel, cancel.Length, (IPEndPoint)udpHost.Client.LocalEndPoint); //maybe should be localHost, not network IPv4
+			udpHost.Send(cancel, cancel.Length, new IPEndPoint(IPAddress.Loopback, ListenPort));
 		}
 
 		/// <summary>
-		/// Reports progress of backgroundWorker.
+		/// Reports progress of bwHostStarter.
 		/// </summary>
 		private void UpdateRemainingPlayers(int numOfPlayers)
 		{
@@ -133,10 +112,8 @@ namespace Bambulanci
 		{
 			(int numOfPlayers, int listenPort) = (ValueTuple<int, int>)e.Argument;
 			clientList = new List<ClientInfo>();
-
-			IPAddress hostIP = getHostIP();
-			udpHost = new UdpClient(new IPEndPoint(IPAddress.Any /*hostIP*/, listenPort)); //IPAddress.Any allows localHost send
-			//udpHost.EnableBroadcast //how is it true when default is false??----
+			udpHost = new UdpClient(new IPEndPoint(IPAddress.Any, listenPort));
+			//udpHost.EnableBroadcast is false here, but im broadcasting -- where do i enable it???
 
 			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
 			int id = 1; //0 is host
@@ -153,9 +130,8 @@ namespace Bambulanci
 						UpdateRemainingPlayers(numOfPlayers);
 						id++;
 
-						//potvrzeni pro klienta
+						//confirmation for clients
 						byte[] loginConfirmed = Data.ToBytes(Command.HostLoginAccepted);
-
 						udpHost.Send(loginConfirmed, loginConfirmed.Length, clientEP);
 						break;
 					case Command.ClientLogout: //klient zatim neposila
@@ -191,44 +167,22 @@ namespace Bambulanci
 
 		private void BW_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
-			if (e.Error != null)
-				throw new Exception(); //Error handling??----
-			else if (!e.Cancelled)//all clients are connected
+			if(e.Error == null && !e.Cancelled)
 			{
 				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom);
-				BroadcastMessage(moveClientToWaitingRoom); //bugged if used with localHost
-				
+				BroadcastMessage(moveClientToWaitingRoom); //bugged if sent to localHost also
 				form.ChangeGameState(GameState.HostWaitingRoom);
 			}
 		}
 
-		/// <summary>
-		/// Returns first IPv4 address of Host -- in case of multiple IPv4 addresses might not work correctly
-		/// </summary>
-		private IPAddress getHostIP()
-		{
-			IPAddress hostIP = null;
-			IPAddress[] addresses = Dns.GetHostAddresses(Dns.GetHostName());
-			foreach (var address in addresses)
-			{
-				if (address.AddressFamily == AddressFamily.InterNetwork)
-				{
-					hostIP = address;
-					break;
-				}
-			}
-			return hostIP;
-		}
-		
-
-		public void BroadcastMessage(byte[] message) //zalezi na poradi, z nejakeho duvodu neodesila 2. send
+		public void BroadcastMessage(byte[] message) //used only by BW_RUnWOrkerCompleted
 		{
 			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
 		}
 
 
 		/// <summary>
-		/// broadcast on network and localhost
+		/// Broadcast on network and localhost.
 		/// </summary>
 		public void LocalhostAndBroadcastMessage(byte[] message)
 		{
@@ -236,14 +190,19 @@ namespace Bambulanci
 			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort));
 		}
 
-		BackgroundWorker bwGameListener;
+		private BackgroundWorker bwGameListener;
 		public void StartGameListening()
 		{
 			ParallelBW.ActivateWorker(ref bwGameListener, true, GL_DoWork, GL_Progress, GL_Completed);
 		}
+
+		/// <summary>
+		/// Game Listener's work.
+		/// Processes packets from clients in game.
+		/// </summary>
 		private void GL_DoWork(object sender, DoWorkEventArgs e)
 		{
-			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
+			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, ListenPort);
 			while (true)
 			{
 				Data data = new Data(udpHost.Receive(ref clientEP));
@@ -256,7 +215,6 @@ namespace Bambulanci
 							if (client.IpEndPoint.Equals(clientEP)) //find client who send me move command
 							{
 								client.player.Move(playerMovement);
-								Console.WriteLine($"{playerMovement} : COORDS: {client.player.x} : {client.player.y}"); //wont receive host movement
 							}
 						}
 						break;
@@ -268,32 +226,32 @@ namespace Bambulanci
 		private void GL_Progress(object sender, ProgressChangedEventArgs e)
 		{
 
-		}
+		} //not used
 		private void GL_Completed(object sender, RunWorkerCompletedEventArgs e)
 		{
 
-		}
+		} //not used
 
 	}
 
 	class Client
 	{
-		private formBambulanci form;
+		private readonly FormBambulanci form;
 
 		public bool InGame;
-		public IPEndPoint hostEPGlobal;
+		public IPEndPoint hostEP;
 		//public bool InGame { get; private set; }
 		//private IPEndPoint hostEPGlobal;
 
-		public Client(formBambulanci form)
+		public Client(FormBambulanci form)
 		{
 			this.form = form;
 		}
 
 		private UdpClient udpClient;
-		public static int listenPort = 60000; //lze ziskat i z udpClienta...
+		public const int listenPort = 60000;
 
-		public void StartClient(IPAddress iPAddress) //startClient for host-client : maybe wont use it
+		public void StartClient(IPAddress iPAddress)
 		{
 			udpClient = new UdpClient(new IPEndPoint(iPAddress, listenPort));
 		}
@@ -302,22 +260,17 @@ namespace Bambulanci
 		/// Server refresh paralelism.
 		/// </summary>
 		private BackgroundWorker bwServerRefresher;
-		public void BWServerRefresherStart(int hostPort) //unfinished
+		public void BWServerRefresherStart(int hostPort)
 		{
-			/* idea
-			if (bwServerRefresher != null)
-				bwServerRefresher.Dispose();
-			*/
 			ParallelBW.ActivateWorker(ref bwServerRefresher, true, BW_RefreshServers, BW_ServerFound, BW_RefreshCompleted, hostPort);
 		}
 
-		private void BW_RefreshServers(object sender, DoWorkEventArgs e) //DoWork
+		private void BW_RefreshServers(object sender, DoWorkEventArgs e) //nekdy vyzkouset vice serveru - kvuli hostEP / co kdyz zrovna broadcastuje jiny server...
 		{
 			int hostPort = (int)e.Argument;
 			IPEndPoint broadcastEP = new IPEndPoint(IPAddress.Broadcast, hostPort);
 
-
-			IPEndPoint hostEP = new IPEndPoint(IPAddress.Any, listenPort);
+			var hostEPVar = new IPEndPoint(IPAddress.Any, listenPort);
 
 			byte[] findServerMessage = Data.ToBytes(Command.ClientFindServers);
 			udpClient.Send(findServerMessage, findServerMessage.Length, broadcastEP);
@@ -325,11 +278,11 @@ namespace Bambulanci
 			bool searching = true;
 			while (searching)
 			{
-				Data received = new Data(udpClient.Receive(ref hostEP));
+				Data received = new Data(udpClient.Receive(ref hostEPVar));
 				switch (received.Cmd)
 				{
 					case Command.HostFoundServer:
-						bwServerRefresher.ReportProgress(0, hostEP); //0 is ignored
+						bwServerRefresher.ReportProgress(0, hostEPVar); //0 is ignored
 						break;
 					case Command.ClientStopRefreshing:
 						searching = false;
@@ -343,14 +296,20 @@ namespace Bambulanci
 
 		private void BW_ServerFound(object sender, ProgressChangedEventArgs e) //progress
 		{
-			var hostEP = e.UserState;
-			form.lBServers.Items.Add(hostEP);
+			var newHostEP = e.UserState;
+			form.lBServers.Items.Add(newHostEP);
+			form.bLogin.Enabled = true;
+			form.lBServers.SelectedIndex = 0;
+			
 		}
-		private void BW_RefreshCompleted(object sender, RunWorkerCompletedEventArgs e) //Complete work
+		private void BW_RefreshCompleted(object sender, RunWorkerCompletedEventArgs e) //not used 
 		{
-			//empty -- while loop sem nikdy nepropadne, pokud nedokoncim implementaci "ClientStopServerRefresh"
+
 		}
 
+		/// <summary>
+		/// Logging to server stops refreshing servers in backgroud.
+		/// </summary>
 		public void LoginToSelectedServer()
 		{
 			//send poison pill on localHost == stops server refreshing backgroundWorker
@@ -358,15 +317,11 @@ namespace Bambulanci
 			IPEndPoint localhostEP = new IPEndPoint(IPAddress.Loopback, listenPort);
 			udpClient.Send(poisonPill, poisonPill.Length, localhostEP);
 
+			hostEP = (IPEndPoint)form.lBServers.SelectedItem;
+			byte[] loginMessage = Data.ToBytes(Command.ClientLogin);			
+			udpClient.Send(loginMessage, loginMessage.Length, hostEP);
 
-			IPEndPoint hostSendEP = (IPEndPoint)form.lBServers.SelectedItem;
-			hostEPGlobal = hostSendEP;
-			byte[] loginMessage = Data.ToBytes(Command.ClientLogin);
-			
-			udpClient.Send(loginMessage, loginMessage.Length, hostSendEP);
-
-			IPEndPoint hostReceiveEP = new IPEndPoint(IPAddress.Any, listenPort);
-			Data received = new Data(udpClient.Receive(ref hostReceiveEP)); //recyukluji serverEP, snad nevadi----uz nerecykluji, ale mam tu 2x hostEP??
+			Data received = new Data(udpClient.Receive(ref hostEP));
 			switch (received.Cmd)
 			{
 				case Command.HostLoginAccepted:
@@ -379,56 +334,41 @@ namespace Bambulanci
 					break;
 			}
 
-			ParallelBW.ActivateWorker(ref bwHostWaiter, true, BW_ClientWaiting, BW_WaitingProgress, BW_WaitingCompleted, hostSendEP);
+			ParallelBW.ActivateWorker(ref bwHostWaiter, true, BW_ClientWaiting, BW_WaitingProgress, BW_WaitingCompleted);
 		}
 
 		BackgroundWorker bwHostWaiter;
 
-		private void BW_ClientWaiting(object sender, DoWorkEventArgs e)
+		private void BW_ClientWaiting(object sender, DoWorkEventArgs e) //hostCanceled is not implemented yet
 		{
-			IPEndPoint hostEP = (IPEndPoint)e.Argument; //po nekolikate pouzivam hostEP pod klientem, mohl bych dat globalni prom.?
+			Data received = new Data(udpClient.Receive(ref hostEP));
 
-			Data received = new Data(udpClient.Receive(ref hostEP)); //zmenim hostEP, mozna bych si nemusel posilat jako arg
 			//waiting for everyone to connect.
-			switch (received.Cmd)
+			while (received.Cmd != Command.HostCanceled && received.Cmd != Command.HostMoveToWaitingRoom) //while, but host sends cmd only 1x.
 			{
-				case Command.HostCanceled: //not implemented yet
-					bwHostWaiter.ReportProgress(-1); //not used yet??
-					break;
-				case Command.HostMoveToWaitingRoom:
-					bwHostWaiter.ReportProgress(0);
-					//mozna se chci dozvedet sve ID----
-					break;
-				default:
-					break;
+				received = new Data(udpClient.Receive(ref hostEP));
 			}
+			bwHostWaiter.ReportProgress((int)received.Cmd);
 
-			received = new Data(udpClient.Receive(ref hostEP));
 			//waiting for host to start game
-			switch (received.Cmd)
-			{	case Command.HostCanceled: //not implemented yet
-					bwHostWaiter.ReportProgress(-1);
-					break;
-				case Command.HostStartGame:
-					bwHostWaiter.ReportProgress(1);
-					break;
-				default:
-					break;
+			while (received.Cmd != Command.HostCanceled && received.Cmd != Command.HostStartGame)
+			{
+				received = new Data(udpClient.Receive(ref hostEP));
 			}
+			bwHostWaiter.ReportProgress((int)received.Cmd);
 		}
 
 		private void BW_WaitingProgress(object sender, ProgressChangedEventArgs e)
 		{
-			int num = e.ProgressPercentage;
-			switch (num) //hloupe pojmenovani.....----------------
+			Command cmd = (Command)e.ProgressPercentage;
+			switch (cmd)
 			{
-				case -1: //disconnect - not implemented yet
+				case Command.HostCanceled: //disconnect - not implemented yet
 					break;
-				case 0: //moved to waiting room
+				case Command.HostMoveToWaitingRoom:
 					form.ChangeGameState(GameState.ClientWaitingRoom);
 					break;
-				case 1:
-					//start game----------------
+				case Command.HostStartGame:
 					InGame = true;
 					break;
 				default:
@@ -436,7 +376,7 @@ namespace Bambulanci
 			}
 		}
 		
-		public void BW_WaitingCompleted(object sender, RunWorkerCompletedEventArgs e) //public so its usable outside for host----
+		public void BW_WaitingCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
 			//after startGame/hostCanceled
 			if (InGame)
@@ -444,15 +384,16 @@ namespace Bambulanci
 				form.ChangeGameState(GameState.InGame);
 				ParallelBW.ActivateWorker(ref bwInGameListener, true, IGL_DoWork, IGL_RedrawProgress, IGL_Completed);
 			}
+			//else==hostCanceled not implemented
 
 		}
 
 		BackgroundWorker bwInGameListener;
 		public struct ImageWithLocation
 		{
-			private Bitmap image;
-			private float x;
-			private float y;
+			private readonly Bitmap image;
+			private readonly float x;
+			private readonly float y;
 			public ImageWithLocation(Bitmap image, float x, float y)
 			{
 				this.image = image;
@@ -464,21 +405,19 @@ namespace Bambulanci
 				g.DrawImage(image, x * formWidth, y * formHeight);
 			}
 		}
-		//list of toBeDrawn objects -----
 		public ConcurrentQueue<ImageWithLocation> toBeDrawn;
 		private void IGL_DoWork(object sender, DoWorkEventArgs e)
 		{
-			//form.Invalidate();
 			toBeDrawn = new ConcurrentQueue<ImageWithLocation>();
 			while (true)
 			{
-				Data received = new Data(udpClient.Receive(ref hostEPGlobal));
+				Data received = new Data(udpClient.Receive(ref hostEP));
 				switch (received.Cmd)
 				{
 					case Command.HostTick:
 						bwInGameListener.ReportProgress(0); //0 not needed
 						break;
-					case Command.HostPlayerMovement: //string isnt as effective...
+					case Command.HostPlayerMovement: //string isnt as effective...------------- => improve Data class-----------
 						string[] tokens = received.Msg.Split('|');
 						int playerId = int.Parse(tokens[0]);
 						byte direction = byte.Parse(tokens[1]);
@@ -498,11 +437,10 @@ namespace Bambulanci
 			form.Invalidate(); //redraws form
 
 			//sends info about movement
-			//Console.WriteLine($"Host-client: client moved:{form.playerMovement} send to: {hostEPGlobal}");
-			byte[] clientMove = Data.ToBytes(Command.ClientMove, ((byte)form.playerMovement).ToString()); //shouldn't be string
-			udpClient.Send(clientMove, clientMove.Length, hostEPGlobal);
+			byte[] clientMove = Data.ToBytes(Command.ClientMove, ((byte)form.playerMovement).ToString()); //shouldn't be string----------leads to data class improvement
+			udpClient.Send(clientMove, clientMove.Length, hostEP);
 		}
-		private void IGL_Completed(object sender, RunWorkerCompletedEventArgs e)
+		private void IGL_Completed(object sender, RunWorkerCompletedEventArgs e)//not used yet -due to infinite ingame loop
 		{
 
 		}
@@ -516,8 +454,7 @@ namespace Bambulanci
 		public static void ActivateWorker(ref BackgroundWorker worker, bool reportsProgress, DoWorkEventHandler work,
 			   ProgressChangedEventHandler progress, RunWorkerCompletedEventHandler completed, object runArg = null)
 		{
-			worker = new BackgroundWorker();
-			worker.WorkerReportsProgress = reportsProgress;
+			worker = new BackgroundWorker() { WorkerReportsProgress = reportsProgress };
 			worker.DoWork += work;
 			worker.ProgressChanged += progress;
 			worker.RunWorkerCompleted += completed;

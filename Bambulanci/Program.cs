@@ -17,7 +17,7 @@ namespace Bambulanci
 			Application.SetHighDpiMode(HighDpiMode.SystemAware);
 			Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
-			Application.Run(new formBambulanci());
+			Application.Run(new FormBambulanci());
 		}
 	}
 }
