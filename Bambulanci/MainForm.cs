@@ -19,11 +19,11 @@ namespace Bambulanci
 			InitializeComponent();
 			client = new Client(this);
 			host = new Host(this);
-			//ChangeGameState(GameState.Intro);
+			ChangeGameState(GameState.Intro);
 
 			//singlePlayer:
-			host.BWStartHostStarter(0, 45000);
-			ChangeGameState(GameState.HostWaitingRoom);
+			//host.BWStartHostStarter(0, 45000);
+			//ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)

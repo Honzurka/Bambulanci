@@ -77,7 +77,9 @@ namespace Bambulanci
 		/// Called by host only.
 		/// </summary>
 		/// <param name="playerSize"> in pixels </param>
-		public void MoveByHost(PlayerMovement playerMovement, FormBambulanci form)
+		public void MoveByHost(PlayerMovement playerMovement, GraphicsDrawer graphicsDrawer, FormBambulanci form)
+			//form just for graphics debuging
+			//graphicsDrawer for playerSize -- not absolutely necessary, window collision is bad anyways
 		{
 			if (playerMovement != PlayerMovement.Stay)
 				Direction = playerMovement;
@@ -102,18 +104,12 @@ namespace Bambulanci
 				default:
 					break;
 			}
-
-
-			/*
-			bool insideWindow = false;
-			if (newX >= 0 && newX <= 1 - 1 / widthScaling && newY >= 0 && newY <= 1 - 1 / heightScaling) //not perfect
-			{
-					insideWindow = true;
-			}*/
+			
+			//player collision might be implemented---------------------------------
 
 			form.Game.DetectWalls(ref newX, ref newY, X, Y, form);
-			
-			//if (insideWindow && !collision)
+
+			if (newX >= 0 && newX <= 1 - graphicsDrawer.PlayerWidth/form.Width && newY >= 0 && newY <= 1 - graphicsDrawer.PlayerHeight/form.TrueHeight) //not perfect
 			{
 				X = newX;
 				Y = newY;
@@ -175,18 +171,18 @@ namespace Bambulanci
 				{ 7,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,6 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
-				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
-				{ 0,0,0,0,0,6,0,7,0,8,0,9,0,0,0,0,0,0,0,19 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
-				{ 21,0,0,0,0,18,0,19,0,20,0,21,0,0,0,0,0,0,0,19 },
+				{ 21,0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
+				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,19 },
+				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
+				{ 21,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0,0,19 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
 				{ 9,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,8 },
 			};
 
-			result.wallTiles = new int[] { 6, 7, 8, 9, 18, 19, 20, 21 };
+			result.wallTiles = new int[] { 6, 7, 8, 9, 18, 19, 20, 21, 15 };
 			return result;
 		}
 
