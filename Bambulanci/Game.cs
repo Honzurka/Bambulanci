@@ -77,7 +77,7 @@ namespace Bambulanci
 		/// Called by host only.
 		/// </summary>
 		/// <param name="playerSize"> in pixels </param>
-		public void MoveByHost(PlayerMovement playerMovement, Map map, (int width, int height) playerSize, (int width, int height) formSize, Form formular)
+		public void MoveByHost(PlayerMovement playerMovement, FormBambulanci form)
 		{
 			if (playerMovement != PlayerMovement.Stay)
 				Direction = playerMovement;
@@ -102,47 +102,18 @@ namespace Bambulanci
 				default:
 					break;
 			}
-			bool insideWindow = false;
-			bool isWall = false;
 
-			//colision detection----------
+
+			/*
+			bool insideWindow = false;
 			if (newX >= 0 && newX <= 1 - 1 / widthScaling && newY >= 0 && newY <= 1 - 1 / heightScaling) //not perfect
 			{
 					insideWindow = true;
-			}
+			}*/
 
-
-			//https://jonathanwhiting.com/tutorial/collision/			
-			Graphics g = formular.CreateGraphics();
-			int tileW = map.tileSizeScaled.Width;
-			int tileH = map.tileSizeScaled.Height;
-
-			//get current tile
-			int tileCol = (int) (newX * formSize.width / tileW);
-			int tileRow = (int) (newY * formSize.height / tileH);
-			int tileColMax = (int)((newX * formSize.width + playerSize.width) / tileW);
-			int tileRowMax = (int)((newY * formSize.height + playerSize.height) / tileH);
-			for (int col = tileCol; col <= tileColMax; col++)
-				for (int row = tileRow; row <= tileRowMax; row++)
-				{
-					if (map.IsWall(col, row))
-					{
-						g.DrawRectangle(Pens.Red, col * tileW, row * tileH, tileW, tileH);
-
-						bool xOverlap = newX * formSize.width < ((col + 1) * tileW - 1) && ((newX * formSize.width + playerSize.width)) > (col * tileW);
-						bool yOverlap = newY * formSize.height < ((row + 1) * tileH - 1) && ((newY * formSize.height + playerSize.height)) > (row * tileH);
-
-						bool colision = xOverlap && yOverlap;
-						if (colision)
-						{
-							isWall = true;
-						}
-					}
-				}
+			form.Game.DetectWalls(ref newX, ref newY, X, Y, form);
 			
-
-
-			if (insideWindow && !isWall)
+			//if (insideWindow && !collision)
 			{
 				X = newX;
 				Y = newY;
@@ -194,7 +165,7 @@ namespace Bambulanci
 
 				Rectangle cloneRect = new Rectangle(x, y, tileSize.Width, tileSize.Height);
 				Bitmap tile = tileAtlas.Clone(cloneRect, tileAtlas.PixelFormat); //pixelFormat??
-				Bitmap tileScaled = Utility.ResizeImage(tile, result.tileSizeScaled.Width-1, result.tileSizeScaled.Height-1);//displays tile grid
+				Bitmap tileScaled = Utility.ResizeImage(tile, result.tileSizeScaled.Width, result.tileSizeScaled.Height);
 				
 				result.tiles[i] = tileScaled;	
 			}
@@ -246,6 +217,8 @@ namespace Bambulanci
 
 		const int colorsPerPlayer = 4;
 
+
+		//in pixels:
 		public int PlayerWidth { get; private set; } //prob. should be under player.....
 		public int PlayerHeight { get; private set; }
 
@@ -353,6 +326,66 @@ namespace Bambulanci
 			return ((float)col * map.tileSizeScaled.Width / formWidth, (float)row * map.tileSizeScaled.Height / formHeight);
 		}
 
-		//method - detect walls ------------------
+		public void DetectWalls(ref float newX, ref float newY, float X, float Y, Form formular) //form just for graphic debug
+		{
+			//https://jonathanwhiting.com/tutorial/collision/			
+			Graphics g = formular.CreateGraphics();
+			int tileW = map.tileSizeScaled.Width;
+			int tileH = map.tileSizeScaled.Height;
+
+			//get current tile
+			int tileCol = (int)(newX * formWidth / tileW);
+			int tileRow = (int)(newY * formHeight / tileH);
+
+			int tileColMax = (int)((newX * formWidth + graphicsDrawer.PlayerWidth) / tileW);
+			int tileRowMax = (int)((newY * formHeight + graphicsDrawer.PlayerHeight) / tileH);
+			for (int col = tileCol; col <= tileColMax; col++)
+				for (int row = tileRow; row <= tileRowMax; row++)
+				{
+					if (map.IsWall(col, row))
+					{
+						g.DrawRectangle(Pens.Red, col * tileW, row * tileH, tileW, tileH);
+
+						bool xOverlap = newX * formWidth < ((col + 1) * tileW - 1) && ((newX * formWidth + graphicsDrawer.PlayerWidth)) > (col * tileW);
+						bool yOverlap = newY * formHeight < ((row + 1) * tileH - 1) && ((newY * formHeight + graphicsDrawer.PlayerHeight)) > (row * tileH);
+
+						if (xOverlap && yOverlap)
+						{
+							CollisionResponse(col, row, X, Y, ref newX, ref newY);
+							return;
+						}
+					}
+				}
+		}
+
+		/// <summary>
+		/// Moves player towards collided wall.
+		/// </summary>
+		private void CollisionResponse(int col, int row, float X, float Y, ref float newX, ref float newY)
+		{
+			float horizontal = X - newX;
+			float vertical = Y - newY;
+
+			int tileX = col * map.tileSizeScaled.Width;
+			int tileY = row * map.tileSizeScaled.Height;
+
+			if(horizontal < 0) //-right
+			{
+				newX = (float)(tileX - graphicsDrawer.PlayerWidth - 1) / formWidth;
+			}
+			if(horizontal > 0) //+left
+			{
+				newX = (float)(tileX + map.tileSizeScaled.Width) / formWidth;
+			}
+			if(vertical > 0) //+up
+			{
+				newY = (float)(tileY + map.tileSizeScaled.Height) / formHeight;
+			}
+			if (vertical < 0) //-down
+			{
+				newY = (float)(tileY - graphicsDrawer.PlayerHeight - 1) / formHeight;
+			}
+
+		}
 	}
 }
