@@ -236,7 +236,9 @@ namespace Bambulanci
 						{
 							if (client.IpEndPoint.Equals(clientEP)) //find client who send me move command
 							{
-								client.player.MoveByHost(playerMovement);
+								client.player.MoveByHost(playerMovement, form.Game.map,
+									(form.Game.graphicsDrawer.PlayerWidth, form.Game.graphicsDrawer.PlayerHeight), 
+									(form.Width,form.TrueHeight), form); //really not ok--------------
 							}
 						}
 						break;

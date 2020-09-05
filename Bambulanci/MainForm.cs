@@ -12,13 +12,18 @@ namespace Bambulanci
 		private GameState currentGameState;
 		private readonly Client client;
 		private readonly Host host;
+		public int TrueHeight { get; private set; } //height without border
 
 		public FormBambulanci()
 		{
 			InitializeComponent();
 			client = new Client(this);
 			host = new Host(this);
-			ChangeGameState(GameState.Intro);
+			//ChangeGameState(GameState.Intro);
+
+			//singlePlayer:
+			host.BWStartHostStarter(0, 45000);
+			ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -89,14 +94,14 @@ namespace Bambulanci
 					DisableAllControls();
 					//this.WindowState = FormWindowState.Maximized; //fullscreen
 					int borderHeight = this.Height - this.ClientRectangle.Height;
-					game = new Game(this.Width, this.Height - borderHeight);
+					TrueHeight = this.Height - borderHeight;
+					Game = new Game(this.Width, TrueHeight);
 					break;
 				default:
 					break;
 			}
 			currentGameState = newState;
 		}
-
 		private void BCreateGame_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.HostSelect);
@@ -144,7 +149,7 @@ namespace Bambulanci
 			//close client/host socket
 		}
 
-		private Game game;
+		public Game Game { get; private set; }
 		private void BStartGame_Click(object sender, EventArgs e) //host only
 		{
 			//create host's client
@@ -161,7 +166,7 @@ namespace Bambulanci
 			
 			foreach (var client in host.clientList)
 			{
-				(float x, float y) = game.map.GetSpawnCoords();
+				(float x, float y) = Game.GetSpawnCoords();
 				client.player = new Player(x, y);
 			}
 
@@ -188,10 +193,10 @@ namespace Bambulanci
 			Graphics g = e.Graphics;
 			if (currentGameState == GameState.InGame)
 			{
-				game.graphicsDrawer.DrawBackground(g);
+				Game.graphicsDrawer.DrawBackground(g);
 				foreach (var player in client.Players)
 				{
-					game.graphicsDrawer.DrawPlayer(g, player);
+					Game.graphicsDrawer.DrawPlayer(g, player);
 				}
 			}
 		}

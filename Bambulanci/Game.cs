@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Runtime.CompilerServices;
+using System.Windows.Forms;
 
 namespace Bambulanci
 {
@@ -72,13 +73,17 @@ namespace Bambulanci
 
 		}*/
 
-		public void MoveByHost(PlayerMovement playerMovement)//host only //colision detection in the future
+		/// <summary>
+		/// Called by host only.
+		/// </summary>
+		/// <param name="playerSize"> in pixels </param>
+		public void MoveByHost(PlayerMovement playerMovement, Map map, (int width, int height) playerSize, (int width, int height) formSize, Form formular)
 		{
 			if (playerMovement != PlayerMovement.Stay)
 				Direction = playerMovement;
 
-			float newX = 0;
-			float newY = 0;
+			float newX = X;
+			float newY = Y;
 
 			switch (playerMovement)
 			{
@@ -97,11 +102,58 @@ namespace Bambulanci
 				default:
 					break;
 			}
+			bool insideWindow = false;
+			bool isWall = false;
 
-			if (X + newX >= 0 && X + newX <= 1 - 1 / widthScaling && Y + newY >= 0 && Y + newY <= 1 - 1 / heightScaling)
+			//colision detection----------
+			if (newX >= 0 && newX <= 1 - 1 / widthScaling && newY >= 0 && newY <= 1 - 1 / heightScaling) //not perfect
 			{
-				X += newX;
-				Y += newY;
+					insideWindow = true;
+			}
+
+			
+			//https://jonathanwhiting.com/tutorial/collision/
+			for (int col = 0; col < map.cols; col++)
+			{
+				for (int row = 0; row < map.rows; row++)
+				{
+					if (map.IsWall(col, row))
+					{
+						Graphics g = formular.CreateGraphics();
+
+						Size tileSize = map.tileSizeScaled;
+						float wallL = (float)col * tileSize.Width / formSize.width;
+						float wallR = (float)((col + 1) * tileSize.Width - 1) / formSize.width;
+						float wallT = (float)row * tileSize.Height / formSize.height;
+						float wallB = (float)((row + 1) * tileSize.Height - 1) / formSize.height;
+
+						g.DrawRectangle(Pens.Red, wallL * formSize.width, wallT * formSize.height, (wallR - wallL) * formSize.width, (wallB - wallT) * formSize.height);
+
+						float objL = newX;
+						float objR = newX + (float)(playerSize.width - 1) / formSize.width;
+
+						float objT = newY; //problem
+						float objB = newY + (float)(playerSize.height - 1) / formSize.height;
+
+						bool xOverlap = objL < wallR && objR > wallL;
+						bool yOverlap = objT < wallB && objB > wallT;
+
+						//bool xOverlap = newX * form.Width < ((col + 1) * tileW - 1) && ((newX * form.Width + playerSize.width)) > (col * tileW);
+						//bool yOverlap = newY * form.Height < ((row + 1) * tileH - 1) && ((newY * form.Height + playerSize.height)) > (row * tileH);
+
+						bool colision = xOverlap && yOverlap;
+						if (colision)
+						{
+							isWall = true;
+						}
+					}
+				}
+			}
+
+			if (insideWindow && !isWall)
+			{
+				X = newX;
+				Y = newY;
 			}
 		}
 		public void MoveByClient(PlayerMovement direction, float x, float y)
@@ -122,9 +174,6 @@ namespace Bambulanci
 		private int[,] grid;
 		private int[] wallTiles;
 
-		private int formWidth;
-		private int formHeight;
-
 		private Map(int cols, int rows, Size tileSizeScaled)
 		{
 			this.cols = cols;
@@ -134,8 +183,10 @@ namespace Bambulanci
 
 		public static Map GetStandardMap(int formWidth, int formHeight)
 		{
-			int cols = 20;
-			int rows = 12;
+			int cols = 3;
+			int rows = 3;
+			//int cols = 20;
+			//int rows = 12;
 			Size tileSizeScaled = new Size(formWidth / cols, formHeight / rows);
 			Map result = new Map(cols,rows, tileSizeScaled);
 
@@ -143,9 +194,6 @@ namespace Bambulanci
 			int atlasCols = 6;
 			int tileCount = 24;
 			Size tileSize = new Size(48, 48);
-
-			result.formWidth = formWidth;
-			result.formHeight = formHeight;
 
 			//tileCache
 			result.tiles = new Bitmap[tileCount];
@@ -156,26 +204,33 @@ namespace Bambulanci
 
 				Rectangle cloneRect = new Rectangle(x, y, tileSize.Width, tileSize.Height);
 				Bitmap tile = tileAtlas.Clone(cloneRect, tileAtlas.PixelFormat); //pixelFormat??
-				Bitmap tileScaled = Utility.ResizeImage(tile, result.tileSizeScaled.Width, result.tileSizeScaled.Height);
+				Bitmap tileScaled = Utility.ResizeImage(tile, result.tileSizeScaled.Width-1, result.tileSizeScaled.Height-1);//displays tile grid
 				
 				result.tiles[i] = tileScaled;	
 			}
 
 			result.grid = new int[,]
 			{
+				{0,0,0 },
+				{0,7,0 },
+				{0,0,0 }
+			};
+			/*
+			result.grid = new int[,]
+			{
 				{ 7,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,6 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
+				{ 0,0,0,0,0,6,0,7,0,8,0,9,0,0,0,0,0,0,0,19 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
-				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
-				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
-				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
-				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
+				{ 21,0,0,0,0,18,0,19,0,20,0,21,0,0,0,0,0,0,0,19 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
 				{ 9,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,8 },
-			};
+			};*/
 
 			result.wallTiles = new int[] { 6, 7, 8, 9, 18, 19, 20, 21 };
 			return result;
@@ -187,24 +242,9 @@ namespace Bambulanci
 			return tiles[tileNum];
 		}
 
-
-		Random rng = new Random();
-		/// <summary>
-		/// Return spawn coords on tile that is not a wall.
-		/// </summary>
-		/// <returns> Coords scaled between 0 and 1. </returns>
-		public (float,float) GetSpawnCoords()
+		public bool IsWall(int col, int row) //might throw index out of range error
 		{
-			int col = rng.Next(cols);
-			int row = rng.Next(rows);
-
-			while (Array.IndexOf(wallTiles, grid[row,col]) != -1)
-			{
-				col = rng.Next(cols);
-				row = rng.Next(rows);
-
-			}
-			return ((float)col * tileSizeScaled.Width / formWidth, (float)row * tileSizeScaled.Height / formHeight);
+			return Array.IndexOf(wallTiles, grid[row, col]) != -1;
 		}
 	}
 
@@ -223,6 +263,8 @@ namespace Bambulanci
 
 		const int colorsPerPlayer = 4;
 
+		public int PlayerWidth { get; private set; } //prob. should be under player.....
+		public int PlayerHeight { get; private set; }
 
 		/// <summary>
 		/// Draws background from map to Graphics g
@@ -253,19 +295,19 @@ namespace Bambulanci
 			for (int i = 0; i < allowedColors.Length; i++)
 			{
 				Brush playerColor = allowedColors[i];
-				int playerWidth = (int)(formWidth/ Player.widthScaling);
-				int playerHeight = (int)(formHeight / Player.heightScaling);
+				PlayerWidth = (int)(formWidth/ Player.widthScaling);
+				PlayerHeight = (int)(formHeight / Player.heightScaling);
 
-				Bitmap bitmap = new Bitmap(playerWidth, playerHeight);
+				Bitmap bitmap = new Bitmap(PlayerWidth, PlayerHeight);
 				var g = Graphics.FromImage(bitmap);
 
-				int w = playerWidth / eyeScaling;
-				int h = playerHeight / eyeScaling;
+				int w = PlayerWidth / eyeScaling;
+				int h = PlayerHeight / eyeScaling;
 
-				int offset = (playerWidth / 2 - w) / 2;
-				g.FillRectangle(playerColor, new Rectangle(0, 0, playerWidth, playerHeight));
+				int offset = (PlayerWidth / 2 - w) / 2;
+				g.FillRectangle(playerColor, new Rectangle(0, 0, PlayerWidth, PlayerHeight));
 				g.FillEllipse(Brushes.Black, new Rectangle(0, offset, w, h));
-				g.FillEllipse(Brushes.Black, new Rectangle(0, offset + playerHeight / 2, w, h));
+				g.FillEllipse(Brushes.Black, new Rectangle(0, offset + PlayerHeight / 2, w, h));
 
 				Bitmap b90 = (Bitmap)bitmap.Clone();
 				b90.RotateFlip(RotateFlipType.Rotate90FlipNone);
@@ -284,30 +326,50 @@ namespace Bambulanci
 			return result;
 		}
 
-		public Bitmap GetPlayerDesign(int designID, byte direction) //can't draw because of client's system of drawing players through queue
-		{
-			int i = designID * colorsPerPlayer + direction;
-			int mod = allowedColors.Length * colorsPerPlayer;
-			return playerDesigns[i % mod];
-		}
-
 		public void DrawPlayer(Graphics g, Player player)
 		{
 			int i = player.id * colorsPerPlayer + (byte)player.Direction;
 			int mod = allowedColors.Length * colorsPerPlayer;
 			Bitmap playerBitmap = playerDesigns[i % mod];
 			g.DrawImage(playerBitmap, player.X * formWidth, player.Y * formHeight);
+
+			g.DrawRectangle(Pens.Silver, player.X*formWidth, player.Y*formHeight, 100, 100);
 		}
 	}
 
-	class Game
+	public class Game
 	{
 		public readonly GraphicsDrawer graphicsDrawer;
 		public readonly Map map;
+		private int formWidth;
+		private int formHeight;
 		public Game(int formWidth, int formHeight)
 		{
+			this.formHeight = formHeight;
+			this.formWidth = formWidth;
 			map = Map.GetStandardMap(formWidth, formHeight); //might be delegate in case of multiple maps
 			graphicsDrawer = new GraphicsDrawer(formWidth, formHeight, map);
 		}
+
+		Random rng = new Random();
+		/// <summary>
+		/// Return spawn coords on tile that is not a wall.
+		/// </summary>
+		/// <returns> Coords scaled between 0 and 1. </returns>
+		public (float, float) GetSpawnCoords()
+		{
+			int col = rng.Next(map.cols);
+			int row = rng.Next(map.rows);
+
+			while (map.IsWall(col, row))
+			{
+				col = rng.Next(map.cols);
+				row = rng.Next(map.rows);
+
+			}
+			return ((float)col * map.tileSizeScaled.Width / formWidth, (float)row * map.tileSizeScaled.Height / formHeight);
+		}
+
+		//method - detect walls ------------------
 	}
 }
