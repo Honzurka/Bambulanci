@@ -111,35 +111,26 @@ namespace Bambulanci
 					insideWindow = true;
 			}
 
-			
-			//https://jonathanwhiting.com/tutorial/collision/
-			for (int col = 0; col < map.cols; col++)
-			{
-				for (int row = 0; row < map.rows; row++)
+
+			//https://jonathanwhiting.com/tutorial/collision/			
+			Graphics g = formular.CreateGraphics();
+			int tileW = map.tileSizeScaled.Width;
+			int tileH = map.tileSizeScaled.Height;
+
+			//get current tile
+			int tileCol = (int) (newX * formSize.width / tileW);
+			int tileRow = (int) (newY * formSize.height / tileH);
+			int tileColMax = (int)((newX * formSize.width + playerSize.width) / tileW);
+			int tileRowMax = (int)((newY * formSize.height + playerSize.height) / tileH);
+			for (int col = tileCol; col <= tileColMax; col++)
+				for (int row = tileRow; row <= tileRowMax; row++)
 				{
 					if (map.IsWall(col, row))
 					{
-						Graphics g = formular.CreateGraphics();
+						g.DrawRectangle(Pens.Red, col * tileW, row * tileH, tileW, tileH);
 
-						Size tileSize = map.tileSizeScaled;
-						float wallL = (float)col * tileSize.Width / formSize.width;
-						float wallR = (float)((col + 1) * tileSize.Width - 1) / formSize.width;
-						float wallT = (float)row * tileSize.Height / formSize.height;
-						float wallB = (float)((row + 1) * tileSize.Height - 1) / formSize.height;
-
-						g.DrawRectangle(Pens.Red, wallL * formSize.width, wallT * formSize.height, (wallR - wallL) * formSize.width, (wallB - wallT) * formSize.height);
-
-						float objL = newX;
-						float objR = newX + (float)(playerSize.width - 1) / formSize.width;
-
-						float objT = newY; //problem
-						float objB = newY + (float)(playerSize.height - 1) / formSize.height;
-
-						bool xOverlap = objL < wallR && objR > wallL;
-						bool yOverlap = objT < wallB && objB > wallT;
-
-						//bool xOverlap = newX * form.Width < ((col + 1) * tileW - 1) && ((newX * form.Width + playerSize.width)) > (col * tileW);
-						//bool yOverlap = newY * form.Height < ((row + 1) * tileH - 1) && ((newY * form.Height + playerSize.height)) > (row * tileH);
+						bool xOverlap = newX * formSize.width < ((col + 1) * tileW - 1) && ((newX * formSize.width + playerSize.width)) > (col * tileW);
+						bool yOverlap = newY * formSize.height < ((row + 1) * tileH - 1) && ((newY * formSize.height + playerSize.height)) > (row * tileH);
 
 						bool colision = xOverlap && yOverlap;
 						if (colision)
@@ -148,7 +139,8 @@ namespace Bambulanci
 						}
 					}
 				}
-			}
+			
+
 
 			if (insideWindow && !isWall)
 			{
@@ -183,10 +175,8 @@ namespace Bambulanci
 
 		public static Map GetStandardMap(int formWidth, int formHeight)
 		{
-			int cols = 3;
-			int rows = 3;
-			//int cols = 20;
-			//int rows = 12;
+			int cols = 20;
+			int rows = 12;
 			Size tileSizeScaled = new Size(formWidth / cols, formHeight / rows);
 			Map result = new Map(cols,rows, tileSizeScaled);
 
@@ -211,13 +201,6 @@ namespace Bambulanci
 
 			result.grid = new int[,]
 			{
-				{0,0,0 },
-				{0,7,0 },
-				{0,0,0 }
-			};
-			/*
-			result.grid = new int[,]
-			{
 				{ 7,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,6 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
@@ -230,7 +213,7 @@ namespace Bambulanci
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
 				{ 9,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,8 },
-			};*/
+			};
 
 			result.wallTiles = new int[] { 6, 7, 8, 9, 18, 19, 20, 21 };
 			return result;
@@ -333,7 +316,7 @@ namespace Bambulanci
 			Bitmap playerBitmap = playerDesigns[i % mod];
 			g.DrawImage(playerBitmap, player.X * formWidth, player.Y * formHeight);
 
-			g.DrawRectangle(Pens.Silver, player.X*formWidth, player.Y*formHeight, 100, 100);
+			//g.DrawRectangle(Pens.Silver, player.X*formWidth, player.Y*formHeight, 100, 100); //player hitbox
 		}
 	}
 
