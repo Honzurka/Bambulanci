@@ -7,6 +7,7 @@ using System.Text;
 using System.Drawing;
 using System.Collections.Concurrent;
 using System.Net.NetworkInformation;
+using System.Xaml.Permissions;
 
 namespace Bambulanci
 {
@@ -14,31 +15,33 @@ namespace Bambulanci
 		HostFoundServer, HostMoveToWaitingRoom, HostCanceled, HostStopHosting,
 		HostLoginAccepted, HostLoginDeclined, HostStartGame,
 		
-		HostTick, ClientMove, HostPlayerMovement
+		HostTick,
+		ClientMove, HostPlayerMovement,
+		ClientFire, HostPlayerFire
 	}
 	
 	/// <summary>
 	/// Data parser for network communication.
 	/// </summary>
-	class Data //should be more sofisticated---------------------------
+	class Data
 	{
 		public Command Cmd { get; private set; }
 		public string Msg { get; private set; }
 		public byte b;
-		public ValueTuple<int, byte, float, float> movementInfo;
+		public ValueTuple<int, byte, float, float> ibffInfo;
 		public Data(byte[] data)
 		{
 			//1B command
 			Cmd = (Command)data[0];
-			if (Cmd == Command.HostPlayerMovement)
+			if (Cmd == Command.HostPlayerMovement || Cmd == Command.HostPlayerFire)
 			{
 				int id = BitConverter.ToInt32(data, 1); //idea: shots could have negative id so i can reuse code
 				byte direction = data[5];
 				float x = BitConverter.ToSingle(data, 6);
 				float y = BitConverter.ToSingle(data, 10);
-				movementInfo = (id, direction, x, y);
+				ibffInfo = (id, direction, x, y);
 			}
-			else if (Cmd == Command.ClientMove)
+			else if (Cmd == Command.ClientMove || Cmd == Command.ClientFire)
 			{
 				b = data[1];
 			}
@@ -61,7 +64,7 @@ namespace Bambulanci
 		public static byte[] ToBytes(Command cmd, string msg = null, byte b = 0, (int id, byte direction, float x, float y) values = default)
 		{
 			List<byte> result = new List<byte>() { (byte)cmd };
-			if (cmd == Command.HostPlayerMovement)
+			if (cmd == Command.HostPlayerMovement || cmd == Command.HostPlayerFire)
 			{
 				result.AddRange(BitConverter.GetBytes(values.id));
 				result.Add(values.direction);
@@ -69,7 +72,7 @@ namespace Bambulanci
 				result.AddRange(BitConverter.GetBytes(values.y));
 			}
 
-			if (cmd == Command.ClientMove)
+			if (cmd == Command.ClientMove || cmd == Command.ClientFire)
 			{
 				result.Add(b);
 			}
@@ -94,7 +97,7 @@ namespace Bambulanci
 		{
 			public int Id { get; }
 			public IPEndPoint IpEndPoint { get; }
-			public Player player; //inGame descriptor
+			//public Player player; //inGame descriptor
 			public ClientInfo(int id, IPEndPoint ipEndPoint)
 			{
 				this.Id = id;
@@ -232,11 +235,22 @@ namespace Bambulanci
 				{
 					case Command.ClientMove: //moves player who sends me command
 						PlayerMovement playerMovement = (PlayerMovement)data.b;
-						foreach (var client in clientList)
+						foreach (var player in form.Game.Players)
 						{
-							if (client.IpEndPoint.Equals(clientEP)) //find client who send me move command
+							if (player.ipEndPoint.Equals(clientEP)) //find client who send me move command
 							{
-								client.player.MoveByHost(playerMovement, form.Game.graphicsDrawer, form);
+								player.MoveByHost(playerMovement, form.Game.graphicsDrawer, form);
+							}
+						}
+						break;
+					case Command.ClientFire:
+						WeaponState weaponState = (WeaponState)data.b;
+						foreach (var player in form.Game.Players)
+						{
+							if (player.ipEndPoint.Equals(clientEP))
+							{
+								player.Weapon.Fire(weaponState);
+								Console.WriteLine($"#4 host: player {player.id} is trying to fire.");
 							}
 						}
 						break;
@@ -261,7 +275,6 @@ namespace Bambulanci
 		private readonly FormBambulanci form;
 
 		public bool InGame;
-		public List<Player> Players { get; private set; } = new List<Player>();
 		public IPEndPoint hostEP;
 		//public bool InGame { get; private set; }
 		//private IPEndPoint hostEPGlobal;
@@ -423,17 +436,36 @@ namespace Bambulanci
 						bwInGameListener.ReportProgress(0); //0 not needed
 						break;
 					case Command.HostPlayerMovement:
-						(int playerId, byte direction, float x, float y) = received.movementInfo;
+						(int playerId, byte direction, float x, float y) = received.ibffInfo;
 
-						int index = Players.FindIndex(p => p.id == playerId);
+						int index = form.Game.Players.FindIndex(p => p.id == playerId); //form.Game -- maybe should be Game. -----
 						if (index == -1)
 						{
-							Players.Add(new Player(x, y, playerId, (PlayerMovement)direction));
+							form.Game.Players.Add(new Player(form.Game, x, y, playerId, (PlayerMovement)direction));
 						}
 						else
 						{
-							Players[index].MoveByClient((PlayerMovement)direction, x, y);
+							form.Game.Players[index].MoveByClient((PlayerMovement)direction, x, y);
 						}
+						break;
+					case Command.HostPlayerFire:
+						int projectileId;
+						(projectileId, direction, x, y) = received.ibffInfo;
+						index = form.Game.projectiles.FindIndex(p => p.Id == projectileId);
+						if(index == -1)
+						{
+							form.Game.projectiles.Add(new Projectile(x, y, (PlayerMovement)direction, projectileId));
+							Console.WriteLine($"#7 hostPlayerFire received : projectile added to x:{x} y:{y}");
+						}
+						else
+						{
+							/*
+							form.Game.projectiles[index].X = x;
+							form.Game.projectiles[index].X = y;
+							Console.WriteLine($"#7 hostPlayerFire received : projectile altered to x:{x} y:{y}");
+							*/
+						}
+
 						break;
 					default:
 						break;
@@ -447,6 +479,11 @@ namespace Bambulanci
 			//sends info about movement
 			byte[] clientMove = Data.ToBytes(Command.ClientMove, b: (byte)form.playerMovement);
 			udpClient.Send(clientMove, clientMove.Length, hostEP);
+
+			//sends info about weapon
+			byte[] clientFire = Data.ToBytes(Command.ClientFire, b: (byte)form.weaponState);
+			udpClient.Send(clientFire, clientFire.Length, hostEP);
+			Console.WriteLine($"#2 weapon state sent:{form.weaponState}");
 		}
 		private void IGL_Completed(object sender, RunWorkerCompletedEventArgs e)//not used yet -due to infinite ingame loop
 		{

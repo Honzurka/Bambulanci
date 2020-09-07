@@ -22,8 +22,8 @@ namespace Bambulanci
 			ChangeGameState(GameState.Intro);
 
 			//singlePlayer:
-			//host.BWStartHostStarter(0, 45000);
-			//ChangeGameState(GameState.HostWaitingRoom);
+			host.BWStartHostStarter(0, 45000);
+			ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -167,23 +167,31 @@ namespace Bambulanci
 			foreach (var client in host.clientList)
 			{
 				(float x, float y) = Game.GetSpawnCoords();
-				client.player = new Player(x, y);
+				Game.Players.Add(new Player(Game, x, y, client.Id, ipEndPoint: client.IpEndPoint));
 			}
 
 			TimerInGame.Enabled = true;
 		}
 
-		private void TimerInGame_Tick(object sender, EventArgs e)
+		private void TimerInGame_Tick(object sender, EventArgs e) //host only
 		{
 			if (currentGameState == GameState.InGame) //should be-- maybe not necessary to check
 			{
 				byte[] hostTick = Data.ToBytes(Command.HostTick);
 				host.LocalhostAndBroadcastMessage(hostTick);
-				foreach (var client1 in host.clientList) //nechci prekryvat client
+				Console.WriteLine("#1 host: timer tick sent.");
+
+				foreach (var player in Game.Players)
 				{
-					Player player = client1.player;
-					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, values: (client1.Id, (byte)player.Direction, player.X, player.Y));
+					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, values: (player.id, (byte)player.Direction, player.X, player.Y));
 					host.LocalhostAndBroadcastMessage(hostPlayerMovement);
+				}
+				foreach (var projectile in Game.projectiles)
+				{
+					projectile.MoveByHost(); //move should be in parallel, but its not possible to time it well
+					byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.Id, (byte)projectile.direction, projectile.X, projectile.Y));
+					host.LocalhostAndBroadcastMessage(hostPlayerFire);
+					Console.WriteLine($"#6 host: projectile moved + hostPlayerFire sent by host x:{projectile.X} y:{projectile.Y} ");
 				}
 			}
 		}
@@ -194,14 +202,19 @@ namespace Bambulanci
 			if (currentGameState == GameState.InGame)
 			{
 				Game.graphicsDrawer.DrawBackground(g);
-				foreach (var player in client.Players)
+				foreach (var player in Game.Players)
 				{
 					Game.graphicsDrawer.DrawPlayer(g, player);
+				}
+				foreach (var projectile in Game.projectiles)
+				{
+					Game.graphicsDrawer.DrawProjectile(g, projectile);
 				}
 			}
 		}
 
 		public PlayerMovement playerMovement = PlayerMovement.Stay;
+		public WeaponState weaponState = WeaponState.Still;
 		private void FormBambulanci_KeyDown(object sender, KeyEventArgs e)
 		{
 			switch (e.KeyCode)
@@ -218,7 +231,8 @@ namespace Bambulanci
 				case Keys.Down:
 					playerMovement = PlayerMovement.Down;
 					break;
-				case Keys.Space: //shoot
+				case Keys.Space:
+					weaponState = WeaponState.Fired;
 					break;
 				default:
 					break;
@@ -230,6 +244,10 @@ namespace Bambulanci
 			if (e.KeyCode == Keys.Left || e.KeyCode == Keys.Right || e.KeyCode == Keys.Up || e.KeyCode == Keys.Down)
 			{
 				playerMovement = PlayerMovement.Stay;
+			}
+			if(e.KeyCode == Keys.Space)
+			{
+				weaponState = WeaponState.Still;
 			}
 		}
 	}

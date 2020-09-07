@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Windows.Forms;
+using System.Xaml.Permissions;
 
 namespace Bambulanci
 {
@@ -43,6 +45,80 @@ namespace Bambulanci
 	}
 	
 	public enum PlayerMovement { Left, Up, Right, Down, Stay }
+	public enum WeaponState { Fired, Still}
+
+	public interface Weapon
+	{
+		public void Fire(WeaponState weaponState);
+	}
+	class Pistol : Weapon
+	{
+		bool coolingDown = false;
+		private readonly Game game;
+		private readonly Player player;
+		private int idCounter = 0;
+
+		public Pistol(Game game, Player player)
+		{
+			this.game = game;
+			this.player = player;
+		}
+
+		public void Fire(WeaponState weaponState)
+		{
+			if (weaponState == WeaponState.Fired && coolingDown == false)
+			{
+				int projectileId = player.id * 100000 + idCounter; //..-----------idea
+				idCounter++;
+				game.projectiles.Add(new Projectile(player.X, player.Y, player.Direction, projectileId)); //style of shooting--melo by vznikat ve stredu hrace. ne nahore vlevo
+				coolingDown = true;
+				Console.WriteLine($"#5 projectile added to list from host at dir:{player.Direction} x:{player.X} y:{player.Y} ");
+			}
+		}
+	}
+	public class Projectile
+	{
+		//should be between 0 and 1
+		public float X;
+		public float Y;
+
+		public readonly PlayerMovement direction;
+		const float speed = 0.01f; //...
+		public readonly int Id;
+
+		public Projectile(float x, float y, PlayerMovement direction, int Id)
+		{
+			this.X = x;
+			this.Y = y;
+			this.direction = direction;
+			this.Id = Id;
+		}
+
+		public void MoveByHost() //similar to playerMovement -- should be 1 method only
+		{
+			Console.WriteLine($"projectile moved by host from x:{X} y:{Y}");
+			switch (direction)
+			{
+				case PlayerMovement.Left:
+					X -= speed;
+					break;
+				case PlayerMovement.Up:
+					Y -= speed;
+					break;
+				case PlayerMovement.Right:
+					X += speed;
+					break;
+				case PlayerMovement.Down:
+					Y += speed;
+					break;
+				default:
+					break;
+			}
+			Console.WriteLine($"projectile moved by host to x:{X} y:{Y}");
+		}
+	}
+
+
 	public class Player
 	{
 		public readonly int id; //duplicity - also in ClientInfo
@@ -56,22 +132,25 @@ namespace Bambulanci
 		public float Y { get; private set; }
 
 		private const float speed = 0.01f;
-		public PlayerMovement Direction { get; private set; }
+		public PlayerMovement Direction { get; private set; } //definitely not Stay
 
-		public Player(float x, float y, int id = -1, PlayerMovement direction = PlayerMovement.Left)
+		public Weapon Weapon { get; private set; }
+		
+		public readonly IPEndPoint ipEndPoint; //for host only
+
+		private readonly Game game;
+
+		public Player(Game game, float x, float y, int id = -1, PlayerMovement direction = PlayerMovement.Left, IPEndPoint ipEndPoint = null)
 		{
 			this.X = x;
 			this.Y = y;
 			this.id = id;
 			this.Direction = direction;
+			this.ipEndPoint = ipEndPoint;
+			this.game = game;
+			Weapon = new Pistol(game, this);
 		}
 
-		/*
-		public List<Shot> shots; //public?
-		public class Shot
-		{
-
-		}*/
 
 		/// <summary>
 		/// Called by host only.
@@ -203,12 +282,15 @@ namespace Bambulanci
 		private readonly int formWidth;
 		private readonly int formHeight;
 		private readonly Map map;
+
+		private Bitmap projectileImg;
 		public GraphicsDrawer(int formWidth, int formHeight, Map map)
 		{
 			this.formWidth = formWidth;
 			this.formHeight = formHeight;
 			this.map = map;
-			playerDesigns = CreatePlayerDesign();
+			playeImg = CreatePlayerImg();
+			projectileImg = CreateProjectileImg();
 		}
 
 		const int colorsPerPlayer = 4;
@@ -232,14 +314,14 @@ namespace Bambulanci
 		}
 
 
-		private readonly Bitmap[] playerDesigns; //left, up, right, down
+		private readonly Bitmap[] playeImg; //left, up, right, down
 		private readonly Brush[] allowedColors = new Brush[] { Brushes.Yellow, Brushes.Red, Brushes.Aqua, Brushes.BlueViolet, Brushes.Chocolate };
 		/// <summary>
-		/// Creaters array of playerDesigns based on allowedColors.
+		/// Creaters array of playerImg based on allowedColors.
 		/// Player desing of each color occurs 4 times, always rotated by 90 degrees.
 		/// In order: Left, Up, Right, Down
 		/// </summary>
-		private Bitmap[] CreatePlayerDesign()
+		private Bitmap[] CreatePlayerImg()
 		{
 			const int eyeScaling = 3;
 
@@ -278,23 +360,46 @@ namespace Bambulanci
 			return result;
 		}
 
+		private Bitmap CreateProjectileImg()
+		{
+			int projectileWidth = formWidth / 128; //constants...-----------
+			int projectileHeight = formHeight / 72;
+
+			Bitmap bitmap = new Bitmap(projectileWidth, projectileHeight);
+			var g = Graphics.FromImage(bitmap);
+			g.FillRectangle(Brushes.Orange, 0, 0, projectileWidth, projectileHeight);
+			
+			return bitmap;
+		}
+
 		public void DrawPlayer(Graphics g, Player player)
 		{
 			int i = player.id * colorsPerPlayer + (byte)player.Direction;
 			int mod = allowedColors.Length * colorsPerPlayer;
-			Bitmap playerBitmap = playerDesigns[i % mod];
+			Bitmap playerBitmap = playeImg[i % mod];
 			g.DrawImage(playerBitmap, player.X * formWidth, player.Y * formHeight);
 
 			//g.DrawRectangle(Pens.Silver, player.X*formWidth, player.Y*formHeight, 100, 100); //player hitbox
 		}
+
+		public void DrawProjectile(Graphics g, Projectile projectile)
+		{
+			g.DrawImage(projectileImg, projectile.X*formWidth, projectile.Y*formHeight);
+			Console.WriteLine($"#8 client: projectile drawn at: x:{projectile.X} y:{projectile.Y}");
+		}
 	}
 
 	public class Game
+		//list of players might be under game----------------------
 	{
 		public readonly GraphicsDrawer graphicsDrawer;
 		public readonly Map map;
 		private int formWidth;
 		private int formHeight;
+
+		public List<Player> Players { get; private set; } = new List<Player>();
+		public List<Projectile> projectiles { get; private set; } = new List<Projectile>();
+
 		public Game(int formWidth, int formHeight)
 		{
 			this.formHeight = formHeight;
