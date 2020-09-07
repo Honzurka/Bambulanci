@@ -456,7 +456,7 @@ namespace Bambulanci
 						{
 							if (index == -1)
 							{
-								form.Game.projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId));
+								form.Game.projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId, form));
 							}
 							else
 							{

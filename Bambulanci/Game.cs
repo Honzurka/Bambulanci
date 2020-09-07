@@ -45,7 +45,7 @@ namespace Bambulanci
 		}
 	}
 	
-	interface MovableObject
+	public interface IMovableObject
 	{
 		public float X { get; set; }
 		public float Y { get; set; }
@@ -53,16 +53,19 @@ namespace Bambulanci
 		public Direction Direction { get; }
 		public float speed { get; }
 		public int Id { get; }
+		public int WidthPx { get; }
+		public int HeightPx { get; }
+
 	}
 
 	public enum Direction { Left, Up, Right, Down, Stay }
 	public enum WeaponState { Fired, Still}
 
-	public interface Weapon
+	public interface IWeapon
 	{
 		public void Fire(WeaponState weaponState);
 	}
-	class Pistol : Weapon
+	class Pistol : IWeapon
 	{
 		int cooldown = 0;
 		private readonly FormBambulanci form;
@@ -82,7 +85,7 @@ namespace Bambulanci
 				float heightOffset = form.Game.graphicsDrawer.PlayerHeightPx / 2f / form.TrueHeight;
 				lock (form.Game.projectiles)
 				{
-					form.Game.projectiles.Add(new Projectile(player.X + widthOffset, player.Y + heightOffset, player.Direction, player.projectileId,player.Id));
+					form.Game.projectiles.Add(new Projectile(player.X + widthOffset, player.Y + heightOffset, player.Direction, player.projectileId, form, player.Id));
 				}
 				player.projectileId++;
 				cooldown = 30;
@@ -93,7 +96,7 @@ namespace Bambulanci
 			}
 		}
 	}
-	public class Projectile : MovableObject //struct?---
+	public class Projectile : IMovableObject //struct?---
 	{
 		//between 0 and 1
 		public float X { get; set; }
@@ -102,28 +105,36 @@ namespace Bambulanci
 		public Direction Direction { get; set; }
 		public float speed { get; } = 0.02f; //const but from Iface
 		public int Id { get; }
-		
+		public int WidthPx { get; }
+		public int HeightPx { get; }
+
+
 		public readonly int playerId; //host only----- not under Iface
 
-		public Projectile(float x, float y, Direction direction, int Id, int playerId = -1)
+		public Projectile(float x, float y, Direction direction, int Id, FormBambulanci form, int playerId = -1)
 		{
 			this.X = x;
 			this.Y = y;
 			this.Direction = direction;
 			this.Id = Id;
 			this.playerId = playerId;
+			WidthPx = form.Game.graphicsDrawer.ProjectileWidthPx;
+			HeightPx = form.Game.graphicsDrawer.ProjectileHeightPx;
 		}
 
 	}
 
 
-	public class Player : MovableObject
+	public class Player : IMovableObject
 	{
 		public int Id { get; }
 		//bool isAlive;
 
 		public const float widthScaling = 32;
 		public const float heightScaling = 18;
+
+		public int WidthPx { get; }
+		public int HeightPx { get; }
 
 		//coords between 0 and 1
 		public float X { get; set; }
@@ -132,7 +143,7 @@ namespace Bambulanci
 
 		public Direction Direction { get; private set; } //definitely not Stay
 
-		public Weapon Weapon { get; private set; }
+		public IWeapon Weapon { get; private set; }
 		const int projectileIdMultiplier = 1000000;
 		public int projectileId;
 
@@ -150,6 +161,8 @@ namespace Bambulanci
 			this.form = form;
 			Weapon = new Pistol(form, this);
 			projectileId = projectileIdMultiplier * id;
+			WidthPx = form.Game.graphicsDrawer.PlayerWidthPx;
+			HeightPx = form.Game.graphicsDrawer.PlayerHeightPx;
 		}
 
 
@@ -162,7 +175,8 @@ namespace Bambulanci
 			if (direction != Direction.Stay)
 			{
 				Direction = direction;
-				form.Game.Move(Direction, ref X, ref Y, speed, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx, Id);
+				form.Game.Move(this);
+				//form.Game.Move(Direction, ref X, ref Y, speed, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx, Id);
 			}
 		}
 		public void MoveByClient(Direction direction, float x, float y)
@@ -484,6 +498,57 @@ namespace Bambulanci
 			//destroy bullet + inform client about destruction--ToDO NOOOOW
 		}
 
+		public void Move(IMovableObject obj, int playerId = -1) //playerId in case of projectile only
+		{
+			float newX = obj.X;
+			float newY = obj.Y;
+			switch (obj.Direction)
+			{
+				case Direction.Left:
+					newX -= obj.speed;
+					break;
+				case Direction.Right:
+					newX += obj.speed;
+					break;
+				case Direction.Up:
+					newY -= obj.speed;
+					break;
+				case Direction.Down:
+					newY += obj.speed;
+					break;
+				default:
+					break;
+			}
+			(bool playerCollision, int xPx, int yPx) = DetectPlayers(newX, newY, obj.X, obj.Y, obj.WidthPx, obj.HeightPx, obj.Id);
+			//playerId might be useful after collision
+			if (playerCollision)
+			{
+				//NOW----------destruction of bullets
+				CollisionResponseHug(xPx, yPx, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx, obj.X, obj.Y, ref newX, ref newY, obj.WidthPx, obj.HeightPx);
+
+				//CollisionResponseKill()
+			}
+
+			//wall collision
+			(bool wallCollided, int objXPx, int objYPx) = DetectWalls(newX, newY, obj.X, obj.Y, obj.WidthPx, obj.HeightPx);
+
+			if (wallCollided) //response should be different for player and projectile--------------------------------------
+			{
+				int wallWidth = map.tileSizeScaled.Width;
+				int wallHeight = map.tileSizeScaled.Height;
+
+				CollisionResponseHug(objXPx, objYPx, wallWidth, wallHeight, obj.X, obj.Y, ref newX, ref newY, obj.WidthPx, obj.HeightPx);
+			}
+
+			//not window collision
+			if (newX >= 0 && newX <= 1 - (float)graphicsDrawer.PlayerWidthPx / formWidth && newY >= 0 && newY <= 1 - (float)graphicsDrawer.PlayerHeightPx / formHeight) //not perfect
+			{
+				obj.X = newX;
+				obj.Y = newY;
+			}
+		}
+
+	/*
 		public void Move(Direction direction, ref float x, ref float y, float speed, int objWidthPx, int objHeightPx, int playerId)
 			//arg interface:MovableObject instead of multiple fields...----------------------------
 			//might receive CollisionResponse delegate as arg--prob not, different args of Collisions
@@ -536,5 +601,6 @@ namespace Bambulanci
 				y = newY;
 			}
 		}
+	*/ //old Move
 	}
 }

@@ -191,7 +191,8 @@ namespace Bambulanci
 				{
 					foreach (var projectile in Game.projectiles)
 					{
-						Game.Move(projectile.Direction, ref projectile.X, ref projectile.Y, Projectile.speed, Game.graphicsDrawer.ProjectileWidthPx, Game.graphicsDrawer.ProjectileHeightPx, projectile.playerId);
+						Game.Move(projectile, projectile.playerId);
+						//Game.Move(projectile.Direction, ref projectile.X, ref projectile.Y, Projectile.speed, Game.graphicsDrawer.ProjectileWidthPx, Game.graphicsDrawer.ProjectileHeightPx, projectile.playerId);
 						//move should be called in parallel optimally
 						byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.Id, (byte)projectile.Direction, projectile.X, projectile.Y));
 						host.BroadcastMessage(hostPlayerFire); //only broadcast, otherwise paralelism problems
