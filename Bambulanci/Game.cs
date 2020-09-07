@@ -68,11 +68,15 @@ namespace Bambulanci
 		{
 			if (weaponState == WeaponState.Fired && cooldown <= 0)
 			{
-				float widthOffset = form.Game.graphicsDrawer.PlayerWidthPx / 2f / form.Width;
+				float widthOffset = form.Game.graphicsDrawer.PlayerWidthPx / 2f / form.Width; //centrovani strely, neni idealni
 				float heightOffset = form.Game.graphicsDrawer.PlayerHeightPx / 2f / form.TrueHeight;
-				form.Game.projectiles.Add(new Projectile(player.X+widthOffset, player.Y+heightOffset, player.Direction, player.projectileId)); //style of shooting--melo by vznikat ve stredu hrace. ne nahore vlevo
+				lock (form.Game.projectiles)
+				{
+					form.Game.projectiles.Add(new Projectile(player.X + widthOffset, player.Y + heightOffset, player.Direction, player.projectileId));
+				}
 				player.projectileId++;
-				cooldown = 30;}
+				cooldown = 30;
+			}
 			else
 			{
 				cooldown--;

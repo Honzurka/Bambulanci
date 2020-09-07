@@ -187,13 +187,16 @@ namespace Bambulanci
 					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, values: (player.id, (byte)player.Direction, player.X, player.Y));
 					host.LocalhostAndBroadcastMessage(hostPlayerMovement);
 				}
-				foreach (var projectile in Game.projectiles)
+				lock (Game.projectiles)
 				{
-					Game.Move(projectile.direction, ref projectile.X, ref projectile.Y, Projectile.speed, Game.graphicsDrawer.ProjectileWidthPx, Game.graphicsDrawer.ProjectileHeightPx);
-					//projectile.MoveByHost(); //move should be in parallel, but its not possible to time it well
-					byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.Id, (byte)projectile.direction, projectile.X, projectile.Y));
-					host.BroadcastMessage(hostPlayerFire); //only broadcast, otherwise paralelism problems
-					//Console.WriteLine($"#6 host: projectile moved + hostPlayerFire sent by host x:{projectile.X} y:{projectile.Y} ");
+					foreach (var projectile in Game.projectiles)
+					{
+						Game.Move(projectile.direction, ref projectile.X, ref projectile.Y, Projectile.speed, Game.graphicsDrawer.ProjectileWidthPx, Game.graphicsDrawer.ProjectileHeightPx);
+						//projectile.MoveByHost(); //move should be in parallel, but its not possible to time it well
+						byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.Id, (byte)projectile.direction, projectile.X, projectile.Y));
+						host.BroadcastMessage(hostPlayerFire); //only broadcast, otherwise paralelism problems
+															   //Console.WriteLine($"#6 host: projectile moved + hostPlayerFire sent by host x:{projectile.X} y:{projectile.Y} ");
+					}
 				}
 			}
 		}
@@ -208,9 +211,12 @@ namespace Bambulanci
 				{
 					Game.graphicsDrawer.DrawPlayer(g, player);
 				}
-				foreach (var projectile in Game.projectiles)
+				lock (Game.projectiles)
 				{
-					Game.graphicsDrawer.DrawProjectile(g, projectile);
+					foreach (var projectile in Game.projectiles)
+					{
+						Game.graphicsDrawer.DrawProjectile(g, projectile);
+					}
 				}
 			}
 		}

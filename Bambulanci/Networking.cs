@@ -249,7 +249,7 @@ namespace Bambulanci
 						{
 							if (player.ipEndPoint.Equals(clientEP))
 							{
-								player.Weapon.Fire(weaponState);
+								player.Weapon.Fire(weaponState); //prace s listem projektilu***************************************
 								//Console.WriteLine($"#4 host: player {player.id} is trying to fire.");
 							}
 						}
@@ -452,18 +452,20 @@ namespace Bambulanci
 						int projectileId;
 						(projectileId, direction, x, y) = received.ibffInfo;
 						index = form.Game.projectiles.FindIndex(p => p.Id == projectileId);
-						if(index == -1)
+						lock (form.Game.projectiles)
 						{
-							form.Game.projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId));
-							Console.WriteLine($"#7 hostPlayerFire received : projectile added to x:{x} y:{y}");
+							if (index == -1) //prace s listem projektilu**********************************************
+							{
+								form.Game.projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId));
+								Console.WriteLine($"#7 hostPlayerFire received : projectile added to x:{x} y:{y}");
+							}
+							else
+							{
+								form.Game.projectiles[index].X = x;
+								form.Game.projectiles[index].Y = y;
+								Console.WriteLine($"#7 hostPlayerFire received : projectile altered to x:{x} y:{y}"); //working fine for client
+							}
 						}
-						else
-						{
-							form.Game.projectiles[index].X = x;
-							form.Game.projectiles[index].Y = y;
-							Console.WriteLine($"#7 hostPlayerFire received : projectile altered to x:{x} y:{y}"); //working fine for client
-						}
-
 						break;
 					default:
 						break;
