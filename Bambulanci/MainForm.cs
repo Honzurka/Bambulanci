@@ -22,8 +22,8 @@ namespace Bambulanci
 			ChangeGameState(GameState.Intro);
 
 			//singlePlayer:
-			host.BWStartHostStarter(0, 45000);
-			ChangeGameState(GameState.HostWaitingRoom);
+			//host.BWStartHostStarter(0, 45000);
+			//ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -179,7 +179,7 @@ namespace Bambulanci
 			{
 				byte[] hostTick = Data.ToBytes(Command.HostTick);
 				host.LocalhostAndBroadcastMessage(hostTick);
-				Console.WriteLine("#1 host: timer tick sent.");
+				//Console.WriteLine("#1 host: timer tick sent.");
 
 				foreach (var player in Game.Players)
 				{
@@ -190,8 +190,8 @@ namespace Bambulanci
 				{
 					projectile.MoveByHost(); //move should be in parallel, but its not possible to time it well
 					byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.Id, (byte)projectile.direction, projectile.X, projectile.Y));
-					host.LocalhostAndBroadcastMessage(hostPlayerFire);
-					Console.WriteLine($"#6 host: projectile moved + hostPlayerFire sent by host x:{projectile.X} y:{projectile.Y} ");
+					host.BroadcastMessage(hostPlayerFire); //only broadcast, otherwise paralelism problems
+					//Console.WriteLine($"#6 host: projectile moved + hostPlayerFire sent by host x:{projectile.X} y:{projectile.Y} ");
 				}
 			}
 		}

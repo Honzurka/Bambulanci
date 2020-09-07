@@ -200,7 +200,7 @@ namespace Bambulanci
 			}
 		}
 
-		public void BroadcastMessage(byte[] message) //used only by BW_RUnWOrkerCompleted
+		public void BroadcastMessage(byte[] message)
 		{
 			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
 		}
@@ -250,7 +250,7 @@ namespace Bambulanci
 							if (player.ipEndPoint.Equals(clientEP))
 							{
 								player.Weapon.Fire(weaponState);
-								Console.WriteLine($"#4 host: player {player.id} is trying to fire.");
+								//Console.WriteLine($"#4 host: player {player.id} is trying to fire.");
 							}
 						}
 						break;
@@ -459,11 +459,9 @@ namespace Bambulanci
 						}
 						else
 						{
-							/*
 							form.Game.projectiles[index].X = x;
-							form.Game.projectiles[index].X = y;
-							Console.WriteLine($"#7 hostPlayerFire received : projectile altered to x:{x} y:{y}");
-							*/
+							form.Game.projectiles[index].Y = y;
+							Console.WriteLine($"#7 hostPlayerFire received : projectile altered to x:{x} y:{y}"); //working fine for client
 						}
 
 						break;
@@ -483,7 +481,7 @@ namespace Bambulanci
 			//sends info about weapon
 			byte[] clientFire = Data.ToBytes(Command.ClientFire, b: (byte)form.weaponState);
 			udpClient.Send(clientFire, clientFire.Length, hostEP);
-			Console.WriteLine($"#2 weapon state sent:{form.weaponState}");
+			//Console.WriteLine($"#2 weapon state sent:{form.weaponState}");
 		}
 		private void IGL_Completed(object sender, RunWorkerCompletedEventArgs e)//not used yet -due to infinite ingame loop
 		{

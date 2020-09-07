@@ -72,7 +72,7 @@ namespace Bambulanci
 				idCounter++;
 				game.projectiles.Add(new Projectile(player.X, player.Y, player.Direction, projectileId)); //style of shooting--melo by vznikat ve stredu hrace. ne nahore vlevo
 				coolingDown = true;
-				Console.WriteLine($"#5 projectile added to list from host at dir:{player.Direction} x:{player.X} y:{player.Y} ");
+				//Console.WriteLine($"#5 projectile added to list from host at dir:{player.Direction} x:{player.X} y:{player.Y} ");
 			}
 		}
 	}
@@ -96,7 +96,7 @@ namespace Bambulanci
 
 		public void MoveByHost() //similar to playerMovement -- should be 1 method only
 		{
-			Console.WriteLine($"projectile moved by host from x:{X} y:{Y}");
+			//Console.WriteLine($"projectile moved by host from x:{X} y:{Y}");
 			switch (direction)
 			{
 				case PlayerMovement.Left:
