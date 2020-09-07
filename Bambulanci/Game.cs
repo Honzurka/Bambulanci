@@ -471,11 +471,11 @@ namespace Bambulanci
 			}
 			if(horizontal > 0) //+left
 			{
-				newX = (float)(objXPx + objWidthPx) / formWidth;
+				newX = (float)(objXPx + objWidthPx + 1) / formWidth;
 			}
 			if(vertical > 0) //+up
 			{
-				newY = (float)(objYPx + objHeightPx) / formHeight;
+				newY = (float)(objYPx + objHeightPx + 1) / formHeight;
 			}
 			if (vertical < 0) //-down
 			{
