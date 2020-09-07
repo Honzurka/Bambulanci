@@ -438,7 +438,7 @@ namespace Bambulanci
 					case Command.HostPlayerMovement:
 						(int playerId, byte direction, float x, float y) = received.ibffInfo;
 
-						int index = form.Game.Players.FindIndex(p => p.id == playerId); //form.Game -- maybe should be Game. -----
+						int index = form.Game.Players.FindIndex(p => p.Id == playerId); //form.Game -- maybe should be Game. -----
 						if (index == -1)
 						{
 							form.Game.Players.Add(new Player(form, x, y, playerId, (Direction)direction));

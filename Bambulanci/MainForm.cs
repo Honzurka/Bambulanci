@@ -22,8 +22,8 @@ namespace Bambulanci
 			ChangeGameState(GameState.Intro);
 
 			//singlePlayer:
-			//host.BWStartHostStarter(0, 45000);
-			//ChangeGameState(GameState.HostWaitingRoom);
+			host.BWStartHostStarter(0, 45000);
+			ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -184,16 +184,16 @@ namespace Bambulanci
 
 				foreach (var player in Game.Players)
 				{
-					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, values: (player.id, (byte)player.Direction, player.X, player.Y));
+					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, values: (player.Id, (byte)player.Direction, player.X, player.Y));
 					host.LocalhostAndBroadcastMessage(hostPlayerMovement);
 				}
 				lock (Game.projectiles)
 				{
 					foreach (var projectile in Game.projectiles)
 					{
-						Game.Move(projectile.direction, ref projectile.X, ref projectile.Y, Projectile.speed, Game.graphicsDrawer.ProjectileWidthPx, Game.graphicsDrawer.ProjectileHeightPx, projectile.playerId);
-						//projectile.MoveByHost(); //move should be in parallel, but its not possible to time it well
-						byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.Id, (byte)projectile.direction, projectile.X, projectile.Y));
+						Game.Move(projectile.Direction, ref projectile.X, ref projectile.Y, Projectile.speed, Game.graphicsDrawer.ProjectileWidthPx, Game.graphicsDrawer.ProjectileHeightPx, projectile.playerId);
+						//move should be called in parallel optimally
+						byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.Id, (byte)projectile.Direction, projectile.X, projectile.Y));
 						host.BroadcastMessage(hostPlayerFire); //only broadcast, otherwise paralelism problems
 															   //Console.WriteLine($"#6 host: projectile moved + hostPlayerFire sent by host x:{projectile.X} y:{projectile.Y} ");
 					}
