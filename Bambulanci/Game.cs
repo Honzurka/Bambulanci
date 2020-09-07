@@ -165,11 +165,11 @@ namespace Bambulanci
 		/// </summary>
 		/// <param name="playerSize"> in pixels </param>
 		public void MoveByHost(Direction direction, GraphicsDrawer graphicsDrawer, FormBambulanci form) //form just for graphics debuging //graphicsDrawer for playerSize -- not absolutely necessary, window collision is bad anyways
-		{
+		{ //might be moved under ref directly??----------
 			if (direction != Direction.Stay)
 			{
 				Direction = direction;
-				form.Game.Move(Direction, ref X, ref Y, speed, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx);
+				form.Game.Move(Direction, ref X, ref Y, speed, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx, this);
 			}
 		}
 		public void MoveByClient(Direction direction, float x, float y)
@@ -407,7 +407,7 @@ namespace Bambulanci
 			return ((float)col * map.tileSizeScaled.Width / formWidth, (float)row * map.tileSizeScaled.Height / formHeight);
 		}
 
-		private (bool collided, int tileCol, int tileRow) DetectWalls(float newX, float newY, float X, float Y/*, Form formular*/) //form just for graphic debug
+		private (bool collided, int objXPx, int objYPx) DetectWalls(float newX, float newY, float X, float Y, int objWidthPx, int objHeightPx/*, Form formular*/) //form just for graphic debug
 		{
 			//https://jonathanwhiting.com/tutorial/collision/			
 			//Graphics g = formular.CreateGraphics();
@@ -418,8 +418,8 @@ namespace Bambulanci
 			int tileCol = (int)(newX * formWidth / tileW);
 			int tileRow = (int)(newY * formHeight / tileH);
 
-			int tileColMax = (int)((newX * formWidth + graphicsDrawer.PlayerWidthPx) / tileW);
-			int tileRowMax = (int)((newY * formHeight + graphicsDrawer.PlayerHeightPx) / tileH);
+			int tileColMax = (int)((newX * formWidth + objWidthPx) / tileW);
+			int tileRowMax = (int)((newY * formHeight + objHeightPx) / tileH);
 			for (int col = tileCol; col <= tileColMax; col++)
 				for (int row = tileRow; row <= tileRowMax; row++)
 				{
@@ -427,31 +427,47 @@ namespace Bambulanci
 					{
 						//g.DrawRectangle(Pens.Red, col * tileW, row * tileH, tileW, tileH);
 
-						bool xOverlap = newX * formWidth < ((col + 1) * tileW - 1) && ((newX * formWidth + graphicsDrawer.PlayerWidthPx)) > (col * tileW);
-						bool yOverlap = newY * formHeight < ((row + 1) * tileH - 1) && ((newY * formHeight + graphicsDrawer.PlayerHeightPx)) > (row * tileH);
+						bool xOverlap = newX * formWidth < (col + 1) * tileW - 1 && newX * formWidth + objWidthPx > col * tileW;
+						bool yOverlap = newY * formHeight < (row + 1) * tileH - 1 && newY * formHeight + objHeightPx > row * tileH;
 
 						if (xOverlap && yOverlap)
 						{
 							//CollisionResponse(col, row, X, Y, ref newX, ref newY);
-							return (true, col, row);
+							return (true, col*map.tileSizeScaled.Width, row*map.tileSizeScaled.Height);
 						}
 					}
 				}
 			return (false, 0, 0);
 		}
 
+		private (bool collided, int xPx, int yPx) DetectPlayers(float newX, float newY, float X, float Y, int objWidthPx, int objHeightPx, int ignoredPlayerId = -1)
+		{
+			foreach (var player in Players)
+			{
+				if(player.id != ignoredPlayerId)
+				{
+					bool xOverlap = newX * formWidth < player.X * formWidth + graphicsDrawer.PlayerWidthPx && newX * formWidth + objWidthPx > player.X * formWidth;
+					bool yOverlap = newY * formHeight < player.Y * formHeight + graphicsDrawer.PlayerHeightPx && newY * formHeight + objHeightPx > player.Y * formHeight;
+					if (xOverlap && yOverlap)
+					{
+						return (true, (int)(player.X * formWidth), (int)(player.Y * formHeight));
+					}
+				}
+			}
+			return (false, 0, 0);
+		}
+
 		/// <summary>
 		/// Moves player towards collided wall.
 		/// </summary>
-		private void CollisionResponseHug(int objXPx, int objYPy, int objWidthPx, int objHeightPx, float X, float Y, ref float newX, ref float newY, int WidthPx, int HeightPx)
-		//private void CollisionResponseHug(int col, int row, float X, float Y, ref float newX, ref float newY, int objectWidthPx, int objectHeightPx)
+		private void CollisionResponseHug(int objXPx, int objYPx, int objWidthPx, int objHeightPx, float X, float Y, ref float newX, ref float newY, int WidthPx, int HeightPx)
 		{
 			float horizontal = X - newX;
 			float vertical = Y - newY;
 
 			if(horizontal < 0) //-right
 			{
-				newX = (float)(objXPx - WidthPx/*graphicsDrawer.PlayerWidthInPixels*/ - 1) / formWidth;
+				newX = (float)(objXPx - WidthPx - 1) / formWidth;
 			}
 			if(horizontal > 0) //+left
 			{
@@ -459,16 +475,16 @@ namespace Bambulanci
 			}
 			if(vertical > 0) //+up
 			{
-				newY = (float)(objYPy + objHeightPx) / formHeight;
+				newY = (float)(objYPx + objHeightPx) / formHeight;
 			}
 			if (vertical < 0) //-down
 			{
-				newY = (float)(objYPy - HeightPx/*graphicsDrawer.PlayerHeightInPixels*/ - 1) / formHeight;
+				newY = (float)(objYPx - HeightPx - 1) / formHeight;
 			}
 
 		}
 
-		public void Move(Direction direction, ref float x, ref float y, float speed, int objectWidth, int objectHeight)
+		public void Move(Direction direction, ref float x, ref float y, float speed, int objWidthPx, int objHeightPx, Player SenderPlayer = null)
 		{
 			float newX = x;
 			float newY = y;
@@ -491,22 +507,24 @@ namespace Bambulanci
 			}
 
 			//player collision
-			//...
-			//DetectPlayers();
-
+			if (SenderPlayer != null) //for players only
+			{
+				(bool collided, int xPx, int yPx) = DetectPlayers(newX, newY, x, y, objWidthPx, objHeightPx, SenderPlayer.id);
+				if (collided)
+				{
+					CollisionResponseHug(xPx, yPx, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx, x, y, ref newX, ref newY, objWidthPx, objHeightPx);
+				}
+			}
 
 			//wall collision
-			(bool wallCollided, int tileCol, int tileRow) = DetectWalls(newX, newY, x, y);
+			(bool wallCollided, int objXPx, int objYPx) = DetectWalls(newX, newY, x, y, objWidthPx, objHeightPx);
 
 			if (wallCollided) //response should be different for player and projectile--------------------------------------
 			{
-				int objXPx = tileCol * map.tileSizeScaled.Width;
-				int objYPx = tileRow * map.tileSizeScaled.Height;
-
 				int wallWidth = map.tileSizeScaled.Width;
 				int wallHeight = map.tileSizeScaled.Height;
 
-				CollisionResponseHug(objXPx, objYPx, wallWidth, wallHeight, x, y, ref newX, ref newY, objectWidth, objectHeight);
+				CollisionResponseHug(objXPx, objYPx, wallWidth, wallHeight, x, y, ref newX, ref newY, objWidthPx, objHeightPx);
 			}
 
 			//not window collision

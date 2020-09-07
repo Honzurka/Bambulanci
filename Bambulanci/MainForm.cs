@@ -22,8 +22,8 @@ namespace Bambulanci
 			ChangeGameState(GameState.Intro);
 
 			//singlePlayer:
-			host.BWStartHostStarter(0, 45000);
-			ChangeGameState(GameState.HostWaitingRoom);
+			//host.BWStartHostStarter(0, 45000);
+			//ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -163,13 +163,14 @@ namespace Bambulanci
 			host.LocalhostAndBroadcastMessage(hostStartGame); //localHost not needed
 			host.StartGameListening();
 			ChangeGameState(GameState.InGame);
-			
+
+			Game.Players.Add(new Player(this, 0.5f, 0.5f, 2, ipEndPoint: new IPEndPoint(IPAddress.Any, 1111))); //test only---
 			foreach (var client in host.clientList)
 			{
 				(float x, float y) = Game.GetSpawnCoords();
 				Game.Players.Add(new Player(this, x, y, client.Id, ipEndPoint: client.IpEndPoint));
 			}
-
+			
 			TimerInGame.Enabled = true;
 		}
 
