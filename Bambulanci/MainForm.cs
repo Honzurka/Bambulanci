@@ -22,8 +22,8 @@ namespace Bambulanci
 			ChangeGameState(GameState.Intro);
 
 			//singlePlayer:
-			//host.BWStartHostStarter(0, 45000);
-			//ChangeGameState(GameState.HostWaitingRoom);
+			host.BWStartHostStarter(0, 45000);
+			ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -167,7 +167,7 @@ namespace Bambulanci
 			foreach (var client in host.clientList)
 			{
 				(float x, float y) = Game.GetSpawnCoords();
-				Game.Players.Add(new Player(Game, x, y, client.Id, ipEndPoint: client.IpEndPoint));
+				Game.Players.Add(new Player(this, x, y, client.Id, ipEndPoint: client.IpEndPoint));
 			}
 
 			TimerInGame.Enabled = true;

@@ -53,26 +53,28 @@ namespace Bambulanci
 	}
 	class Pistol : Weapon
 	{
-		bool coolingDown = false;
-		private readonly Game game;
+		int cooldown = 0;
+		private readonly FormBambulanci form;
 		private readonly Player player;
-		private int idCounter = 0;
-
-		public Pistol(Game game, Player player)
+		
+		public Pistol(FormBambulanci form, Player player)
 		{
-			this.game = game;
+			this.form = form;
 			this.player = player;
 		}
 
 		public void Fire(WeaponState weaponState)
 		{
-			if (weaponState == WeaponState.Fired && coolingDown == false)
+			if (weaponState == WeaponState.Fired && cooldown <= 0)
 			{
-				int projectileId = player.id * 100000 + idCounter; //..-----------idea
-				idCounter++;
-				game.projectiles.Add(new Projectile(player.X, player.Y, player.Direction, projectileId)); //style of shooting--melo by vznikat ve stredu hrace. ne nahore vlevo
-				coolingDown = true;
-				//Console.WriteLine($"#5 projectile added to list from host at dir:{player.Direction} x:{player.X} y:{player.Y} ");
+				float widthOffset = form.Game.graphicsDrawer.PlayerWidthInPixels / 2f / form.Width;
+				float heightOffset = form.Game.graphicsDrawer.PlayerHeightInPixels / 2f / form.TrueHeight;
+				form.Game.projectiles.Add(new Projectile(player.X+widthOffset, player.Y+heightOffset, player.Direction, player.projectileId)); //style of shooting--melo by vznikat ve stredu hrace. ne nahore vlevo
+				player.projectileId++;
+				cooldown = 30;}
+			else
+			{
+				cooldown--;
 			}
 		}
 	}
@@ -83,7 +85,7 @@ namespace Bambulanci
 		public float Y;
 
 		public readonly PlayerMovement direction;
-		const float speed = 0.01f; //...
+		const float speed = 0.02f; //...
 		public readonly int Id;
 
 		public Projectile(float x, float y, PlayerMovement direction, int Id)
@@ -135,20 +137,23 @@ namespace Bambulanci
 		public PlayerMovement Direction { get; private set; } //definitely not Stay
 
 		public Weapon Weapon { get; private set; }
-		
+		const int projectileIdMultiplier = 1000000;
+		public int projectileId;
+
 		public readonly IPEndPoint ipEndPoint; //for host only
 
-		private readonly Game game;
+		private readonly Form form;
 
-		public Player(Game game, float x, float y, int id = -1, PlayerMovement direction = PlayerMovement.Left, IPEndPoint ipEndPoint = null)
+		public Player(FormBambulanci form, float x, float y, int id, PlayerMovement direction = PlayerMovement.Left, IPEndPoint ipEndPoint = null)
 		{
 			this.X = x;
 			this.Y = y;
 			this.id = id;
 			this.Direction = direction;
 			this.ipEndPoint = ipEndPoint;
-			this.game = game;
-			Weapon = new Pistol(game, this);
+			this.form = form;
+			Weapon = new Pistol(form, this);
+			projectileId = projectileIdMultiplier * id;
 		}
 
 
@@ -188,7 +193,7 @@ namespace Bambulanci
 
 			form.Game.DetectWalls(ref newX, ref newY, X, Y, form);
 
-			if (newX >= 0 && newX <= 1 - graphicsDrawer.PlayerWidth/form.Width && newY >= 0 && newY <= 1 - graphicsDrawer.PlayerHeight/form.TrueHeight) //not perfect
+			if (newX >= 0 && newX <= 1 - graphicsDrawer.PlayerWidthInPixels/form.Width && newY >= 0 && newY <= 1 - graphicsDrawer.PlayerHeightInPixels/form.TrueHeight) //not perfect
 			{
 				X = newX;
 				Y = newY;
@@ -297,8 +302,8 @@ namespace Bambulanci
 
 
 		//in pixels:
-		public int PlayerWidth { get; private set; } //prob. should be under player.....
-		public int PlayerHeight { get; private set; }
+		public int PlayerWidthInPixels { get; private set; } //prob. should be under player.....
+		public int PlayerHeightInPixels { get; private set; }
 
 		/// <summary>
 		/// Draws background from map to Graphics g
@@ -329,19 +334,19 @@ namespace Bambulanci
 			for (int i = 0; i < allowedColors.Length; i++)
 			{
 				Brush playerColor = allowedColors[i];
-				PlayerWidth = (int)(formWidth/ Player.widthScaling);
-				PlayerHeight = (int)(formHeight / Player.heightScaling);
+				PlayerWidthInPixels = (int)(formWidth/ Player.widthScaling);
+				PlayerHeightInPixels = (int)(formHeight / Player.heightScaling);
 
-				Bitmap bitmap = new Bitmap(PlayerWidth, PlayerHeight);
+				Bitmap bitmap = new Bitmap(PlayerWidthInPixels, PlayerHeightInPixels);
 				var g = Graphics.FromImage(bitmap);
 
-				int w = PlayerWidth / eyeScaling;
-				int h = PlayerHeight / eyeScaling;
+				int w = PlayerWidthInPixels / eyeScaling;
+				int h = PlayerHeightInPixels / eyeScaling;
 
-				int offset = (PlayerWidth / 2 - w) / 2;
-				g.FillRectangle(playerColor, new Rectangle(0, 0, PlayerWidth, PlayerHeight));
+				int offset = (PlayerWidthInPixels / 2 - w) / 2;
+				g.FillRectangle(playerColor, new Rectangle(0, 0, PlayerWidthInPixels, PlayerHeightInPixels));
 				g.FillEllipse(Brushes.Black, new Rectangle(0, offset, w, h));
-				g.FillEllipse(Brushes.Black, new Rectangle(0, offset + PlayerHeight / 2, w, h));
+				g.FillEllipse(Brushes.Black, new Rectangle(0, offset + PlayerHeightInPixels / 2, w, h));
 
 				Bitmap b90 = (Bitmap)bitmap.Clone();
 				b90.RotateFlip(RotateFlipType.Rotate90FlipNone);
@@ -438,8 +443,8 @@ namespace Bambulanci
 			int tileCol = (int)(newX * formWidth / tileW);
 			int tileRow = (int)(newY * formHeight / tileH);
 
-			int tileColMax = (int)((newX * formWidth + graphicsDrawer.PlayerWidth) / tileW);
-			int tileRowMax = (int)((newY * formHeight + graphicsDrawer.PlayerHeight) / tileH);
+			int tileColMax = (int)((newX * formWidth + graphicsDrawer.PlayerWidthInPixels) / tileW);
+			int tileRowMax = (int)((newY * formHeight + graphicsDrawer.PlayerHeightInPixels) / tileH);
 			for (int col = tileCol; col <= tileColMax; col++)
 				for (int row = tileRow; row <= tileRowMax; row++)
 				{
@@ -447,8 +452,8 @@ namespace Bambulanci
 					{
 						g.DrawRectangle(Pens.Red, col * tileW, row * tileH, tileW, tileH);
 
-						bool xOverlap = newX * formWidth < ((col + 1) * tileW - 1) && ((newX * formWidth + graphicsDrawer.PlayerWidth)) > (col * tileW);
-						bool yOverlap = newY * formHeight < ((row + 1) * tileH - 1) && ((newY * formHeight + graphicsDrawer.PlayerHeight)) > (row * tileH);
+						bool xOverlap = newX * formWidth < ((col + 1) * tileW - 1) && ((newX * formWidth + graphicsDrawer.PlayerWidthInPixels)) > (col * tileW);
+						bool yOverlap = newY * formHeight < ((row + 1) * tileH - 1) && ((newY * formHeight + graphicsDrawer.PlayerHeightInPixels)) > (row * tileH);
 
 						if (xOverlap && yOverlap)
 						{
@@ -472,7 +477,7 @@ namespace Bambulanci
 
 			if(horizontal < 0) //-right
 			{
-				newX = (float)(tileX - graphicsDrawer.PlayerWidth - 1) / formWidth;
+				newX = (float)(tileX - graphicsDrawer.PlayerWidthInPixels - 1) / formWidth;
 			}
 			if(horizontal > 0) //+left
 			{
@@ -484,7 +489,7 @@ namespace Bambulanci
 			}
 			if (vertical < 0) //-down
 			{
-				newY = (float)(tileY - graphicsDrawer.PlayerHeight - 1) / formHeight;
+				newY = (float)(tileY - graphicsDrawer.PlayerHeightInPixels - 1) / formHeight;
 			}
 
 		}

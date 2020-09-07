@@ -441,7 +441,7 @@ namespace Bambulanci
 						int index = form.Game.Players.FindIndex(p => p.id == playerId); //form.Game -- maybe should be Game. -----
 						if (index == -1)
 						{
-							form.Game.Players.Add(new Player(form.Game, x, y, playerId, (PlayerMovement)direction));
+							form.Game.Players.Add(new Player(form, x, y, playerId, (PlayerMovement)direction));
 						}
 						else
 						{
