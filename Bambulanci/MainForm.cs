@@ -188,7 +188,8 @@ namespace Bambulanci
 				}
 				foreach (var projectile in Game.projectiles)
 				{
-					projectile.MoveByHost(); //move should be in parallel, but its not possible to time it well
+					Game.Move(projectile.direction, ref projectile.X, ref projectile.Y, Projectile.speed, Game.graphicsDrawer.ProjectileWidthPx, Game.graphicsDrawer.ProjectileHeightPx);
+					//projectile.MoveByHost(); //move should be in parallel, but its not possible to time it well
 					byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.Id, (byte)projectile.direction, projectile.X, projectile.Y));
 					host.BroadcastMessage(hostPlayerFire); //only broadcast, otherwise paralelism problems
 					//Console.WriteLine($"#6 host: projectile moved + hostPlayerFire sent by host x:{projectile.X} y:{projectile.Y} ");
@@ -213,23 +214,23 @@ namespace Bambulanci
 			}
 		}
 
-		public PlayerMovement playerMovement = PlayerMovement.Stay;
+		public Direction playerMovement = Direction.Stay;
 		public WeaponState weaponState = WeaponState.Still;
 		private void FormBambulanci_KeyDown(object sender, KeyEventArgs e)
 		{
 			switch (e.KeyCode)
 			{
 				case Keys.Left:
-					playerMovement = PlayerMovement.Left;
+					playerMovement = Direction.Left;
 					break;
 				case Keys.Right:
-					playerMovement = PlayerMovement.Right;
+					playerMovement = Direction.Right;
 					break;
 				case Keys.Up:
-					playerMovement = PlayerMovement.Up;
+					playerMovement = Direction.Up;
 					break;
 				case Keys.Down:
-					playerMovement = PlayerMovement.Down;
+					playerMovement = Direction.Down;
 					break;
 				case Keys.Space:
 					weaponState = WeaponState.Fired;
@@ -243,7 +244,7 @@ namespace Bambulanci
 		{
 			if (e.KeyCode == Keys.Left || e.KeyCode == Keys.Right || e.KeyCode == Keys.Up || e.KeyCode == Keys.Down)
 			{
-				playerMovement = PlayerMovement.Stay;
+				playerMovement = Direction.Stay;
 			}
 			if(e.KeyCode == Keys.Space)
 			{

@@ -234,7 +234,7 @@ namespace Bambulanci
 				switch (data.Cmd)
 				{
 					case Command.ClientMove: //moves player who sends me command
-						PlayerMovement playerMovement = (PlayerMovement)data.b;
+						Direction playerMovement = (Direction)data.b;
 						foreach (var player in form.Game.Players)
 						{
 							if (player.ipEndPoint.Equals(clientEP)) //find client who send me move command
@@ -441,11 +441,11 @@ namespace Bambulanci
 						int index = form.Game.Players.FindIndex(p => p.id == playerId); //form.Game -- maybe should be Game. -----
 						if (index == -1)
 						{
-							form.Game.Players.Add(new Player(form, x, y, playerId, (PlayerMovement)direction));
+							form.Game.Players.Add(new Player(form, x, y, playerId, (Direction)direction));
 						}
 						else
 						{
-							form.Game.Players[index].MoveByClient((PlayerMovement)direction, x, y);
+							form.Game.Players[index].MoveByClient((Direction)direction, x, y);
 						}
 						break;
 					case Command.HostPlayerFire:
@@ -454,7 +454,7 @@ namespace Bambulanci
 						index = form.Game.projectiles.FindIndex(p => p.Id == projectileId);
 						if(index == -1)
 						{
-							form.Game.projectiles.Add(new Projectile(x, y, (PlayerMovement)direction, projectileId));
+							form.Game.projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId));
 							Console.WriteLine($"#7 hostPlayerFire received : projectile added to x:{x} y:{y}");
 						}
 						else

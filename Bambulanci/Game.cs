@@ -5,6 +5,7 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Net;
 using System.Runtime.CompilerServices;
+using System.Transactions;
 using System.Windows.Forms;
 using System.Xaml.Permissions;
 
@@ -44,7 +45,7 @@ namespace Bambulanci
 		}
 	}
 	
-	public enum PlayerMovement { Left, Up, Right, Down, Stay }
+	public enum Direction { Left, Up, Right, Down, Stay }
 	public enum WeaponState { Fired, Still}
 
 	public interface Weapon
@@ -67,8 +68,8 @@ namespace Bambulanci
 		{
 			if (weaponState == WeaponState.Fired && cooldown <= 0)
 			{
-				float widthOffset = form.Game.graphicsDrawer.PlayerWidthInPixels / 2f / form.Width;
-				float heightOffset = form.Game.graphicsDrawer.PlayerHeightInPixels / 2f / form.TrueHeight;
+				float widthOffset = form.Game.graphicsDrawer.PlayerWidthPx / 2f / form.Width;
+				float heightOffset = form.Game.graphicsDrawer.PlayerHeightPx / 2f / form.TrueHeight;
 				form.Game.projectiles.Add(new Projectile(player.X+widthOffset, player.Y+heightOffset, player.Direction, player.projectileId)); //style of shooting--melo by vznikat ve stredu hrace. ne nahore vlevo
 				player.projectileId++;
 				cooldown = 30;}
@@ -78,17 +79,17 @@ namespace Bambulanci
 			}
 		}
 	}
-	public class Projectile
+	public class Projectile //struct?---
 	{
-		//should be between 0 and 1
+		//between 0 and 1
 		public float X;
 		public float Y;
 
-		public readonly PlayerMovement direction;
-		const float speed = 0.02f; //...
+		public readonly Direction direction;
+		public const float speed = 0.02f;
 		public readonly int Id;
 
-		public Projectile(float x, float y, PlayerMovement direction, int Id)
+		public Projectile(float x, float y, Direction direction, int Id)
 		{
 			this.X = x;
 			this.Y = y;
@@ -96,21 +97,22 @@ namespace Bambulanci
 			this.Id = Id;
 		}
 
-		public void MoveByHost() //similar to playerMovement -- should be 1 method only
+		/*
+		public void MoveByHost()
 		{
 			//Console.WriteLine($"projectile moved by host from x:{X} y:{Y}");
 			switch (direction)
 			{
-				case PlayerMovement.Left:
+				case Direction.Left:
 					X -= speed;
 					break;
-				case PlayerMovement.Up:
+				case Direction.Up:
 					Y -= speed;
 					break;
-				case PlayerMovement.Right:
+				case Direction.Right:
 					X += speed;
 					break;
-				case PlayerMovement.Down:
+				case Direction.Down:
 					Y += speed;
 					break;
 				default:
@@ -118,6 +120,7 @@ namespace Bambulanci
 			}
 			Console.WriteLine($"projectile moved by host to x:{X} y:{Y}");
 		}
+		*/
 	}
 
 
@@ -128,13 +131,13 @@ namespace Bambulanci
 
 		public const float widthScaling = 32;
 		public const float heightScaling = 18;
-		
+
 		//coords between 0 and 1
-		public float X { get; private set; }
-		public float Y { get; private set; }
+		public float X;
+		public float Y;
 
 		private const float speed = 0.01f;
-		public PlayerMovement Direction { get; private set; } //definitely not Stay
+		public Direction Direction { get; private set; } //definitely not Stay
 
 		public Weapon Weapon { get; private set; }
 		const int projectileIdMultiplier = 1000000;
@@ -144,7 +147,7 @@ namespace Bambulanci
 
 		private readonly Form form;
 
-		public Player(FormBambulanci form, float x, float y, int id, PlayerMovement direction = PlayerMovement.Left, IPEndPoint ipEndPoint = null)
+		public Player(FormBambulanci form, float x, float y, int id, Direction direction = Direction.Left, IPEndPoint ipEndPoint = null)
 		{
 			this.X = x;
 			this.Y = y;
@@ -161,45 +164,15 @@ namespace Bambulanci
 		/// Called by host only.
 		/// </summary>
 		/// <param name="playerSize"> in pixels </param>
-		public void MoveByHost(PlayerMovement playerMovement, GraphicsDrawer graphicsDrawer, FormBambulanci form)
-			//form just for graphics debuging
-			//graphicsDrawer for playerSize -- not absolutely necessary, window collision is bad anyways
+		public void MoveByHost(Direction direction, GraphicsDrawer graphicsDrawer, FormBambulanci form) //form just for graphics debuging //graphicsDrawer for playerSize -- not absolutely necessary, window collision is bad anyways
 		{
-			if (playerMovement != PlayerMovement.Stay)
-				Direction = playerMovement;
-
-			float newX = X;
-			float newY = Y;
-
-			switch (playerMovement)
+			if (direction != Direction.Stay)
 			{
-				case PlayerMovement.Left:
-					newX -= speed;
-					break;
-				case PlayerMovement.Right:
-					newX += speed;
-					break;
-				case PlayerMovement.Up:
-					newY -= speed;
-					break;
-				case PlayerMovement.Down:
-					newY += speed;
-					break;
-				default:
-					break;
-			}
-			
-			//player collision might be implemented---------------------------------
-
-			form.Game.DetectWalls(ref newX, ref newY, X, Y, form);
-
-			if (newX >= 0 && newX <= 1 - graphicsDrawer.PlayerWidthInPixels/form.Width && newY >= 0 && newY <= 1 - graphicsDrawer.PlayerHeightInPixels/form.TrueHeight) //not perfect
-			{
-				X = newX;
-				Y = newY;
+				Direction = direction;
+				form.Game.Move(Direction, ref X, ref Y, speed, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx);
 			}
 		}
-		public void MoveByClient(PlayerMovement direction, float x, float y)
+		public void MoveByClient(Direction direction, float x, float y)
 		{
 			this.Direction = direction;
 			this.X = x;
@@ -302,8 +275,11 @@ namespace Bambulanci
 
 
 		//in pixels:
-		public int PlayerWidthInPixels { get; private set; } //prob. should be under player.....
-		public int PlayerHeightInPixels { get; private set; }
+		public int PlayerWidthPx { get; private set; } //prob. should be under player.....
+		public int PlayerHeightPx { get; private set; }
+
+		public int ProjectileWidthPx {get; private set;}
+		public int ProjectileHeightPx {get; private set;}
 
 		/// <summary>
 		/// Draws background from map to Graphics g
@@ -334,19 +310,19 @@ namespace Bambulanci
 			for (int i = 0; i < allowedColors.Length; i++)
 			{
 				Brush playerColor = allowedColors[i];
-				PlayerWidthInPixels = (int)(formWidth/ Player.widthScaling);
-				PlayerHeightInPixels = (int)(formHeight / Player.heightScaling);
+				PlayerWidthPx = (int)(formWidth/ Player.widthScaling);
+				PlayerHeightPx = (int)(formHeight / Player.heightScaling);
 
-				Bitmap bitmap = new Bitmap(PlayerWidthInPixels, PlayerHeightInPixels);
+				Bitmap bitmap = new Bitmap(PlayerWidthPx, PlayerHeightPx);
 				var g = Graphics.FromImage(bitmap);
 
-				int w = PlayerWidthInPixels / eyeScaling;
-				int h = PlayerHeightInPixels / eyeScaling;
+				int w = PlayerWidthPx / eyeScaling;
+				int h = PlayerHeightPx / eyeScaling;
 
-				int offset = (PlayerWidthInPixels / 2 - w) / 2;
-				g.FillRectangle(playerColor, new Rectangle(0, 0, PlayerWidthInPixels, PlayerHeightInPixels));
+				int offset = (PlayerWidthPx / 2 - w) / 2;
+				g.FillRectangle(playerColor, new Rectangle(0, 0, PlayerWidthPx, PlayerHeightPx));
 				g.FillEllipse(Brushes.Black, new Rectangle(0, offset, w, h));
-				g.FillEllipse(Brushes.Black, new Rectangle(0, offset + PlayerHeightInPixels / 2, w, h));
+				g.FillEllipse(Brushes.Black, new Rectangle(0, offset + PlayerHeightPx / 2, w, h));
 
 				Bitmap b90 = (Bitmap)bitmap.Clone();
 				b90.RotateFlip(RotateFlipType.Rotate90FlipNone);
@@ -367,12 +343,12 @@ namespace Bambulanci
 
 		private Bitmap CreateProjectileImg()
 		{
-			int projectileWidth = formWidth / 128; //constants...-----------
-			int projectileHeight = formHeight / 72;
+			ProjectileWidthPx = formWidth / 128; //constants...-----------
+			ProjectileHeightPx = formHeight / 72;
 
-			Bitmap bitmap = new Bitmap(projectileWidth, projectileHeight);
+			Bitmap bitmap = new Bitmap(ProjectileWidthPx, ProjectileHeightPx);
 			var g = Graphics.FromImage(bitmap);
-			g.FillRectangle(Brushes.Orange, 0, 0, projectileWidth, projectileHeight);
+			g.FillRectangle(Brushes.Orange, 0, 0, ProjectileWidthPx, ProjectileHeightPx);
 			
 			return bitmap;
 		}
@@ -395,7 +371,6 @@ namespace Bambulanci
 	}
 
 	public class Game
-		//list of players might be under game----------------------
 	{
 		public readonly GraphicsDrawer graphicsDrawer;
 		public readonly Map map;
@@ -432,10 +407,10 @@ namespace Bambulanci
 			return ((float)col * map.tileSizeScaled.Width / formWidth, (float)row * map.tileSizeScaled.Height / formHeight);
 		}
 
-		public void DetectWalls(ref float newX, ref float newY, float X, float Y, Form formular) //form just for graphic debug
+		private (bool collided, int tileCol, int tileRow) DetectWalls(float newX, float newY, float X, float Y/*, Form formular*/) //form just for graphic debug
 		{
 			//https://jonathanwhiting.com/tutorial/collision/			
-			Graphics g = formular.CreateGraphics();
+			//Graphics g = formular.CreateGraphics();
 			int tileW = map.tileSizeScaled.Width;
 			int tileH = map.tileSizeScaled.Height;
 
@@ -443,55 +418,103 @@ namespace Bambulanci
 			int tileCol = (int)(newX * formWidth / tileW);
 			int tileRow = (int)(newY * formHeight / tileH);
 
-			int tileColMax = (int)((newX * formWidth + graphicsDrawer.PlayerWidthInPixels) / tileW);
-			int tileRowMax = (int)((newY * formHeight + graphicsDrawer.PlayerHeightInPixels) / tileH);
+			int tileColMax = (int)((newX * formWidth + graphicsDrawer.PlayerWidthPx) / tileW);
+			int tileRowMax = (int)((newY * formHeight + graphicsDrawer.PlayerHeightPx) / tileH);
 			for (int col = tileCol; col <= tileColMax; col++)
 				for (int row = tileRow; row <= tileRowMax; row++)
 				{
 					if (map.IsWall(col, row))
 					{
-						g.DrawRectangle(Pens.Red, col * tileW, row * tileH, tileW, tileH);
+						//g.DrawRectangle(Pens.Red, col * tileW, row * tileH, tileW, tileH);
 
-						bool xOverlap = newX * formWidth < ((col + 1) * tileW - 1) && ((newX * formWidth + graphicsDrawer.PlayerWidthInPixels)) > (col * tileW);
-						bool yOverlap = newY * formHeight < ((row + 1) * tileH - 1) && ((newY * formHeight + graphicsDrawer.PlayerHeightInPixels)) > (row * tileH);
+						bool xOverlap = newX * formWidth < ((col + 1) * tileW - 1) && ((newX * formWidth + graphicsDrawer.PlayerWidthPx)) > (col * tileW);
+						bool yOverlap = newY * formHeight < ((row + 1) * tileH - 1) && ((newY * formHeight + graphicsDrawer.PlayerHeightPx)) > (row * tileH);
 
 						if (xOverlap && yOverlap)
 						{
-							CollisionResponse(col, row, X, Y, ref newX, ref newY);
-							return;
+							//CollisionResponse(col, row, X, Y, ref newX, ref newY);
+							return (true, col, row);
 						}
 					}
 				}
+			return (false, 0, 0);
 		}
 
 		/// <summary>
 		/// Moves player towards collided wall.
 		/// </summary>
-		private void CollisionResponse(int col, int row, float X, float Y, ref float newX, ref float newY)
+		private void CollisionResponseHug(int objXPx, int objYPy, int objWidthPx, int objHeightPx, float X, float Y, ref float newX, ref float newY, int WidthPx, int HeightPx)
+		//private void CollisionResponseHug(int col, int row, float X, float Y, ref float newX, ref float newY, int objectWidthPx, int objectHeightPx)
 		{
 			float horizontal = X - newX;
 			float vertical = Y - newY;
 
-			int tileX = col * map.tileSizeScaled.Width;
-			int tileY = row * map.tileSizeScaled.Height;
-
 			if(horizontal < 0) //-right
 			{
-				newX = (float)(tileX - graphicsDrawer.PlayerWidthInPixels - 1) / formWidth;
+				newX = (float)(objXPx - WidthPx/*graphicsDrawer.PlayerWidthInPixels*/ - 1) / formWidth;
 			}
 			if(horizontal > 0) //+left
 			{
-				newX = (float)(tileX + map.tileSizeScaled.Width) / formWidth;
+				newX = (float)(objXPx + objWidthPx) / formWidth;
 			}
 			if(vertical > 0) //+up
 			{
-				newY = (float)(tileY + map.tileSizeScaled.Height) / formHeight;
+				newY = (float)(objYPy + objHeightPx) / formHeight;
 			}
 			if (vertical < 0) //-down
 			{
-				newY = (float)(tileY - graphicsDrawer.PlayerHeightInPixels - 1) / formHeight;
+				newY = (float)(objYPy - HeightPx/*graphicsDrawer.PlayerHeightInPixels*/ - 1) / formHeight;
 			}
 
+		}
+
+		public void Move(Direction direction, ref float x, ref float y, float speed, int objectWidth, int objectHeight)
+		{
+			float newX = x;
+			float newY = y;
+			switch (direction)
+			{
+				case Direction.Left:
+					newX -= speed;
+					break;
+				case Direction.Right:
+					newX += speed;
+					break;
+				case Direction.Up:
+					newY -= speed;
+					break;
+				case Direction.Down:
+					newY += speed;
+					break;
+				default:
+					break;
+			}
+
+			//player collision
+			//...
+			//DetectPlayers();
+
+
+			//wall collision
+			(bool wallCollided, int tileCol, int tileRow) = DetectWalls(newX, newY, x, y);
+
+			if (wallCollided) //response should be different for player and projectile--------------------------------------
+			{
+				int objXPx = tileCol * map.tileSizeScaled.Width;
+				int objYPx = tileRow * map.tileSizeScaled.Height;
+
+				int wallWidth = map.tileSizeScaled.Width;
+				int wallHeight = map.tileSizeScaled.Height;
+
+				CollisionResponseHug(objXPx, objYPx, wallWidth, wallHeight, x, y, ref newX, ref newY, objectWidth, objectHeight);
+			}
+
+			//not window collision
+			if (newX >= 0 && newX <= 1 - (float)graphicsDrawer.PlayerWidthPx / formWidth && newY >= 0 && newY <= 1 - (float)graphicsDrawer.PlayerHeightPx / formHeight) //not perfect
+			{
+				x = newX;
+				y = newY;
+			}
 		}
 	}
 }
