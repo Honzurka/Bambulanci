@@ -52,7 +52,7 @@ namespace Bambulanci
 
 		public Direction Direction { get; }
 		public float speed { get; }
-		public int Id { get; }
+		public int PlayerId { get; }
 		public int WidthPx { get; }
 		public int HeightPx { get; }
 
@@ -85,9 +85,9 @@ namespace Bambulanci
 				float heightOffset = form.Game.graphicsDrawer.PlayerHeightPx / 2f / form.TrueHeight;
 				lock (form.Game.projectiles)
 				{
-					form.Game.projectiles.Add(new Projectile(player.X + widthOffset, player.Y + heightOffset, player.Direction, player.projectileId, form, player.Id));
+					form.Game.projectiles.Add(new Projectile(player.X + widthOffset, player.Y + heightOffset, player.Direction, player.projectileIdGenerator, form, player.PlayerId));
 				}
-				player.projectileId++;
+				player.projectileIdGenerator++;
 				cooldown = 30;
 			}
 			else
@@ -96,7 +96,7 @@ namespace Bambulanci
 			}
 		}
 	}
-	public class Projectile : IMovableObject //struct?---
+	public class Projectile : IMovableObject
 	{
 		//between 0 and 1
 		public float X { get; set; }
@@ -104,20 +104,21 @@ namespace Bambulanci
 
 		public Direction Direction { get; set; }
 		public float speed { get; } = 0.02f; //const but from Iface
-		public int Id { get; }
+		public int PlayerId { get; }
 		public int WidthPx { get; }
 		public int HeightPx { get; }
 
+		public bool shouldBeDestroyed = false; //host only
 
-		public readonly int playerId; //host only----- not under Iface
+		public readonly int id;
 
-		public Projectile(float x, float y, Direction direction, int Id, FormBambulanci form, int playerId = -1)
+		public Projectile(float x, float y, Direction direction, int id, FormBambulanci form, int playerId = -1)
 		{
 			this.X = x;
 			this.Y = y;
 			this.Direction = direction;
-			this.Id = Id;
-			this.playerId = playerId;
+			this.PlayerId = playerId;
+			this.id = id;
 			WidthPx = form.Game.graphicsDrawer.ProjectileWidthPx;
 			HeightPx = form.Game.graphicsDrawer.ProjectileHeightPx;
 		}
@@ -127,8 +128,8 @@ namespace Bambulanci
 
 	public class Player : IMovableObject
 	{
-		public int Id { get; }
-		//bool isAlive;
+		public int PlayerId { get; }
+		public bool isAlive = true;
 
 		public const float widthScaling = 32;
 		public const float heightScaling = 18;
@@ -145,7 +146,7 @@ namespace Bambulanci
 
 		public IWeapon Weapon { get; private set; }
 		const int projectileIdMultiplier = 1000000;
-		public int projectileId;
+		public int projectileIdGenerator;
 
 		public readonly IPEndPoint ipEndPoint; //for host only
 
@@ -155,12 +156,12 @@ namespace Bambulanci
 		{
 			this.X = x;
 			this.Y = y;
-			this.Id = id;
+			this.PlayerId = id;
 			this.Direction = direction;
 			this.ipEndPoint = ipEndPoint;
 			this.form = form;
 			Weapon = new Pistol(form, this);
-			projectileId = projectileIdMultiplier * id;
+			projectileIdGenerator = projectileIdMultiplier * id;
 			WidthPx = form.Game.graphicsDrawer.PlayerWidthPx;
 			HeightPx = form.Game.graphicsDrawer.PlayerHeightPx;
 		}
@@ -362,7 +363,7 @@ namespace Bambulanci
 
 		public void DrawPlayer(Graphics g, Player player)
 		{
-			int i = player.Id * colorsPerPlayer + (byte)player.Direction;
+			int i = player.PlayerId * colorsPerPlayer + (byte)player.Direction;
 			int mod = allowedColors.Length * colorsPerPlayer;
 			Bitmap playerBitmap = playeImg[i % mod];
 			g.DrawImage(playerBitmap, player.X * formWidth, player.Y * formHeight);
@@ -384,7 +385,8 @@ namespace Bambulanci
 		private int formWidth;
 		private int formHeight;
 
-		public List<Player> Players { get; private set; } = new List<Player>();
+		public List<Player> Players { get; set; } = new List<Player>();
+		public List<Player> DeadPlayers { get; set; } = new List<Player>();
 		public List<Projectile> projectiles { get; private set; } = new List<Projectile>();
 
 		public Game(int formWidth, int formHeight)
@@ -447,21 +449,24 @@ namespace Bambulanci
 			return (false, 0, 0);
 		}
 
-		private (bool collided, int xPx, int yPx) DetectPlayers(float newX, float newY, float X, float Y, int objWidthPx, int objHeightPx, int ignoredPlayerId)
+		private (bool collided, int xPx, int yPx, int playerId) DetectPlayers(float newX, float newY, float X, float Y, int objWidthPx, int objHeightPx, int ignoredPlayerId)
 		{
-			foreach (var player in Players)
+			lock (Players)
 			{
-				if(player.Id != ignoredPlayerId)
+				foreach (var player in Players)
 				{
-					bool xOverlap = newX * formWidth < player.X * formWidth + graphicsDrawer.PlayerWidthPx && newX * formWidth + objWidthPx > player.X * formWidth;
-					bool yOverlap = newY * formHeight < player.Y * formHeight + graphicsDrawer.PlayerHeightPx && newY * formHeight + objHeightPx > player.Y * formHeight;
-					if (xOverlap && yOverlap)
+					if (player.PlayerId != ignoredPlayerId)
 					{
-						return (true, (int)(player.X * formWidth), (int)(player.Y * formHeight)); //what about returning playerId?
+						bool xOverlap = newX * formWidth < player.X * formWidth + graphicsDrawer.PlayerWidthPx && newX * formWidth + objWidthPx > player.X * formWidth;
+						bool yOverlap = newY * formHeight < player.Y * formHeight + graphicsDrawer.PlayerHeightPx && newY * formHeight + objHeightPx > player.Y * formHeight;
+						if (xOverlap && yOverlap)
+						{
+							return (true, (int)(player.X * formWidth), (int)(player.Y * formHeight), player.PlayerId);
+						}
 					}
 				}
 			}
-			return (false, 0, 0);
+			return (false, 0, 0, 0);
 		}
 
 		/// <summary>
@@ -491,14 +496,7 @@ namespace Bambulanci
 
 		}
 
-		private void CollisionResponseKill()
-		{
-			//player.IsAlive == false + nastavit respawnTime
-			//stop redrawing dead players
-			//destroy bullet + inform client about destruction--ToDO NOOOOW
-		}
-
-		public void Move(IMovableObject obj, int playerId = -1) //playerId in case of projectile only
+		public void Move(IMovableObject obj, int projectileId = -1) //projectileId in case of projectile only
 		{
 			float newX = obj.X;
 			float newY = obj.Y;
@@ -519,88 +517,53 @@ namespace Bambulanci
 				default:
 					break;
 			}
-			(bool playerCollision, int xPx, int yPx) = DetectPlayers(newX, newY, obj.X, obj.Y, obj.WidthPx, obj.HeightPx, obj.Id);
-			//playerId might be useful after collision
+			
+			(bool playerCollision, int playerXPx, int playerYPx, int playerId) = DetectPlayers(newX, newY, obj.X, obj.Y, obj.WidthPx, obj.HeightPx, obj.PlayerId);
+			(bool wallCollision, int wallXPx, int wallYPx) = DetectWalls(newX, newY, obj.X, obj.Y, obj.WidthPx, obj.HeightPx);
+			bool windowCollision = newX < 0 || newX > 1 - (float)obj.WidthPx / formWidth || newY < 0 || newY > 1 - (float)obj.HeightPx / formHeight;
+
 			if (playerCollision)
 			{
-				//NOW----------destruction of bullets
-				CollisionResponseHug(xPx, yPx, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx, obj.X, obj.Y, ref newX, ref newY, obj.WidthPx, obj.HeightPx);
-
-				//CollisionResponseKill()
+				CollisionResponseHug(playerXPx, playerYPx, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx, obj.X, obj.Y, ref newX, ref newY, obj.WidthPx, obj.HeightPx);
+				if(projectileId != -1)
+				{
+					MarkProjectileForDestruction(projectileId);
+					int index = Players.FindIndex(p => p.PlayerId == playerId);
+					lock (Players)
+					{
+						Players[index].isAlive = false;
+					}
+					//nastavit respawnTime
+					//stop redrawing dead players
+				}
 			}
-
-			//wall collision
-			(bool wallCollided, int objXPx, int objYPx) = DetectWalls(newX, newY, obj.X, obj.Y, obj.WidthPx, obj.HeightPx);
-
-			if (wallCollided) //response should be different for player and projectile--------------------------------------
+			if (wallCollision)
 			{
 				int wallWidth = map.tileSizeScaled.Width;
 				int wallHeight = map.tileSizeScaled.Height;
-
-				CollisionResponseHug(objXPx, objYPx, wallWidth, wallHeight, obj.X, obj.Y, ref newX, ref newY, obj.WidthPx, obj.HeightPx);
+				CollisionResponseHug(wallXPx, wallYPx, wallWidth, wallHeight, obj.X, obj.Y, ref newX, ref newY, obj.WidthPx, obj.HeightPx);
+				if (projectileId != -1)
+				{
+					MarkProjectileForDestruction(projectileId);
+				}
 			}
-
-			//not window collision
-			if (newX >= 0 && newX <= 1 - (float)graphicsDrawer.PlayerWidthPx / formWidth && newY >= 0 && newY <= 1 - (float)graphicsDrawer.PlayerHeightPx / formHeight) //not perfect
+			if (!windowCollision)
 			{
 				obj.X = newX;
 				obj.Y = newY;
 			}
+			else if (projectileId != -1)
+			{
+				MarkProjectileForDestruction(projectileId);
+			}
 		}
-
-	/*
-		public void Move(Direction direction, ref float x, ref float y, float speed, int objWidthPx, int objHeightPx, int playerId)
-			//arg interface:MovableObject instead of multiple fields...----------------------------
-			//might receive CollisionResponse delegate as arg--prob not, different args of Collisions
+		private void MarkProjectileForDestruction(int projectileId)
 		{
-			float newX = x;
-			float newY = y;
-			switch (direction)
+			int index = projectiles.FindIndex(p => p.id == projectileId);
+			lock (projectiles)
 			{
-				case Direction.Left:
-					newX -= speed;
-					break;
-				case Direction.Right:
-					newX += speed;
-					break;
-				case Direction.Up:
-					newY -= speed;
-					break;
-				case Direction.Down:
-					newY += speed;
-					break;
-				default:
-					break;
-			}
-
-			(bool playerCollision, int xPx, int yPx) = DetectPlayers(newX, newY, x, y, objWidthPx, objHeightPx, playerId);
-			//playerId might be useful after collision
-			if (playerCollision)
-			{
-				//NOW----------destruction of bullets
-				CollisionResponseHug(xPx, yPx, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx, x, y, ref newX, ref newY, objWidthPx, objHeightPx);
-
-				//CollisionResponseKill()
-			}
-
-			//wall collision
-			(bool wallCollided, int objXPx, int objYPx) = DetectWalls(newX, newY, x, y, objWidthPx, objHeightPx);
-
-			if (wallCollided) //response should be different for player and projectile--------------------------------------
-			{
-				int wallWidth = map.tileSizeScaled.Width;
-				int wallHeight = map.tileSizeScaled.Height;
-
-				CollisionResponseHug(objXPx, objYPx, wallWidth, wallHeight, x, y, ref newX, ref newY, objWidthPx, objHeightPx);
-			}
-
-			//not window collision
-			if (newX >= 0 && newX <= 1 - (float)graphicsDrawer.PlayerWidthPx / formWidth && newY >= 0 && newY <= 1 - (float)graphicsDrawer.PlayerHeightPx / formHeight) //not perfect
-			{
-				x = newX;
-				y = newY;
+				projectiles[index].shouldBeDestroyed = true;
 			}
 		}
-	*/ //old Move
 	}
 }

@@ -160,7 +160,7 @@ namespace Bambulanci
 			host.clientList.Add(new Host.ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
 			
 			byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
-			host.LocalhostAndBroadcastMessage(hostStartGame); //localHost not needed
+			host.BroadcastMessage(hostStartGame);
 			host.StartGameListening();
 			ChangeGameState(GameState.InGame);
 
@@ -180,23 +180,35 @@ namespace Bambulanci
 			{
 				byte[] hostTick = Data.ToBytes(Command.HostTick);
 				host.LocalhostAndBroadcastMessage(hostTick);
-				//Console.WriteLine("#1 host: timer tick sent.");
 
-				foreach (var player in Game.Players)
+				lock (Game.Players)
 				{
-					byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, values: (player.Id, (byte)player.Direction, player.X, player.Y));
-					host.LocalhostAndBroadcastMessage(hostPlayerMovement);
+					foreach (var player in Game.Players)
+					{
+						if (player.isAlive)
+						{
+							byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, values: (player.PlayerId, (byte)player.Direction, player.X, player.Y));
+							host.LocalhostAndBroadcastMessage(hostPlayerMovement);
+						}
+						else
+						{
+							byte[] hostKillPlayer = Data.ToBytes(Command.HostKillPlayer, integer: player.PlayerId);
+							host.LocalhostAndBroadcastMessage(hostKillPlayer);
+						}
+					}
 				}
 				lock (Game.projectiles)
 				{
 					foreach (var projectile in Game.projectiles)
 					{
-						Game.Move(projectile, projectile.playerId);
-						//Game.Move(projectile.Direction, ref projectile.X, ref projectile.Y, Projectile.speed, Game.graphicsDrawer.ProjectileWidthPx, Game.graphicsDrawer.ProjectileHeightPx, projectile.playerId);
-						//move should be called in parallel optimally
-						byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.Id, (byte)projectile.Direction, projectile.X, projectile.Y));
-						host.BroadcastMessage(hostPlayerFire); //only broadcast, otherwise paralelism problems
-															   //Console.WriteLine($"#6 host: projectile moved + hostPlayerFire sent by host x:{projectile.X} y:{projectile.Y} ");
+						Game.Move(projectile, projectile.id);
+						byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.id, (byte)projectile.Direction, projectile.X, projectile.Y));
+						host.BroadcastMessage(hostPlayerFire);
+						if (projectile.shouldBeDestroyed)
+						{
+							byte[] hostDestroyProjectile = Data.ToBytes(Command.HostDestroyProjectile, integer: projectile.id);
+							host.LocalhostAndBroadcastMessage(hostDestroyProjectile);
+						}
 					}
 				}
 			}
@@ -208,9 +220,12 @@ namespace Bambulanci
 			if (currentGameState == GameState.InGame)
 			{
 				Game.graphicsDrawer.DrawBackground(g);
-				foreach (var player in Game.Players)
+				lock (Game.Players)
 				{
-					Game.graphicsDrawer.DrawPlayer(g, player);
+					foreach (var player in Game.Players)
+					{
+						Game.graphicsDrawer.DrawPlayer(g, player);
+					}
 				}
 				lock (Game.projectiles)
 				{

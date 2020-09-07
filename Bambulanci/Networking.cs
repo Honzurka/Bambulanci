@@ -8,6 +8,8 @@ using System.Drawing;
 using System.Collections.Concurrent;
 using System.Net.NetworkInformation;
 using System.Xaml.Permissions;
+using System.Windows.Forms.VisualStyles;
+using System.IO;
 
 namespace Bambulanci
 {
@@ -17,7 +19,8 @@ namespace Bambulanci
 		
 		HostTick,
 		ClientMove, HostPlayerMovement,
-		ClientFire, HostPlayerFire
+		ClientFire, HostPlayerFire,
+		HostDestroyProjectile, HostKillPlayer
 	}
 	
 	/// <summary>
@@ -28,6 +31,7 @@ namespace Bambulanci
 		public Command Cmd { get; private set; }
 		public string Msg { get; private set; }
 		public byte b;
+		public int integer;
 		public ValueTuple<int, byte, float, float> ibffInfo;
 		public Data(byte[] data)
 		{
@@ -45,6 +49,10 @@ namespace Bambulanci
 			{
 				b = data[1];
 			}
+			else if (Cmd == Command.HostDestroyProjectile)
+			{
+				integer = BitConverter.ToInt32(data, 1);
+			}
 			else
 			{
 				if (data.Length > 1)
@@ -61,7 +69,7 @@ namespace Bambulanci
 			}
 		}
 
-		public static byte[] ToBytes(Command cmd, string msg = null, byte b = 0, (int id, byte direction, float x, float y) values = default)
+		public static byte[] ToBytes(Command cmd, string msg = null, int integer = 0, byte b = 0, (int id, byte direction, float x, float y) values = default)
 		{
 			List<byte> result = new List<byte>() { (byte)cmd };
 			if (cmd == Command.HostPlayerMovement || cmd == Command.HostPlayerFire)
@@ -75,6 +83,11 @@ namespace Bambulanci
 			if (cmd == Command.ClientMove || cmd == Command.ClientFire)
 			{
 				result.Add(b);
+			}
+
+			if(cmd == Command.HostDestroyProjectile)
+			{
+				result.AddRange(BitConverter.GetBytes(integer));
 			}
 
 			if (msg != null)
@@ -235,22 +248,27 @@ namespace Bambulanci
 				{
 					case Command.ClientMove: //moves player who sends me command
 						Direction playerMovement = (Direction)data.b;
-						foreach (var player in form.Game.Players)
+						lock (form.Game.Players)
 						{
-							if (player.ipEndPoint.Equals(clientEP)) //find client who send me move command
+							foreach (var player in form.Game.Players)
 							{
-								player.MoveByHost(playerMovement, form.Game.graphicsDrawer, form);
+								if (player.ipEndPoint.Equals(clientEP)) //find client who send me move command
+								{
+									player.MoveByHost(playerMovement, form.Game.graphicsDrawer, form);
+								}
 							}
 						}
 						break;
 					case Command.ClientFire:
 						WeaponState weaponState = (WeaponState)data.b;
-						foreach (var player in form.Game.Players)
+						lock (form.Game.Players)
 						{
-							if (player.ipEndPoint.Equals(clientEP))
+							foreach (var player in form.Game.Players)
 							{
-								player.Weapon.Fire(weaponState); //prace s listem projektilu***************************************
-								//Console.WriteLine($"#4 host: player {player.id} is trying to fire.");
+								if (player.ipEndPoint.Equals(clientEP))
+								{
+									player.Weapon.Fire(weaponState);
+								}
 							}
 						}
 						break;
@@ -438,20 +456,23 @@ namespace Bambulanci
 					case Command.HostPlayerMovement:
 						(int playerId, byte direction, float x, float y) = received.ibffInfo;
 
-						int index = form.Game.Players.FindIndex(p => p.Id == playerId); //form.Game -- maybe should be Game. -----
-						if (index == -1)
+						int index = form.Game.Players.FindIndex(p => p.PlayerId == playerId); //form.Game -- maybe should be Game. -----
+						lock (form.Game.Players)
 						{
-							form.Game.Players.Add(new Player(form, x, y, playerId, (Direction)direction));
-						}
-						else
-						{
-							form.Game.Players[index].MoveByClient((Direction)direction, x, y);
+							if (index == -1)
+							{
+								form.Game.Players.Add(new Player(form, x, y, playerId, (Direction)direction));
+							}
+							else
+							{
+								form.Game.Players[index].MoveByClient((Direction)direction, x, y);
+							}
 						}
 						break;
 					case Command.HostPlayerFire:
 						int projectileId;
 						(projectileId, direction, x, y) = received.ibffInfo;
-						index = form.Game.projectiles.FindIndex(p => p.Id == projectileId);
+						index = form.Game.projectiles.FindIndex(p => p.id == projectileId);
 						lock (form.Game.projectiles)
 						{
 							if (index == -1)
@@ -464,6 +485,25 @@ namespace Bambulanci
 								form.Game.projectiles[index].Y = y;
 							}
 						}
+						break;
+					case Command.HostDestroyProjectile:
+						projectileId = received.integer;
+						lock (form.Game.projectiles)
+						{
+							form.Game.projectiles.RemoveAll(p => p.id == projectileId); //not optimised
+						}
+						break;
+					case Command.HostKillPlayer: //lock players
+						Player player;
+						lock (form.Game.Players)
+						{
+							playerId = received.integer;
+							index = form.Game.Players.FindIndex(p => p.PlayerId == playerId);
+							player = form.Game.Players[index];
+							form.Game.Players.RemoveAt(index);
+						}
+						//prob lock deadPlayers too
+						form.Game.DeadPlayers.Add(player);
 						break;
 					default:
 						break;
