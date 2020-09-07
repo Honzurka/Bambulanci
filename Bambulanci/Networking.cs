@@ -454,16 +454,14 @@ namespace Bambulanci
 						index = form.Game.projectiles.FindIndex(p => p.Id == projectileId);
 						lock (form.Game.projectiles)
 						{
-							if (index == -1) //prace s listem projektilu**********************************************
+							if (index == -1)
 							{
 								form.Game.projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId));
-								Console.WriteLine($"#7 hostPlayerFire received : projectile added to x:{x} y:{y}");
 							}
 							else
 							{
 								form.Game.projectiles[index].X = x;
 								form.Game.projectiles[index].Y = y;
-								Console.WriteLine($"#7 hostPlayerFire received : projectile altered to x:{x} y:{y}"); //working fine for client
 							}
 						}
 						break;

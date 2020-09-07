@@ -72,7 +72,7 @@ namespace Bambulanci
 				float heightOffset = form.Game.graphicsDrawer.PlayerHeightPx / 2f / form.TrueHeight;
 				lock (form.Game.projectiles)
 				{
-					form.Game.projectiles.Add(new Projectile(player.X + widthOffset, player.Y + heightOffset, player.Direction, player.projectileId));
+					form.Game.projectiles.Add(new Projectile(player.X + widthOffset, player.Y + heightOffset, player.Direction, player.projectileId,player.id));
 				}
 				player.projectileId++;
 				cooldown = 30;
@@ -92,39 +92,17 @@ namespace Bambulanci
 		public readonly Direction direction;
 		public const float speed = 0.02f;
 		public readonly int Id;
+		public readonly int playerId; //host only
 
-		public Projectile(float x, float y, Direction direction, int Id)
+		public Projectile(float x, float y, Direction direction, int Id, int playerId = -1)
 		{
 			this.X = x;
 			this.Y = y;
 			this.direction = direction;
 			this.Id = Id;
+			this.playerId = playerId;
 		}
 
-		/*
-		public void MoveByHost()
-		{
-			//Console.WriteLine($"projectile moved by host from x:{X} y:{Y}");
-			switch (direction)
-			{
-				case Direction.Left:
-					X -= speed;
-					break;
-				case Direction.Up:
-					Y -= speed;
-					break;
-				case Direction.Right:
-					X += speed;
-					break;
-				case Direction.Down:
-					Y += speed;
-					break;
-				default:
-					break;
-			}
-			Console.WriteLine($"projectile moved by host to x:{X} y:{Y}");
-		}
-		*/
 	}
 
 
@@ -173,7 +151,7 @@ namespace Bambulanci
 			if (direction != Direction.Stay)
 			{
 				Direction = direction;
-				form.Game.Move(Direction, ref X, ref Y, speed, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx, this);
+				form.Game.Move(Direction, ref X, ref Y, speed, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx, id);
 			}
 		}
 		public void MoveByClient(Direction direction, float x, float y)
@@ -444,7 +422,7 @@ namespace Bambulanci
 			return (false, 0, 0);
 		}
 
-		private (bool collided, int xPx, int yPx) DetectPlayers(float newX, float newY, float X, float Y, int objWidthPx, int objHeightPx, int ignoredPlayerId = -1)
+		private (bool collided, int xPx, int yPx) DetectPlayers(float newX, float newY, float X, float Y, int objWidthPx, int objHeightPx, int ignoredPlayerId)
 		{
 			foreach (var player in Players)
 			{
@@ -488,7 +466,7 @@ namespace Bambulanci
 
 		}
 
-		public void Move(Direction direction, ref float x, ref float y, float speed, int objWidthPx, int objHeightPx, Player SenderPlayer = null)
+		public void Move(Direction direction, ref float x, ref float y, float speed, int objWidthPx, int objHeightPx, int senderId)
 		{
 			float newX = x;
 			float newY = y;
@@ -510,14 +488,11 @@ namespace Bambulanci
 					break;
 			}
 
-			//player collision
-			if (SenderPlayer != null) //for players only
+			//player collision senderId == -1 for non-player
+			(bool collided, int xPx, int yPx) = DetectPlayers(newX, newY, x, y, objWidthPx, objHeightPx, senderId);
+			if (collided)
 			{
-				(bool collided, int xPx, int yPx) = DetectPlayers(newX, newY, x, y, objWidthPx, objHeightPx, SenderPlayer.id);
-				if (collided)
-				{
-					CollisionResponseHug(xPx, yPx, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx, x, y, ref newX, ref newY, objWidthPx, objHeightPx);
-				}
+				CollisionResponseHug(xPx, yPx, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx, x, y, ref newX, ref newY, objWidthPx, objHeightPx);
 			}
 
 			//wall collision
