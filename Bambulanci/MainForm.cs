@@ -22,8 +22,8 @@ namespace Bambulanci
 			ChangeGameState(GameState.Intro);
 
 			//singlePlayer:
-			host.BWStartHostStarter(0, 45000);
-			ChangeGameState(GameState.HostWaitingRoom);
+			//host.BWStartHostStarter(0, 45000);
+			//ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -194,6 +194,19 @@ namespace Bambulanci
 						{
 							byte[] hostKillPlayer = Data.ToBytes(Command.HostKillPlayer, integer: player.PlayerId);
 							host.LocalhostAndBroadcastMessage(hostKillPlayer);
+						}
+					}
+				}
+				lock (Game.DeadPlayers)
+				{
+					foreach (var player in Game.DeadPlayers)
+					{
+						player.respawnTimer--;
+						if (player.respawnTimer < 0)
+						{
+							(float x, float y) = Game.GetSpawnCoords();
+							byte[] hostPlayerRespawn = Data.ToBytes(Command.HostPlayerRespawn, values: (player.PlayerId, 0, x, y));
+							host.LocalhostAndBroadcastMessage(hostPlayerRespawn);
 						}
 					}
 				}

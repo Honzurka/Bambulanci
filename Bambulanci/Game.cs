@@ -129,7 +129,9 @@ namespace Bambulanci
 	public class Player : IMovableObject
 	{
 		public int PlayerId { get; }
+		
 		public bool isAlive = true;
+		public int respawnTimer = 0;
 
 		public const float widthScaling = 32;
 		public const float heightScaling = 18;
@@ -147,7 +149,6 @@ namespace Bambulanci
 		public IWeapon Weapon { get; private set; }
 		const int projectileIdMultiplier = 1000000;
 		public int projectileIdGenerator;
-
 		public readonly IPEndPoint ipEndPoint; //for host only
 
 		private readonly Form form;
@@ -385,6 +386,8 @@ namespace Bambulanci
 		private int formWidth;
 		private int formHeight;
 
+		private const int respawnTime = 100;
+
 		public List<Player> Players { get; set; } = new List<Player>();
 		public List<Player> DeadPlayers { get; set; } = new List<Player>();
 		public List<Projectile> projectiles { get; private set; } = new List<Projectile>();
@@ -532,9 +535,8 @@ namespace Bambulanci
 					lock (Players)
 					{
 						Players[index].isAlive = false;
+						Players[index].respawnTimer = respawnTime;
 					}
-					//nastavit respawnTime
-					//stop redrawing dead players
 				}
 			}
 			if (wallCollision)

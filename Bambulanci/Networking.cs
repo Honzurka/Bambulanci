@@ -20,7 +20,7 @@ namespace Bambulanci
 		HostTick,
 		ClientMove, HostPlayerMovement,
 		ClientFire, HostPlayerFire,
-		HostDestroyProjectile, HostKillPlayer
+		HostDestroyProjectile, HostKillPlayer, HostPlayerRespawn
 	}
 	
 	/// <summary>
@@ -37,7 +37,7 @@ namespace Bambulanci
 		{
 			//1B command
 			Cmd = (Command)data[0];
-			if (Cmd == Command.HostPlayerMovement || Cmd == Command.HostPlayerFire)
+			if (Cmd == Command.HostPlayerMovement || Cmd == Command.HostPlayerFire || Cmd == Command.HostPlayerRespawn)
 			{
 				int id = BitConverter.ToInt32(data, 1); //idea: shots could have negative id so i can reuse code
 				byte direction = data[5];
@@ -49,7 +49,7 @@ namespace Bambulanci
 			{
 				b = data[1];
 			}
-			else if (Cmd == Command.HostDestroyProjectile)
+			else if (Cmd == Command.HostDestroyProjectile || Cmd == Command.HostKillPlayer)
 			{
 				integer = BitConverter.ToInt32(data, 1);
 			}
@@ -72,7 +72,7 @@ namespace Bambulanci
 		public static byte[] ToBytes(Command cmd, string msg = null, int integer = 0, byte b = 0, (int id, byte direction, float x, float y) values = default)
 		{
 			List<byte> result = new List<byte>() { (byte)cmd };
-			if (cmd == Command.HostPlayerMovement || cmd == Command.HostPlayerFire)
+			if (cmd == Command.HostPlayerMovement || cmd == Command.HostPlayerFire || cmd == Command.HostPlayerRespawn)
 			{
 				result.AddRange(BitConverter.GetBytes(values.id));
 				result.Add(values.direction);
@@ -85,7 +85,7 @@ namespace Bambulanci
 				result.Add(b);
 			}
 
-			if(cmd == Command.HostDestroyProjectile)
+			if(cmd == Command.HostDestroyProjectile || cmd == Command.HostKillPlayer)
 			{
 				result.AddRange(BitConverter.GetBytes(integer));
 			}
@@ -455,10 +455,10 @@ namespace Bambulanci
 						break;
 					case Command.HostPlayerMovement:
 						(int playerId, byte direction, float x, float y) = received.ibffInfo;
-
-						int index = form.Game.Players.FindIndex(p => p.PlayerId == playerId); //form.Game -- maybe should be Game. -----
+						int index;
 						lock (form.Game.Players)
 						{
+							index = form.Game.Players.FindIndex(p => p.PlayerId == playerId); //form.Game -- maybe should be Game. -----
 							if (index == -1)
 							{
 								form.Game.Players.Add(new Player(form, x, y, playerId, (Direction)direction));
@@ -472,9 +472,9 @@ namespace Bambulanci
 					case Command.HostPlayerFire:
 						int projectileId;
 						(projectileId, direction, x, y) = received.ibffInfo;
-						index = form.Game.projectiles.FindIndex(p => p.id == projectileId);
 						lock (form.Game.projectiles)
 						{
+							index = form.Game.projectiles.FindIndex(p => p.id == projectileId);
 							if (index == -1)
 							{
 								form.Game.projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId, form));
@@ -493,17 +493,42 @@ namespace Bambulanci
 							form.Game.projectiles.RemoveAll(p => p.id == projectileId); //not optimised
 						}
 						break;
-					case Command.HostKillPlayer: //lock players
+					case Command.HostKillPlayer:
 						Player player;
-						lock (form.Game.Players)
+						playerId = received.integer;
+						index = form.Game.Players.FindIndex(p => p.PlayerId == playerId); //not locked...---
+						if (index != -1)
 						{
-							playerId = received.integer;
-							index = form.Game.Players.FindIndex(p => p.PlayerId == playerId);
-							player = form.Game.Players[index];
-							form.Game.Players.RemoveAt(index);
+							lock (form.Game.Players)
+							{
+								player = form.Game.Players[index];
+								form.Game.Players.RemoveAt(index);
+							}
+							//prob lock deadPlayers too
+							lock (form.Game.DeadPlayers)
+							{
+								form.Game.DeadPlayers.Add(player);
+							}
 						}
-						//prob lock deadPlayers too
-						form.Game.DeadPlayers.Add(player);
+						break;
+					case Command.HostPlayerRespawn:
+						(playerId, _, x, y) = received.ibffInfo;
+						index = form.Game.DeadPlayers.FindIndex(p => p.PlayerId == playerId); //not locked...
+						if(index != -1)
+						{
+							lock (form.Game.DeadPlayers)
+							{
+								player = form.Game.DeadPlayers[index];
+								form.Game.DeadPlayers.RemoveAt(index);
+							}
+							player.isAlive = true;
+							player.X = x;
+							player.Y = y;
+							lock(form.Game.Players)
+							{
+								form.Game.Players.Add(player);
+							}
+						}
 						break;
 					default:
 						break;
