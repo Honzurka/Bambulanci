@@ -508,7 +508,27 @@ namespace Bambulanci
 			return ((float)col * map.tileSizeScaled.Width / formWidth, (float)row * map.tileSizeScaled.Height / formHeight);
 		}
 
-		private (bool collided, int objXPx, int objYPx) DetectWalls(float newX, float newY, float X, float Y, int objSizePx/*, Form formular*/) //form just for graphic debug
+		private bool Overlaps(float newX, float newY, float objSizePx, float obstacleXPx, float obstacleYPx, float obstacleWidthPx, float obstacleHeightPx)
+		{
+			//newX, newY between 0 and 1
+			float objL = newX * formWidth;
+			float objR = newX * formWidth + objSizePx;
+			float objT = newY * formHeight;
+			float objB = newY * formHeight + objSizePx;
+
+			//obstacleX,obstacleY in pixels
+			float obstacleL = obstacleXPx;
+			float obstacleR = obstacleXPx + obstacleWidthPx; //-1
+			float obstacleT = obstacleYPx;
+			float obstacleB = obstacleYPx + obstacleHeightPx;//-1
+			
+			bool xOverlap = objL < obstacleR && objR > obstacleL;
+			bool yOverlap = objT < obstacleB && objB > obstacleT;
+
+			return xOverlap && yOverlap;
+		}
+
+		private (bool collided, int objXPx, int objYPx) DetectWalls(float newX, float newY, IMovableObject obj)
 		{
 			//https://jonathanwhiting.com/tutorial/collision/			
 			//Graphics g = formular.CreateGraphics();
@@ -519,46 +539,45 @@ namespace Bambulanci
 			int tileCol = (int)(newX * formWidth / tileW);
 			int tileRow = (int)(newY * formHeight / tileH);
 
-			int tileColMax = (int)((newX * formWidth + objSizePx) / tileW);
-			int tileRowMax = (int)((newY * formHeight + objSizePx) / tileH);
+			int tileColMax = (int)((newX * formWidth + obj.SizePx) / tileW);
+			int tileRowMax = (int)((newY * formHeight + obj.SizePx) / tileH);
 			for (int col = tileCol; col <= tileColMax; col++)
 				for (int row = tileRow; row <= tileRowMax; row++)
 				{
 					if (map.IsWall(col, row))
 					{
-						//g.DrawRectangle(Pens.Red, col * tileW, row * tileH, tileW, tileH);
-
-						bool xOverlap = newX * formWidth < (col + 1) * tileW - 1 && newX * formWidth + objSizePx > col * tileW;
-						bool yOverlap = newY * formHeight < (row + 1) * tileH - 1 && newY * formHeight + objSizePx > row * tileH;
-
-						if (xOverlap && yOverlap)
+						if (Overlaps(newX, newY, obj.SizePx, col * tileW, row * tileH, tileW, tileH))
 						{
-							//CollisionResponse(col, row, X, Y, ref newX, ref newY);
-							return (true, col*map.tileSizeScaled.Width, row*map.tileSizeScaled.Height);
+							return (true, col * map.tileSizeScaled.Width, row * map.tileSizeScaled.Height);
 						}
 					}
 				}
 			return (false, 0, 0);
 		}
 
-		private (bool collided, int xPx, int yPx, int playerId) DetectPlayers(float newX, float newY, float X, float Y, int objSizePx, int ignoredPlayerId)
+		private (bool collided, int xPx, int yPx, int playerId) DetectPlayers(float newX, float newY, IMovableObject obj)
 		{
 			lock (Players)
 			{
 				foreach (var player in Players)
 				{
-					if (player.PlayerId != ignoredPlayerId)
+					if (player.PlayerId != obj.PlayerId)
 					{
-						bool xOverlap = newX * formWidth < player.X * formWidth + graphicsDrawer.PlayerSizePx && newX * formWidth + objSizePx > player.X * formWidth;
-						bool yOverlap = newY * formHeight < player.Y * formHeight + graphicsDrawer.PlayerSizePx && newY * formHeight + objSizePx > player.Y * formHeight;
-						if (xOverlap && yOverlap)
+						if (Overlaps(newX, newY, obj.SizePx, player.X*formWidth, player.Y*formHeight, player.SizePx, player.SizePx))
 						{
 							return (true, (int)(player.X * formWidth), (int)(player.Y * formHeight), player.PlayerId);
 						}
+						//bool xOverlap = newX * formWidth < player.X * formWidth + graphicsDrawer.PlayerSizePx && newX * formWidth + obj.SizePx > player.X * formWidth;
+						//bool yOverlap = newY * formHeight < player.Y * formHeight + graphicsDrawer.PlayerSizePx && newY * formHeight + obj.SizePx > player.Y * formHeight;
 					}
 				}
 			}
 			return (false, 0, 0, 0);
+		}
+
+		private void DetectBoxes(float newX, float newY, IMovableObject obj)
+		{
+
 		}
 
 		/// <summary>
@@ -609,10 +628,12 @@ namespace Bambulanci
 				default:
 					break;
 			}
-			
-			(bool playerCollision, int playerXPx, int playerYPx, int playerId) = DetectPlayers(newX, newY, obj.X, obj.Y, obj.SizePx, obj.PlayerId);
-			(bool wallCollision, int wallXPx, int wallYPx) = DetectWalls(newX, newY, obj.X, obj.Y, obj.SizePx);
+
+			(bool playerCollision, int playerXPx, int playerYPx, int playerId) = DetectPlayers(newX, newY, obj);// obj.X, obj.Y, obj.SizePx, obj.PlayerId);
+			(bool wallCollision, int wallXPx, int wallYPx) = DetectWalls(newX, newY, obj);// obj.X, obj.Y, obj.SizePx);
 			bool windowCollision = newX < 0 || newX > 1 - (float)obj.SizePx / formWidth || newY < 0 || newY > 1 - (float)obj.SizePx / formHeight;
+			//BoxCollision
+			DetectBoxes(newX, newY, obj);
 
 			if (playerCollision)
 			{

@@ -175,6 +175,7 @@ namespace Bambulanci
 			TimerInGame.Enabled = true;
 		}
 
+		Random rng = new Random();
 		private void TimerInGame_Tick(object sender, EventArgs e) //host only
 		{
 			if (currentGameState == GameState.InGame) //should be-- maybe not necessary to check
@@ -225,11 +226,14 @@ namespace Bambulanci
 						}
 					}
 				}
-				lock (Game.Boxes)
+				if (rng.Next(0, 1000) > 996) //cca 1x per 10sec
 				{
-					//add boxes
-					(float x, float y) = Game.GetSpawnCoords();
-					Game.Boxes.Add(new PistolBox(x, y, this));
+					lock (Game.Boxes)
+					{
+						//add boxes
+						(float x, float y) = Game.GetSpawnCoords();
+						Game.Boxes.Add(new PistolBox(x, y, this));
+					}
 				}
 			}
 		}
@@ -240,6 +244,13 @@ namespace Bambulanci
 			if (currentGameState == GameState.InGame)
 			{
 				Game.graphicsDrawer.DrawBackground(g);
+				lock (Game.Boxes)
+				{
+					foreach (var box in Game.Boxes)
+					{
+						Game.graphicsDrawer.DrawBox(g, box);
+					}
+				}
 				lock (Game.Players)
 				{
 					foreach (var player in Game.Players)
@@ -252,13 +263,6 @@ namespace Bambulanci
 					foreach (var projectile in Game.Projectiles)
 					{
 						Game.graphicsDrawer.DrawProjectile(g, projectile);
-					}
-				}
-				lock (Game.Boxes)
-				{
-					foreach (var box in Game.Boxes)
-					{
-						Game.graphicsDrawer.DrawBox(g, box);
 					}
 				}
 			}
