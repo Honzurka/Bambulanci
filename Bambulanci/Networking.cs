@@ -613,8 +613,11 @@ namespace Bambulanci
 						lock (form.Game.Boxes)
 						{
 							index = form.Game.Boxes.FindIndex(b => b.Id == boxId);
-							collectedBox = form.Game.Boxes[index];
-							form.Game.Boxes.RemoveAt(index);
+							if (index != -1) //sometimes was throwing errors
+							{
+								collectedBox = form.Game.Boxes[index];
+								form.Game.Boxes.RemoveAt(index);
+							}
 						}
 						lock (form.Game.Players)
 						{
