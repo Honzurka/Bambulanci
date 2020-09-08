@@ -47,13 +47,13 @@ namespace Bambulanci
 	}
 
 	public enum WeaponType { Pistol, Shotgun, Machinegun }
-	public interface ICollectableObject
+	public interface ICollectableObject //mozna genericka implementace??---------------
 	{
 		public int Id { get; }
 		public float X { get; }
 		public float Y { get; }
 		public int SizePx { get; }
-		public int CollectedBy { get; set; } //=-1
+		public int CollectedBy { get; set; }
 		public WeaponType weaponContained { get; }
 	}
 
@@ -273,8 +273,13 @@ namespace Bambulanci
 	public class Player : IMovableObject
 	{
 		public int PlayerId { get; }
-		
+
+		//toDo:
+		public int kills = 0;
+		public int deaths = 0;
+
 		public bool isAlive = true;
+		public int killedBy = -1;
 		public int respawnTimer = 0;
 
 		//constants for player image scaling
@@ -744,6 +749,7 @@ namespace Bambulanci
 					lock (Players)
 					{
 						Players[index].isAlive = false;
+						Players[index].killedBy = obj.PlayerId;
 						Players[index].respawnTimer = respawnTime;
 					}
 				}

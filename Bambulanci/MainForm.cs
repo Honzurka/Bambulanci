@@ -6,7 +6,7 @@ using System.Windows.Forms;
 
 namespace Bambulanci
 {
-	public enum GameState { Intro, HostSelect, HostWaiting, ClientWaiting, HostWaitingRoom, ClientWaitingRoom, ClientSearch, InGame }
+	public enum GameState { Intro, HostSelect, HostWaiting, ClientWaiting, HostWaitingRoom, ClientWaitingRoom, ClientSearch, InGame, GameScore }
 
 	public partial class FormBambulanci : Form
 	{
@@ -23,8 +23,8 @@ namespace Bambulanci
 			ChangeGameState(GameState.Intro);
 
 			//singlePlayer:
-			host.BWStartHostStarter(0, 45000);
-			ChangeGameState(GameState.HostWaitingRoom);
+			//host.BWStartHostStarter(0, 45000);
+			//ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -98,6 +98,11 @@ namespace Bambulanci
 					TrueHeight = this.Height - borderHeight;
 					Game = new Game(this.Width, TrueHeight);
 					break;
+				case GameState.GameScore:
+					TimerInGame.Stop();
+					EnableControl(lScore);
+					EnableControl(bExit);
+					break;
 				default:
 					break;
 			}
@@ -151,8 +156,11 @@ namespace Bambulanci
 		}
 
 		public Game Game { get; private set; }
+		public int GameTime { get; private set; }
 		private void BStartGame_Click(object sender, EventArgs e) //host only
 		{
+			GameTime = 200;
+
 			//create host's client
 			client.StartClient(IPAddress.Loopback);
 			client.hostEP = new IPEndPoint(IPAddress.Loopback, host.ListenPort);
@@ -165,20 +173,25 @@ namespace Bambulanci
 			host.StartGameListening();
 			ChangeGameState(GameState.InGame);
 
-			Game.Players.Add(new Player(this, 0.5f, 0.5f, 2, ipEndPoint: new IPEndPoint(IPAddress.Any, 1111))); //test only---
 			foreach (var client in host.clientList)
 			{
 				(float x, float y) = Game.GetSpawnCoords();
 				Game.Players.Add(new Player(this, x, y, client.Id, ipEndPoint: client.IpEndPoint));
 			}
-			
 			TimerInGame.Enabled = true;
 		}
 
 		Random rng = new Random();
 		private void TimerInGame_Tick(object sender, EventArgs e) //host only
 		{
-			if (currentGameState == GameState.InGame) //should be-- maybe not necessary to check
+			GameTime--;
+			if(GameTime < 0)
+			{
+				//ChangeGameState(GameState.GameScore);
+				return;
+			}
+
+			//if (currentGameState == GameState.InGame) //should be-- maybe not necessary to check
 			{
 				byte[] hostTick = Data.ToBytes(Command.HostTick);
 				host.LocalhostAndBroadcastMessage(hostTick);
@@ -194,7 +207,7 @@ namespace Bambulanci
 						}
 						else
 						{
-							byte[] hostKillPlayer = Data.ToBytes(Command.HostKillPlayer, integer: player.PlayerId);
+							byte[] hostKillPlayer = Data.ToBytes(Command.HostKillPlayer, integer: player.PlayerId, integer2: player.killedBy);
 							host.LocalhostAndBroadcastMessage(hostKillPlayer);
 						}
 					}

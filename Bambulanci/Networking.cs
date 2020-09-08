@@ -15,7 +15,8 @@ namespace Bambulanci
 		ClientMove, HostPlayerMovement,
 		ClientFire, HostPlayerFire,
 		HostDestroyProjectile, HostKillPlayer, HostPlayerRespawn,
-		HostBoxSpawned, HostBoxCollected
+		HostBoxSpawned, HostBoxCollected,
+		HostGameEnded, HostScore
 	}
 	
 	/// <summary>
@@ -45,11 +46,11 @@ namespace Bambulanci
 			{
 				b = data[1];
 			}
-			else if (Cmd == Command.HostDestroyProjectile || Cmd == Command.HostKillPlayer)
+			else if (Cmd == Command.HostDestroyProjectile)
 			{
 				integer = BitConverter.ToInt32(data, 1);
 			}
-			else if (Cmd == Command.HostBoxCollected)
+			else if (Cmd == Command.HostBoxCollected || Cmd == Command.HostKillPlayer)
 			{
 				integer = BitConverter.ToInt32(data, 1);
 				integer2 = BitConverter.ToInt32(data, 5);
@@ -86,11 +87,11 @@ namespace Bambulanci
 				result.Add(b);
 			}
 
-			if(cmd == Command.HostDestroyProjectile || cmd == Command.HostKillPlayer)
+			if(cmd == Command.HostDestroyProjectile)
 			{
 				result.AddRange(BitConverter.GetBytes(integer));
 			}
-			if (cmd == Command.HostBoxCollected)
+			if (cmd == Command.HostBoxCollected || cmd == Command.HostKillPlayer)
 			{
 				result.AddRange(BitConverter.GetBytes(integer));
 				result.AddRange(BitConverter.GetBytes(integer2));
@@ -134,7 +135,7 @@ namespace Bambulanci
 		public void BWStartHostStarter(int numOfPlayers, int listenPort)
 		{
 			ListenPort = listenPort;
-			ParallelBW.ActivateWorker(ref bwHostStarter, true, BW_DoWork, BW_ProgressChanged, BW_RunWorkerCompleted, new ValueTuple<int, int>(numOfPlayers, listenPort));
+			ParallelBW.ActivateWorker(ref bwHostStarter, true, BW_DoWork, BW_RunWorkerCompleted, BW_ProgressChanged, new ValueTuple<int, int>(numOfPlayers, listenPort));
 		}
 		
 		public void BWCancelHostStarter()
@@ -237,7 +238,7 @@ namespace Bambulanci
 		private BackgroundWorker bwGameListener;
 		public void StartGameListening()
 		{
-			ParallelBW.ActivateWorker(ref bwGameListener, true, GL_DoWork, GL_Progress, GL_Completed);
+			ParallelBW.ActivateWorker(ref bwGameListener, false, GL_DoWork, GL_Completed);
 		}
 
 		/// <summary>
@@ -247,7 +248,8 @@ namespace Bambulanci
 		private void GL_DoWork(object sender, DoWorkEventArgs e)
 		{
 			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, ListenPort);
-			while (true)
+
+			while (form.GameTime > 0)
 			{
 				Data data = new Data(udpHost.Receive(ref clientEP));
 				switch (data.Cmd)
@@ -283,14 +285,49 @@ namespace Bambulanci
 				}
 			}
 		}
-		private void GL_Progress(object sender, ProgressChangedEventArgs e)
-		{
-
-		} //not used
 		private void GL_Completed(object sender, RunWorkerCompletedEventArgs e)
 		{
+			byte[] hostGameEnded = Data.ToBytes(Command.HostGameEnded);
+			LocalhostAndBroadcastMessage(hostGameEnded); //stops clients BW
 
-		} //not used
+			//respawn dead players
+			foreach (var deadPlayer in form.Game.DeadPlayers)
+			{
+				form.Game.Players.Add(deadPlayer);
+			}
+
+			//inform clients + DisplayScore();
+			//send msg - base it of IpEndPoint
+			
+
+			string[] score = new string[form.Game.Players.Count];
+			for (int i = 0; i < score.Length; i++)
+			{
+				Player player = form.Game.Players[i];
+				score[i] = $"id:{player.PlayerId} kills:{player.kills} deaths:{player.deaths}";
+			}
+
+			for (int playerIndex = 0; playerIndex < form.Game.Players.Count; playerIndex++)
+			{
+				for (int msgIndex = 0; msgIndex < score.Length; msgIndex++)
+				{
+					string msg;
+					if(playerIndex == msgIndex)
+					{
+						msg = "(You) : " + score[msgIndex];
+					}
+					else
+					{
+						msg = score[msgIndex];
+					}
+					byte[] msgBytes = Data.ToBytes(Command.HostScore, msg);
+					udpHost.Send(msgBytes, msgBytes.Length, form.Game.Players[playerIndex].ipEndPoint);
+					//Console.WriteLine(msg);
+				}
+			}
+
+
+		}
 
 	}
 
@@ -322,7 +359,7 @@ namespace Bambulanci
 		private BackgroundWorker bwServerRefresher;
 		public void BWServerRefresherStart(int hostPort)
 		{
-			ParallelBW.ActivateWorker(ref bwServerRefresher, true, BW_RefreshServers, BW_ServerFound, BW_RefreshCompleted, hostPort);
+			ParallelBW.ActivateWorker(ref bwServerRefresher, true, BW_RefreshServers, BW_RefreshCompleted, BW_ServerFound, hostPort);
 		}
 
 		private void BW_RefreshServers(object sender, DoWorkEventArgs e) //nekdy vyzkouset vice serveru - kvuli hostEP / co kdyz zrovna broadcastuje jiny server...
@@ -394,7 +431,7 @@ namespace Bambulanci
 					break;
 			}
 
-			ParallelBW.ActivateWorker(ref bwHostWaiter, true, BW_ClientWaiting, BW_WaitingProgress, BW_WaitingCompleted);
+			ParallelBW.ActivateWorker(ref bwHostWaiter, true, BW_ClientWaiting, BW_WaitingCompleted, BW_WaitingProgress);
 		}
 
 		BackgroundWorker bwHostWaiter;
@@ -442,7 +479,7 @@ namespace Bambulanci
 			if (InGame)
 			{
 				form.ChangeGameState(GameState.InGame);
-				ParallelBW.ActivateWorker(ref bwInGameListener, true, IGL_DoWork, IGL_RedrawProgress, IGL_Completed);
+				ParallelBW.ActivateWorker(ref bwInGameListener, true, IGL_DoWork, IGL_Completed, IGL_RedrawProgress);
 			}
 			//else==hostCanceled not implemented
 
@@ -496,19 +533,25 @@ namespace Bambulanci
 						projectileId = received.integer;
 						lock (form.Game.Projectiles)
 						{
-							form.Game.Projectiles.RemoveAll(p => p.id == projectileId); //not optimised
+							index = form.Game.Projectiles.FindIndex(p => p.id == projectileId);
+							form.Game.Projectiles.RemoveAt(index);
 						}
 						break;
 					case Command.HostKillPlayer:
 						Player player;
 						playerId = received.integer;
+						int killedBy = received.integer2;
 						index = form.Game.Players.FindIndex(p => p.PlayerId == playerId); //not locked...---
 						if (index != -1)
 						{
 							lock (form.Game.Players)
 							{
 								player = form.Game.Players[index];
+								player.deaths++;
 								form.Game.Players.RemoveAt(index);
+
+								int killedByIndex = form.Game.Players.FindIndex(p => p.PlayerId == killedBy);
+								form.Game.Players[killedByIndex].kills++;
 							}
 							//prob lock deadPlayers too
 							lock (form.Game.DeadPlayers)
@@ -579,6 +622,8 @@ namespace Bambulanci
 							form.Game.Players[playerIndex].ChangeWeapon(collectedBox.weaponContained);
 						}
 						break;
+					case Command.HostGameEnded:
+						return;
 					default:
 						break;
 				}
@@ -595,11 +640,22 @@ namespace Bambulanci
 			//sends info about weapon
 			byte[] clientFire = Data.ToBytes(Command.ClientFire, b: (byte)form.weaponState);
 			udpClient.Send(clientFire, clientFire.Length, hostEP);
-			//Console.WriteLine($"#2 weapon state sent:{form.weaponState}");
 		}
 		private void IGL_Completed(object sender, RunWorkerCompletedEventArgs e)//not used yet -due to infinite ingame loop
 		{
-
+			form.ChangeGameState(GameState.GameScore);
+			string score = "";
+			int numOfMessages = form.Game.Players.Count + form.Game.DeadPlayers.Count;
+			while (numOfMessages > 0)
+			{
+				Data received = new Data(udpClient.Receive(ref hostEP));
+				if (received.Cmd == Command.HostScore)
+				{
+					score += received.Msg + "\n";
+					numOfMessages--;
+				}
+			}
+			form.lScore.Text = score;
 		}
 
 	}
@@ -609,13 +665,15 @@ namespace Bambulanci
 		private ParallelBW() { }
 
 		public static void ActivateWorker(ref BackgroundWorker worker, bool reportsProgress, DoWorkEventHandler work,
-			   ProgressChangedEventHandler progress, RunWorkerCompletedEventHandler completed, object runArg = null)
+			RunWorkerCompletedEventHandler completed, ProgressChangedEventHandler progress = null, object runArg = null)
 		{
 			worker = new BackgroundWorker() { WorkerReportsProgress = reportsProgress };
 			worker.DoWork += work;
-			worker.ProgressChanged += progress;
+			if (progress != null)
+			{
+				worker.ProgressChanged += progress;
+			}
 			worker.RunWorkerCompleted += completed;
-
 			worker.RunWorkerAsync(runArg);
 		}
 	}
