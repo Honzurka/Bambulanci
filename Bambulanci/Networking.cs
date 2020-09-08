@@ -609,17 +609,23 @@ namespace Bambulanci
 					case Command.HostBoxCollected:
 						boxId = received.integer;
 						int collectedBy = received.integer2;
-						ICollectableObject collectedBox;
+						ICollectableObject collectedBox = null;
 						lock (form.Game.Boxes)
 						{
 							index = form.Game.Boxes.FindIndex(b => b.Id == boxId);
-							collectedBox = form.Game.Boxes[index];
-							form.Game.Boxes.RemoveAt(index);
+							if (index != -1)
+							{
+								collectedBox = form.Game.Boxes[index];
+								form.Game.Boxes.RemoveAt(index);
+							}
 						}
-						lock (form.Game.Players)
+						if (collectedBox != null)
 						{
-							int playerIndex = form.Game.Players.FindIndex(p => p.PlayerId == collectedBy);
-							form.Game.Players[playerIndex].ChangeWeapon(collectedBox.weaponContained);
+							lock (form.Game.Players)
+							{
+								int playerIndex = form.Game.Players.FindIndex(p => p.PlayerId == collectedBy);
+								form.Game.Players[playerIndex].ChangeWeapon(collectedBox.weaponContained);
+							}
 						}
 						break;
 					case Command.HostGameEnded:

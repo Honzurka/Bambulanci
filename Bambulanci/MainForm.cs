@@ -159,7 +159,7 @@ namespace Bambulanci
 		public int GameTime { get; private set; }
 		private void BStartGame_Click(object sender, EventArgs e) //host only
 		{
-			GameTime = 200;
+			GameTime = 2000;
 
 			//create host's client
 			client.StartClient(IPAddress.Loopback);
