@@ -466,25 +466,25 @@ namespace Bambulanci
 					case Command.HostPlayerFire:
 						int projectileId;
 						(projectileId, direction, x, y) = received.ibffInfo;
-						lock (form.Game.projectiles)
+						lock (form.Game.Projectiles)
 						{
-							index = form.Game.projectiles.FindIndex(p => p.id == projectileId);
+							index = form.Game.Projectiles.FindIndex(p => p.id == projectileId);
 							if (index == -1)
 							{
-								form.Game.projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId, form));
+								form.Game.Projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId, form));
 							}
 							else
 							{
-								form.Game.projectiles[index].X = x;
-								form.Game.projectiles[index].Y = y;
+								form.Game.Projectiles[index].X = x;
+								form.Game.Projectiles[index].Y = y;
 							}
 						}
 						break;
 					case Command.HostDestroyProjectile:
 						projectileId = received.integer;
-						lock (form.Game.projectiles)
+						lock (form.Game.Projectiles)
 						{
-							form.Game.projectiles.RemoveAll(p => p.id == projectileId); //not optimised
+							form.Game.Projectiles.RemoveAll(p => p.id == projectileId); //not optimised
 						}
 						break;
 					case Command.HostKillPlayer:

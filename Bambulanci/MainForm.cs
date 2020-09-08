@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Net;
+using System.Runtime.CompilerServices;
 using System.Windows.Forms;
 
 namespace Bambulanci
@@ -210,9 +211,9 @@ namespace Bambulanci
 						}
 					}
 				}
-				lock (Game.projectiles)
+				lock (Game.Projectiles)
 				{
-					foreach (var projectile in Game.projectiles)
+					foreach (var projectile in Game.Projectiles)
 					{
 						Game.Move(projectile, projectile.id);
 						byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.id, (byte)projectile.Direction, projectile.X, projectile.Y));
@@ -223,6 +224,12 @@ namespace Bambulanci
 							host.LocalhostAndBroadcastMessage(hostDestroyProjectile);
 						}
 					}
+				}
+				lock (Game.Boxes)
+				{
+					//add boxes
+					(float x, float y) = Game.GetSpawnCoords();
+					Game.Boxes.Add(new PistolBox(x, y, this));
 				}
 			}
 		}
@@ -240,11 +247,18 @@ namespace Bambulanci
 						Game.graphicsDrawer.DrawPlayer(g, player);
 					}
 				}
-				lock (Game.projectiles)
+				lock (Game.Projectiles)
 				{
-					foreach (var projectile in Game.projectiles)
+					foreach (var projectile in Game.Projectiles)
 					{
 						Game.graphicsDrawer.DrawProjectile(g, projectile);
+					}
+				}
+				lock (Game.Boxes)
+				{
+					foreach (var box in Game.Boxes)
+					{
+						Game.graphicsDrawer.DrawBox(g, box);
 					}
 				}
 			}
