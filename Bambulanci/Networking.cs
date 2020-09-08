@@ -14,7 +14,8 @@ namespace Bambulanci
 		HostTick,
 		ClientMove, HostPlayerMovement,
 		ClientFire, HostPlayerFire,
-		HostDestroyProjectile, HostKillPlayer, HostPlayerRespawn
+		HostDestroyProjectile, HostKillPlayer, HostPlayerRespawn,
+		HostBoxSpawned, HostBoxCollected
 	}
 	
 	/// <summary>
@@ -26,15 +27,16 @@ namespace Bambulanci
 		public string Msg { get; private set; }
 		public byte b;
 		public int integer;
+		public int integer2;
 		public ValueTuple<int, byte, float, float> ibffInfo;
 		public Data(byte[] data)
 		{
 			//1B command
 			Cmd = (Command)data[0];
-			if (Cmd == Command.HostPlayerMovement || Cmd == Command.HostPlayerFire || Cmd == Command.HostPlayerRespawn)
+			if (Cmd == Command.HostPlayerMovement || Cmd == Command.HostPlayerFire || Cmd == Command.HostPlayerRespawn || Cmd == Command.HostBoxSpawned)
 			{
-				int id = BitConverter.ToInt32(data, 1); //idea: shots could have negative id so i can reuse code
-				byte direction = data[5];
+				int id = BitConverter.ToInt32(data, 1);
+				byte direction = data[5]; //not only direction, also used for weaponType...------------
 				float x = BitConverter.ToSingle(data, 6);
 				float y = BitConverter.ToSingle(data, 10);
 				ibffInfo = (id, direction, x, y);
@@ -46,6 +48,11 @@ namespace Bambulanci
 			else if (Cmd == Command.HostDestroyProjectile || Cmd == Command.HostKillPlayer)
 			{
 				integer = BitConverter.ToInt32(data, 1);
+			}
+			else if (Cmd == Command.HostBoxCollected)
+			{
+				integer = BitConverter.ToInt32(data, 1);
+				integer2 = BitConverter.ToInt32(data, 5);
 			}
 			else
 			{
@@ -63,10 +70,10 @@ namespace Bambulanci
 			}
 		}
 
-		public static byte[] ToBytes(Command cmd, string msg = null, int integer = 0, byte b = 0, (int id, byte direction, float x, float y) values = default)
+		public static byte[] ToBytes(Command cmd, string msg = null, byte b = 0, int integer = 0, int integer2 = 0, (int id, byte direction, float x, float y) values = default)
 		{
 			List<byte> result = new List<byte>() { (byte)cmd };
-			if (cmd == Command.HostPlayerMovement || cmd == Command.HostPlayerFire || cmd == Command.HostPlayerRespawn)
+			if (cmd == Command.HostPlayerMovement || cmd == Command.HostPlayerFire || cmd == Command.HostPlayerRespawn || cmd == Command.HostBoxSpawned)
 			{
 				result.AddRange(BitConverter.GetBytes(values.id));
 				result.Add(values.direction);
@@ -82,6 +89,11 @@ namespace Bambulanci
 			if(cmd == Command.HostDestroyProjectile || cmd == Command.HostKillPlayer)
 			{
 				result.AddRange(BitConverter.GetBytes(integer));
+			}
+			if (cmd == Command.HostBoxCollected)
+			{
+				result.AddRange(BitConverter.GetBytes(integer));
+				result.AddRange(BitConverter.GetBytes(integer2));
 			}
 
 			if (msg != null)
@@ -522,6 +534,49 @@ namespace Bambulanci
 							{
 								form.Game.Players.Add(player);
 							}
+						}
+						break;
+					case Command.HostBoxSpawned:
+						int boxId;
+						byte b;
+						(boxId, b, x, y) = received.ibffInfo; //add implicit cast for WeaponType,Direction,....---------
+						WeaponType weaponType = (WeaponType)b;
+
+						lock (form.Game.Boxes)
+						{
+							//box should be spawned only once
+							ICollectableObject newBox = null;
+							switch (weaponType)
+							{
+								case WeaponType.Pistol:
+									newBox = new PistolBox(boxId, x, y, form);
+									break;
+								case WeaponType.Shotgun:
+									newBox = new ShotgunBox(boxId, x, y, form);
+									break;
+								case WeaponType.Machinegun:
+									newBox = new MachinegunBox(boxId, x, y, form);
+									break;
+								default:
+									break;
+							}
+							form.Game.Boxes.Add(newBox);
+						}
+						break;
+					case Command.HostBoxCollected:
+						boxId = received.integer;
+						int collectedBy = received.integer2;
+						ICollectableObject collectedBox;
+						lock (form.Game.Boxes)
+						{
+							index = form.Game.Boxes.FindIndex(b => b.Id == boxId);
+							collectedBox = form.Game.Boxes[index];
+							form.Game.Boxes.RemoveAt(index);
+						}
+						lock (form.Game.Players)
+						{
+							int playerIndex = form.Game.Players.FindIndex(p => p.PlayerId == collectedBy);
+							form.Game.Players[playerIndex].ChangeWeapon(collectedBox.weaponContained);
 						}
 						break;
 					default:

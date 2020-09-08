@@ -46,23 +46,60 @@ namespace Bambulanci
 		}
 	}
 
-	public interface ICollectableObject //ToDo
+	public enum WeaponType { Pistol, Shotgun, Machinegun }
+	public interface ICollectableObject
 	{
+		public int Id { get; }
 		public float X { get; }
 		public float Y { get; }
 		public int SizePx { get; }
-		public IWeapon weaponContained { get; }
-		//bitmap
+		public int CollectedBy { get; set; } //=-1
+		public WeaponType weaponContained { get; }
 	}
 
 	class PistolBox : ICollectableObject
 	{
+		public int Id { get; }
 		public float X { get; }
 		public float Y { get; }
 		public int SizePx { get; }
-		public IWeapon weaponContained { get; } //???---how to pass weapons --- maybe enum
-		public PistolBox(float x, float y, FormBambulanci form)
+		public int CollectedBy { get; set; } = -1;
+		public WeaponType weaponContained { get; } = WeaponType.Pistol;
+		public PistolBox(int id, float x, float y, FormBambulanci form)
 		{
+			Id = id;
+			X = x;
+			Y = y;
+			SizePx = form.Game.graphicsDrawer.BoxSizePx;
+		}
+	}
+	class ShotgunBox : ICollectableObject
+	{
+		public int Id { get; }
+		public float X { get; }
+		public float Y { get; }
+		public int SizePx { get; }
+		public int CollectedBy { get; set; } = -1;
+		public WeaponType weaponContained { get; } = WeaponType.Shotgun;
+		public ShotgunBox(int id, float x, float y, FormBambulanci form)
+		{
+			Id = id;
+			X = x;
+			Y = y;
+			SizePx = form.Game.graphicsDrawer.BoxSizePx;
+		}
+	}
+	class MachinegunBox : ICollectableObject
+	{
+		public int Id { get; }
+		public float X { get; }
+		public float Y { get; }
+		public int SizePx { get; }
+		public int CollectedBy { get; set; } = -1;
+		public WeaponType weaponContained { get; } = WeaponType.Machinegun;
+		public MachinegunBox(int id, float x, float y, FormBambulanci form)
+		{
+			Id = id;
 			X = x;
 			Y = y;
 			SizePx = form.Game.graphicsDrawer.BoxSizePx;
@@ -163,6 +200,37 @@ namespace Bambulanci
 		}
 	}
 
+	class Machinegun : IWeapon //copied code from Pistol, just cooldown differs...
+	{
+		int cooldown = 0;
+		private readonly FormBambulanci form;
+		private readonly Player player;
+
+		public Machinegun(FormBambulanci form, Player player)
+		{
+			this.form = form;
+			this.player = player;
+		}
+
+		public void Fire(WeaponState weaponState)
+		{
+			if (weaponState == WeaponState.Fired && cooldown <= 0)
+			{
+				float offset = form.Game.graphicsDrawer.PlayerSizePx / 2f / form.Width;
+				lock (form.Game.Projectiles)
+				{
+					form.Game.Projectiles.Add(new Projectile(player.X + offset, player.Y + offset, player.Direction, player.projectileIdGenerator, form, player.PlayerId));
+				}
+				player.projectileIdGenerator++;
+				cooldown = 5;
+			}
+			else
+			{
+				cooldown--;
+			}
+		}
+	}
+
 	public interface IMovableObject
 	{
 		public float X { get; set; }
@@ -227,7 +295,7 @@ namespace Bambulanci
 		public int projectileIdGenerator;
 		public readonly IPEndPoint ipEndPoint; //for host only
 
-		private readonly Form form;
+		private readonly FormBambulanci form;
 
 		public Player(FormBambulanci form, float x, float y, int id, Direction direction = Direction.Left, IPEndPoint ipEndPoint = null)
 		{
@@ -237,8 +305,7 @@ namespace Bambulanci
 			this.Direction = direction;
 			this.ipEndPoint = ipEndPoint;
 			this.form = form;
-			//Weapon = new Pistol(form, this);
-			Weapon = new Shotgun(form, this);
+			ChangeWeapon(WeaponType.Pistol);
 			projectileIdGenerator = projectileIdMultiplier * id;
 			SizePx = form.Game.graphicsDrawer.PlayerSizePx;
 		}
@@ -262,6 +329,23 @@ namespace Bambulanci
 			this.Direction = direction;
 			this.X = x;
 			this.Y = y;
+		}
+		public void ChangeWeapon(WeaponType weaponType)
+		{
+			switch (weaponType)
+			{
+				case WeaponType.Pistol:
+					Weapon = new Pistol(form, this);
+					break;
+				case WeaponType.Shotgun:
+					Weapon = new Shotgun(form, this);
+					break;
+				case WeaponType.Machinegun:
+					Weapon = new Machinegun(form, this);
+					break;
+				default:
+					break;
+			}
 		}
 	}
 
@@ -479,6 +563,7 @@ namespace Bambulanci
 		public List<Player> Players { get; set; } = new List<Player>();
 		public List<Player> DeadPlayers { get; set; } = new List<Player>();
 		public List<Projectile> Projectiles { get; private set; } = new List<Projectile>();
+		public int boxIdCounter = 1;
 		public List<ICollectableObject> Boxes { get;  set; } = new List<ICollectableObject>();
 
 		public Game(int formWidth, int formHeight)
@@ -518,9 +603,9 @@ namespace Bambulanci
 
 			//obstacleX,obstacleY in pixels
 			float obstacleL = obstacleXPx;
-			float obstacleR = obstacleXPx + obstacleWidthPx; //-1
+			float obstacleR = obstacleXPx + obstacleWidthPx;
 			float obstacleT = obstacleYPx;
-			float obstacleB = obstacleYPx + obstacleHeightPx;//-1
+			float obstacleB = obstacleYPx + obstacleHeightPx;
 			
 			bool xOverlap = objL < obstacleR && objR > obstacleL;
 			bool yOverlap = objT < obstacleB && objB > obstacleT;
@@ -567,17 +652,25 @@ namespace Bambulanci
 						{
 							return (true, (int)(player.X * formWidth), (int)(player.Y * formHeight), player.PlayerId);
 						}
-						//bool xOverlap = newX * formWidth < player.X * formWidth + graphicsDrawer.PlayerSizePx && newX * formWidth + obj.SizePx > player.X * formWidth;
-						//bool yOverlap = newY * formHeight < player.Y * formHeight + graphicsDrawer.PlayerSizePx && newY * formHeight + obj.SizePx > player.Y * formHeight;
 					}
 				}
 			}
-			return (false, 0, 0, 0);
+			return (false, 0, 0, -1);
 		}
 
-		private void DetectBoxes(float newX, float newY, IMovableObject obj)
+		private (bool collided, int boxId) DetectBoxes(float newX, float newY, IMovableObject obj)
 		{
-
+			lock (Boxes)
+			{
+				foreach (var box in Boxes)
+				{
+					if (Overlaps(newX, newY, obj.SizePx, box.X * formWidth, box.Y * formHeight, box.SizePx, box.SizePx))
+					{
+						return (true, box.Id);
+					}
+				}
+			}
+			return (false, 0);
 		}
 
 		/// <summary>
@@ -631,9 +724,15 @@ namespace Bambulanci
 
 			(bool playerCollision, int playerXPx, int playerYPx, int playerId) = DetectPlayers(newX, newY, obj);// obj.X, obj.Y, obj.SizePx, obj.PlayerId);
 			(bool wallCollision, int wallXPx, int wallYPx) = DetectWalls(newX, newY, obj);// obj.X, obj.Y, obj.SizePx);
+			
+			bool boxCollision = false;
+			int boxId = 0;
+			if (projectileId == -1) //player only
+			{
+				(boxCollision, boxId) = DetectBoxes(newX, newY, obj);
+			}
+			
 			bool windowCollision = newX < 0 || newX > 1 - (float)obj.SizePx / formWidth || newY < 0 || newY > 1 - (float)obj.SizePx / formHeight;
-			//BoxCollision
-			DetectBoxes(newX, newY, obj);
 
 			if (playerCollision)
 			{
@@ -659,6 +758,14 @@ namespace Bambulanci
 					MarkProjectileForDestruction(projectileId);
 				}
 			}
+			if (boxCollision)
+			{
+				lock (Boxes)
+				{
+					int index = Boxes.FindIndex(b => b.Id == boxId);
+					Boxes[index].CollectedBy = obj.PlayerId;
+				}
+			}
 			if (!windowCollision)
 			{
 				obj.X = newX;
@@ -671,9 +778,9 @@ namespace Bambulanci
 		}
 		private void MarkProjectileForDestruction(int projectileId)
 		{
-			int index = Projectiles.FindIndex(p => p.id == projectileId);
 			lock (Projectiles)
 			{
+				int index = Projectiles.FindIndex(p => p.id == projectileId);
 				Projectiles[index].shouldBeDestroyed = true;
 			}
 		}

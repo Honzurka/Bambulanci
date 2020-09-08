@@ -204,7 +204,7 @@ namespace Bambulanci
 					foreach (var player in Game.DeadPlayers)
 					{
 						player.respawnTimer--;
-						if (player.respawnTimer < 0)
+						if (player.respawnTimer < 0) //i might want to set players weapon to pistol------
 						{
 							(float x, float y) = Game.GetSpawnCoords();
 							byte[] hostPlayerRespawn = Data.ToBytes(Command.HostPlayerRespawn, values: (player.PlayerId, 0, x, y));
@@ -226,13 +226,42 @@ namespace Bambulanci
 						}
 					}
 				}
-				if (rng.Next(0, 1000) > 996) //cca 1x per 10sec
+				bool addBox = rng.Next(0, 1000) > 996; //1x per 10sec
+				lock (Game.Boxes)
 				{
-					lock (Game.Boxes)
+					if (addBox)
 					{
-						//add boxes
+						int numOfWeapons = Enum.GetNames(typeof(WeaponType)).Length;
+						byte weaponNum = (byte)rng.Next(numOfWeapons);
+						WeaponType weaponType = (WeaponType)weaponNum;
 						(float x, float y) = Game.GetSpawnCoords();
-						Game.Boxes.Add(new PistolBox(x, y, this));
+						ICollectableObject newBox = null;
+						switch (weaponType) //same as code in Networking response....---------- 
+						{
+							case WeaponType.Pistol:
+								newBox = new PistolBox(Game.boxIdCounter, x, y, this);
+								break;
+							case WeaponType.Shotgun:
+								newBox = new ShotgunBox(Game.boxIdCounter, x, y, this);
+								break;
+							case WeaponType.Machinegun:
+								newBox = new MachinegunBox(Game.boxIdCounter, x, y, this);
+								break;
+							default:
+								break;
+						}
+						//Game.Boxes.Add(newBox);
+						byte[] hostBoxSpawned = Data.ToBytes(Command.HostBoxSpawned, values: (Game.boxIdCounter, (byte)weaponType, x, y));
+						host.LocalhostAndBroadcastMessage(hostBoxSpawned);
+						Game.boxIdCounter++;
+					}
+					foreach (var box in Game.Boxes)
+					{
+						if(box.CollectedBy != -1)
+						{
+							byte[] hostBoxCollected = Data.ToBytes(Command.HostBoxCollected, integer: box.Id, integer2: box.CollectedBy);
+							host.LocalhostAndBroadcastMessage(hostBoxCollected);
+						}
 					}
 				}
 			}
