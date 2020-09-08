@@ -45,6 +45,14 @@ namespace Bambulanci
 		}
 	}
 	
+	public interface ICollectableObject //ToDo
+	{
+		public float X { get; }
+		public float Y { get; }
+		public int WidthPx { get; }
+		public int HeightPx { get; }
+	}
+
 	public interface IMovableObject
 	{
 		public float X { get; set; }
@@ -96,6 +104,61 @@ namespace Bambulanci
 			}
 		}
 	}
+
+	class Shotgun : IWeapon
+	{
+		int cooldown = 0;
+		private readonly FormBambulanci form;
+		private readonly Player player;
+		const float shellOffset = 20f; //might throw error on map without walls
+
+		public Shotgun(FormBambulanci form, Player player)
+		{
+			this.form = form;
+			this.player = player;
+		}
+		public void Fire(WeaponState weaponState)
+		{
+			if (weaponState == WeaponState.Fired && cooldown <= 0)
+			{
+				float projectileMidX = player.X + form.Game.graphicsDrawer.PlayerWidthPx / 2f / form.Width;
+				float projectileMidY = player.Y + form.Game.graphicsDrawer.PlayerHeightPx / 2f / form.TrueHeight;
+
+				float offsetX = 0;
+				float offsetY = 0;
+				if (player.Direction == Direction.Up || player.Direction == Direction.Down)
+				{
+					offsetX = shellOffset / form.Width;
+				}
+				if (player.Direction == Direction.Left || player.Direction == Direction.Right)
+				{
+					offsetY = shellOffset / form.TrueHeight;
+				}
+				
+
+				lock (form.Game.projectiles)
+				{
+					form.Game.projectiles.Add(new Projectile(projectileMidX - offsetX, projectileMidY - offsetY, player.Direction, player.projectileIdGenerator, form, player.PlayerId));
+					player.projectileIdGenerator++;
+
+					form.Game.projectiles.Add(new Projectile(projectileMidX, projectileMidY, player.Direction, player.projectileIdGenerator, form, player.PlayerId));
+					player.projectileIdGenerator++;
+
+					form.Game.projectiles.Add(new Projectile(projectileMidX + offsetX, projectileMidY + offsetY, player.Direction, player.projectileIdGenerator, form, player.PlayerId));
+					player.projectileIdGenerator++;
+				}
+				cooldown = 50;
+
+			}
+			else
+			{
+				cooldown--;
+			}
+
+
+		}
+	}
+
 	public class Projectile : IMovableObject
 	{
 		//between 0 and 1
@@ -133,6 +196,7 @@ namespace Bambulanci
 		public bool isAlive = true;
 		public int respawnTimer = 0;
 
+		//constants for player image scaling
 		public const float widthScaling = 32;
 		public const float heightScaling = 18;
 
@@ -161,7 +225,8 @@ namespace Bambulanci
 			this.Direction = direction;
 			this.ipEndPoint = ipEndPoint;
 			this.form = form;
-			Weapon = new Pistol(form, this);
+			//Weapon = new Pistol(form, this);
+			Weapon = new Shotgun(form, this);
 			projectileIdGenerator = projectileIdMultiplier * id;
 			WidthPx = form.Game.graphicsDrawer.PlayerWidthPx;
 			HeightPx = form.Game.graphicsDrawer.PlayerHeightPx;
