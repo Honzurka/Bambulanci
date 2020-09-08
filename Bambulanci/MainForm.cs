@@ -93,7 +93,7 @@ namespace Bambulanci
 					break;
 				case GameState.InGame:
 					DisableAllControls();
-					this.WindowState = FormWindowState.Maximized; //fullscreen
+					//this.WindowState = FormWindowState.Maximized; //fullscreen
 					int borderHeight = this.Height - this.ClientRectangle.Height;
 					TrueHeight = this.Height - borderHeight;
 					Game = new Game(this.Width, TrueHeight);
@@ -159,7 +159,7 @@ namespace Bambulanci
 		public int GameTime { get; private set; }
 		private void BStartGame_Click(object sender, EventArgs e) //host only
 		{
-			GameTime = 4000; //cca 2min
+			GameTime = 200;
 
 			//create host's client
 			client.StartClient(IPAddress.Loopback);
