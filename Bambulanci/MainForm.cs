@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Net;
+using System.Net.Sockets;
 using System.Windows.Forms;
 
 namespace Bambulanci
@@ -185,12 +186,14 @@ namespace Bambulanci
 			client.HW_WaitingCompleted(null, null);
 			host.clientList.Add(new Host.ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
 			
-			byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
-
 			//test---------------------------------------------------------------------------------------
-			host.BroadcastMessage(hostStartGame); //Utility.MultiSend()----------------------------------
-			host.BroadcastMessage(hostStartGame); //Utility.MultiSend()----------------------------------
-			host.BroadcastMessage(hostStartGame); //Utility.MultiSend()----------------------------------
+			foreach (var client in host.clientList)
+			{
+				byte[] hostStartGame = Data.ToBytes(Command.HostStartGame, integer: client.Id);
+				host.udpHost.Send(hostStartGame, hostStartGame.Length, client.IpEndPoint);
+				host.udpHost.Send(hostStartGame, hostStartGame.Length, client.IpEndPoint);
+				host.udpHost.Send(hostStartGame, hostStartGame.Length, client.IpEndPoint);
+			} //utility.multisend 
 			//test---------------------------------------------------------------------------------------
 
 			host.StartGameListening();

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -50,7 +51,7 @@ namespace Bambulanci
 			{
 				b = data[1];
 			}
-			else if (Cmd == Command.HostDestroyProjectile)
+			else if (Cmd == Command.HostDestroyProjectile || Cmd == Command.HostStartGame)
 			{
 				integer = BitConverter.ToInt32(data, 1);
 			}
@@ -88,7 +89,7 @@ namespace Bambulanci
 				result.Add(b);
 			}
 
-			if(cmd == Command.HostDestroyProjectile)
+			if(cmd == Command.HostDestroyProjectile || cmd == Command.HostStartGame)
 			{
 				result.AddRange(BitConverter.GetBytes(integer));
 			}
@@ -113,7 +114,7 @@ namespace Bambulanci
 		public Host(FormBambulanci form) => this.form = form;
 
 		public List<ClientInfo> clientList;
-		private UdpClient udpHost;
+		public UdpClient udpHost; //public test only---------------------------------------should be private
 		public int ListenPort { get; private set; }
 
 		public class ClientInfo
@@ -281,40 +282,6 @@ namespace Bambulanci
 			LocalhostAndBroadcastMessage(hostGameEnded); //stops clients BW
 			LocalhostAndBroadcastMessage(hostGameEnded); //stops clients BW
 			//test---------------------------------------------------------------------------------------Utility.MultiSend()
-
-			//respawn dead players
-			foreach (var deadPlayer in form.Game.DeadPlayers)
-			{
-				form.Game.Players.Add(deadPlayer);
-			}
-
-			//build score message
-			string[] score = new string[form.Game.Players.Count];
-			for (int i = 0; i < score.Length; i++)
-			{
-				Player player = form.Game.Players[i];
-				score[i] = $"id:{player.PlayerId} kills:{player.kills} deaths:{player.deaths}";
-			}
-
-			for (int playerIndex = 0; playerIndex < form.Game.Players.Count; playerIndex++)
-			{
-				for (int msgIndex = 0; msgIndex < score.Length; msgIndex++)
-				{
-					string msg;
-					if(playerIndex == msgIndex)
-					{
-						msg = "(You) : " + score[msgIndex];
-					}
-					else
-					{
-						msg = score[msgIndex];
-					}
-					byte[] msgBytes = Data.ToBytes(Command.HostScore, msg);
-					udpHost.Send(msgBytes, msgBytes.Length, form.Game.Players[playerIndex].ipEndPoint);
-				}
-			}
-
-
 		}
 
 	}
@@ -326,6 +293,7 @@ namespace Bambulanci
 		private const int notFound = -1;
 
 		public bool InGame;
+		private int myPlayerId;
 		public IPEndPoint hostEP;
 
 		public Client(FormBambulanci form)
@@ -412,13 +380,14 @@ namespace Bambulanci
 		/// <summary>
 		/// Loops until right command is received.
 		/// </summary>
-		private void WaitForCommand(Command command)
+		private Data WaitForCommand(Command command)
 		{
 			Data received = new Data(udpClient.Receive(ref hostEP));
 			while (received.Cmd != command)
 			{
 				received = new Data(udpClient.Receive(ref hostEP));
 			}
+			return received;
 		}
 
 		/// <summary>
@@ -444,8 +413,9 @@ namespace Bambulanci
 			WaitForCommand(Command.HostMoveToWaitingRoom);
 			bwHostWaiter.ReportProgress((int)Command.HostMoveToWaitingRoom);
 
-			WaitForCommand(Command.HostStartGame);
-			bwHostWaiter.ReportProgress((int)Command.HostStartGame);
+			Data received = WaitForCommand(Command.HostStartGame);
+			int myPlayerId = received.integer;
+			bwHostWaiter.ReportProgress((int)Command.HostStartGame, myPlayerId);
 		}
 
 		private void HW_WaitingProgress(object sender, ProgressChangedEventArgs e)
@@ -458,6 +428,7 @@ namespace Bambulanci
 					break;
 				case Command.HostStartGame:
 					InGame = true;
+					myPlayerId = (int)e.UserState;
 					break;
 				default:
 					break;
@@ -529,7 +500,7 @@ namespace Bambulanci
 							}
 						}
 						break;
-					case Command.HostKillPlayer://client is calculating kills, there is no need to send it to them at the end of game!!!!!
+					case Command.HostKillPlayer:
 						Player player = null;
 						playerId = received.integer;
 						int killedBy = received.integer2;
@@ -636,19 +607,21 @@ namespace Bambulanci
 			byte[] clientFire = Data.ToBytes(Command.ClientFire, b: (byte)form.weaponState);
 			udpClient.Send(clientFire, clientFire.Length, hostEP);
 		}
+
 		private void IGL_DisplayScore(object sender, RunWorkerCompletedEventArgs e)
 		{
 			form.ChangeGameState(GameState.GameScore);
-			//...
+			List<Player> allPlayers = form.Game.Players.Concat(form.Game.DeadPlayers).ToList();
 			string score = "";
-			int numOfMessages = form.Game.Players.Count + form.Game.DeadPlayers.Count;
-			while (numOfMessages > 0)
+			foreach (var player in allPlayers)
 			{
-				Data received = new Data(udpClient.Receive(ref hostEP));
-				if (received.Cmd == Command.HostScore)
+				if (player.PlayerId == myPlayerId)
 				{
-					score += received.Msg + "\n";
-					numOfMessages--;
+					score = $"(TY) id:{player.PlayerId} kills:{player.kills} deaths:{player.deaths} \n" + score;
+				}
+				else
+				{
+					score += $"id:{player.PlayerId} kills:{player.kills} deaths:{player.deaths} \n";
 				}
 			}
 			form.lScore.Text = score;

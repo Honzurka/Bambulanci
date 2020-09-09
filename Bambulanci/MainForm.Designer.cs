@@ -265,7 +265,7 @@
 			// 
 			// TimerInGame
 			// 
-			this.TimerInGame.Interval = 30;
+			this.TimerInGame.Interval = 15;
 			this.TimerInGame.Tick += new System.EventHandler(this.TimerInGame_Tick);
 			// 
 			// lScore
