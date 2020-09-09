@@ -33,46 +33,75 @@ namespace Bambulanci
 	class Data
 	{
 		public Command Cmd { get; private set; }
-		public string Msg { get; private set; }
-		public byte b;
-		public int integer;
-		public int integer2;
-		public ValueTuple<int, byte, float, float> ibffTuple;
-		public Data(byte[] data)
+		public byte B { get; private set; }
+		public int Integer1 { get; private set; }
+		public int Integer2 { get; private set; }
+		public ValueTuple<int, byte, float, float> Values { get; private set; }
+
+		private readonly static Dictionary<Command, Func<byte[], Data>> Commands = new Dictionary<Command, Func<byte[], Data>>()
 		{
-			Cmd = (Command)data[0];
-			if (Cmd == Command.HostPlayerMovement || Cmd == Command.HostPlayerFire || Cmd == Command.HostPlayerRespawn || Cmd == Command.HostBoxSpawned)
+			{Command.HostPlayerMovement, ReconstructValues },
+			{Command.HostPlayerFire, ReconstructValues },
+			{Command.HostPlayerRespawn, ReconstructValues },
+			{Command.HostBoxSpawned, ReconstructValues },
+			{Command.ClientMove, ReconstructByte },
+			{Command.ClientFire, ReconstructByte },
+			{Command.HostDestroyProjectile, ReconstructInt },
+			{Command.HostStartGame, ReconstructInt},
+			{Command.HostBoxCollected, ReconstructInts},
+			{Command.HostKillPlayer, ReconstructInts }
+		};
+
+		private static Data ReconstructValues(byte[] data)
+		{
+			Data result = new Data(data[0]);
+
+			int id = BitConverter.ToInt32(data, 1);
+			byte enumData = data[5];
+			float x = BitConverter.ToSingle(data, 6);
+			float y = BitConverter.ToSingle(data, 10);
+
+			result.Values = (id, enumData, x, y);
+			return result;
+		}
+
+		private static Data ReconstructByte(byte[] data)
+		{
+			Data result = new Data(data[0]);
+			result.B = data[1];
+			return result;
+		}
+		private static Data ReconstructInt(byte[] data)
+		{
+			Data result = new Data(data[0]);
+			result.Integer1 = BitConverter.ToInt32(data, 1);
+			return result;
+		}
+		private static Data ReconstructInts(byte[] data)
+		{
+			Data result = new Data(data[0]);
+			result.Integer1 = BitConverter.ToInt32(data, 1);
+			result.Integer2 = BitConverter.ToInt32(data, 5);
+			return result;
+		}
+
+		private Data(byte command)
+		{
+			Cmd = (Command)command;
+		}
+
+		public static Data GetData(byte[] data)
+		{
+			Command cmd = (Command)data[0];
+			if (Commands.TryGetValue(cmd, out Func<byte[], Data> func))
 			{
-				int id = BitConverter.ToInt32(data, 1);
-				byte enumData = data[5];
-				float x = BitConverter.ToSingle(data, 6);
-				float y = BitConverter.ToSingle(data, 10);
-				ibffTuple = (id, enumData, x, y);
-			}
-			else if (Cmd == Command.ClientMove || Cmd == Command.ClientFire)
-			{
-				b = data[1];
-			}
-			else if (Cmd == Command.HostDestroyProjectile || Cmd == Command.HostStartGame)
-			{
-				integer = BitConverter.ToInt32(data, 1);
-			}
-			else if (Cmd == Command.HostBoxCollected || Cmd == Command.HostKillPlayer)
-			{
-				integer = BitConverter.ToInt32(data, 1);
-				integer2 = BitConverter.ToInt32(data, 5);
+				return func(data);
 			}
 			else
 			{
-				if (data.Length > 1)
-				{
-					int msgLen = BitConverter.ToInt32(data, 1);
-					if (msgLen > 0)
-					{
-						Msg = Encoding.ASCII.GetString(data, 5, msgLen);
-					}
-				}
+				return new Data(data[0]);
 			}
+
 		}
 
 		public static byte[] ToBytes(Command cmd)
@@ -177,7 +206,7 @@ namespace Bambulanci
 			UpdateRemainingPlayers(numOfPlayers);
 			while (!hostClosed && clientList.Count < numOfPlayers)
 			{
-				Data data = new Data(udpHost.Receive(ref clientEP));
+				Data data = Data.GetData(udpHost.Receive(ref clientEP));
 				switch (data.Cmd)
 				{
 					case Command.ClientLogin:
@@ -254,11 +283,11 @@ namespace Bambulanci
 
 			while (form.GameTime > 0)
 			{
-				Data data = new Data(udpHost.Receive(ref clientEP));
+				Data data = Data.GetData(udpHost.Receive(ref clientEP));
 				switch (data.Cmd)
 				{
 					case Command.ClientMove:
-						Direction playerMovement = (Direction)data.b;
+						Direction playerMovement = (Direction)data.B;
 						lock (form.Game.Players)
 						{
 							Player senderPlayer = form.Game.Players.Find(p => p.ipEndPoint.Equals(clientEP));
@@ -267,7 +296,7 @@ namespace Bambulanci
 						}
 						break;
 					case Command.ClientFire:
-						WeaponState weaponState = (WeaponState)data.b;
+						WeaponState weaponState = (WeaponState)data.B;
 						lock (form.Game.Players)
 						{
 							Player senderPlayer = form.Game.Players.Find(p => p.ipEndPoint.Equals(clientEP));
@@ -364,7 +393,7 @@ namespace Bambulanci
 			bool searching = true;
 			while (searching)
 			{
-				Data received = new Data(udpClient.Receive(ref hostEPVar));
+				Data received = Data.GetData(udpClient.Receive(ref hostEPVar));
 				switch (received.Cmd)
 				{
 					case Command.HostFoundServer:
@@ -392,10 +421,10 @@ namespace Bambulanci
 		/// </summary>
 		private Data WaitForCommand(Command command)
 		{
-			Data received = new Data(udpClient.Receive(ref hostEP));
+			Data received = Data.GetData(udpClient.Receive(ref hostEP));
 			while (received.Cmd != command)
 			{
-				received = new Data(udpClient.Receive(ref hostEP));
+				received = Data.GetData(udpClient.Receive(ref hostEP));
 			}
 			return received;
 		}
@@ -424,7 +453,7 @@ namespace Bambulanci
 			bwHostWaiter.ReportProgress((int)Command.HostMoveToWaitingRoom);
 
 			Data received = WaitForCommand(Command.HostStartGame);
-			int myPlayerId = received.integer;
+			int myPlayerId = received.Integer1;
 			bwHostWaiter.ReportProgress((int)Command.HostStartGame, myPlayerId);
 		}
 
@@ -460,14 +489,14 @@ namespace Bambulanci
 			Game game = form.Game;
 			while (true)
 			{
-				Data received = new Data(udpClient.Receive(ref hostEP));
+				Data received = Data.GetData(udpClient.Receive(ref hostEP));
 				switch (received.Cmd)
 				{
 					case Command.HostTick:
 						bwInGameListener.ReportProgress(notUsed);
 						break;
 					case Command.HostPlayerMovement:
-						(int playerId, byte direction, float x, float y) = received.ibffTuple;
+						(int playerId, byte direction, float x, float y) = received.Values;
 						int index;
 						lock (game.Players)
 						{
@@ -484,7 +513,7 @@ namespace Bambulanci
 						break;
 					case Command.HostPlayerFire:
 						int projectileId;
-						(projectileId, direction, x, y) = received.ibffTuple;
+						(projectileId, direction, x, y) = received.Values;
 						lock (game.Projectiles)
 						{
 							index = game.Projectiles.FindIndex(p => p.id == projectileId);
@@ -500,7 +529,7 @@ namespace Bambulanci
 						}
 						break;
 					case Command.HostDestroyProjectile:
-						projectileId = received.integer;
+						projectileId = received.Integer1;
 						lock (game.Projectiles)
 						{
 							index = game.Projectiles.FindIndex(p => p.id == projectileId);
@@ -512,8 +541,8 @@ namespace Bambulanci
 						break;
 					case Command.HostKillPlayer:
 						Player player = null;
-						playerId = received.integer;
-						int killedBy = received.integer2;
+						playerId = received.Integer1;
+						int killedBy = received.Integer2;
 						lock(game.Players)
 						{
 							index = game.Players.FindIndex(p => p.PlayerId == playerId);
@@ -536,7 +565,7 @@ namespace Bambulanci
 						}
 						break;
 					case Command.HostPlayerRespawn:
-						(playerId, _, x, y) = received.ibffTuple;
+						(playerId, _, x, y) = received.Values;
 						player = null;
 						lock (game.DeadPlayers)
 						{
@@ -561,7 +590,7 @@ namespace Bambulanci
 					case Command.HostBoxSpawned:
 						int boxId;
 						byte b;
-						(boxId, b, x, y) = received.ibffTuple;
+						(boxId, b, x, y) = received.Values;
 						WeaponType weaponType = (WeaponType)b;
 						lock (game.Boxes)
 						{
@@ -574,8 +603,8 @@ namespace Bambulanci
 						}
 						break;
 					case Command.HostBoxCollected:
-						boxId = received.integer;
-						int collectedBy = received.integer2;
+						boxId = received.Integer1;
+						int collectedBy = received.Integer2;
 						ICollectableObject collectedBox = null;
 						lock (form.Game.Boxes)
 						{
