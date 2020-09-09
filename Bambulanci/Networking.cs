@@ -64,7 +64,6 @@ namespace Bambulanci
 			result.Values = (id, enumData, x, y);
 			return result;
 		}
-
 		private static Data ReconstructByte(byte[] data)
 		{
 			Data result = new Data(data[0]);
@@ -153,7 +152,7 @@ namespace Bambulanci
 		public Host(FormBambulanci form) => this.form = form;
 
 		public List<ClientInfo> clientList;
-		public UdpClient udpHost; //public test only---------------------------------------should be private
+		private UdpClient udpHost;
 		public int ListenPort { get; private set; }
 
 		public class ClientInfo
@@ -215,8 +214,7 @@ namespace Bambulanci
 						UpdateRemainingPlayers(numOfPlayers);
 						id++;
 						byte[] hostLoginAccepted = Data.ToBytes(Command.HostLoginAccepted);
-						Utility.MultiSend(udpHost, hostLoginAccepted, clientEP);
-						//udpHost.Send(loginConfirmed, loginConfirmed.Length, clientEP);
+						TargetMessage(hostLoginAccepted, clientEP);
 						break;
 					case Command.ClientFindServers:
 						byte[] hostFoundServer = Data.ToBytes(Command.HostFoundServer);
@@ -247,24 +245,38 @@ namespace Bambulanci
 			if(e.Error == null && !e.Cancelled)
 			{
 				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom);
-				Utility.MultiSend(udpHost, moveClientToWaitingRoom, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
-				//BroadcastMessage(moveClientToWaitingRoom); //bugged if sent to localHost also
+				BroadcastMessage(moveClientToWaitingRoom);
 				form.ChangeGameState(GameState.HostWaitingRoom);
 			}
 		}
 
-		public void BroadcastMessage(byte[] message)
+		public void BroadcastMessage(byte[] message)///x3---test--------------------------------------------------------------
 		{
+			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
+			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
 			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
 		}
 
 		/// <summary>
 		/// Broadcast on network and localhost.
 		/// </summary>
-		public void LocalhostAndBroadcastMessage(byte[] message)
+		public void LocalhostAndBroadcastMessage(byte[] message)///x3---test--------------------------------------------------------------
 		{
 			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
 			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort));
+
+			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
+			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort));
+
+			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
+			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort));
+		}
+
+		public void TargetMessage(byte[] message, IPEndPoint targetEP)///x3---test--------------------------------------------------------------
+		{
+			udpHost.Send(message, message.Length, targetEP);
+			udpHost.Send(message, message.Length, targetEP);
+			udpHost.Send(message, message.Length, targetEP);
 		}
 
 		private BackgroundWorker bwGameListener;
@@ -311,16 +323,12 @@ namespace Bambulanci
 		}
 
 		/// <summary>
-		/// Ends game. Inform clients about game score.
+		/// Ends game. Inform clients about game score. Stops clients backgroundWorkers.
 		/// </summary>
 		private void GL_Completed(object sender, RunWorkerCompletedEventArgs e)
 		{
 			byte[] hostGameEnded = Data.ToBytes(Command.HostGameEnded);
-			//test---------------------------------------------------------------------------------------Utility.MultiSend()
-			LocalhostAndBroadcastMessage(hostGameEnded); //stops clients BW
-			LocalhostAndBroadcastMessage(hostGameEnded); //stops clients BW
-			LocalhostAndBroadcastMessage(hostGameEnded); //stops clients BW
-			//test---------------------------------------------------------------------------------------Utility.MultiSend()
+			LocalhostAndBroadcastMessage(hostGameEnded);
 		}
 
 	}

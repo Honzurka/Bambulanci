@@ -9,19 +9,6 @@ using System.Windows.Forms.VisualStyles;
 
 namespace Bambulanci
 {
-	static class Utility
-	{
-		public static void MultiSend(UdpClient sender, byte[] msg, IPEndPoint receiver) //test---------------
-		{
-			sender.Send(msg, msg.Length, receiver);
-			sender.Send(msg, msg.Length, receiver);
-			sender.Send(msg, msg.Length, receiver);
-
-			//ref: GL_Completed
-			//ref: BStartGame_Click
-		}//--------------------------------------------------------------------------------------------------
-	}
-
 	public enum WeaponType { Pistol, Shotgun, Machinegun }
 	
 	public interface ICollectableObject

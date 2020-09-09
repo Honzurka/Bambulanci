@@ -186,15 +186,11 @@ namespace Bambulanci
 			client.HW_WaitingCompleted(null, null);
 			host.clientList.Add(new Host.ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
 			
-			//test---------------------------------------------------------------------------------------
 			foreach (var client in host.clientList)
 			{
 				byte[] hostStartGame = Data.ToBytes(Command.HostStartGame, client.Id);
-				host.udpHost.Send(hostStartGame, hostStartGame.Length, client.IpEndPoint);
-				host.udpHost.Send(hostStartGame, hostStartGame.Length, client.IpEndPoint);
-				host.udpHost.Send(hostStartGame, hostStartGame.Length, client.IpEndPoint);
-			} //utility.multisend 
-			//test---------------------------------------------------------------------------------------
+				host.TargetMessage(hostStartGame, client.IpEndPoint);
+			}
 
 			host.StartGameListening();
 			foreach (var client in host.clientList)
