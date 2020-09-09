@@ -26,6 +26,7 @@ namespace Bambulanci
 			ChangeGameState(GameState.Intro);
 
 			//singlePlayer---debug:
+			//nGameTime.Value = 10; //in seconds
 			//host.BWStartHostStarter(0, 45000);
 			//ChangeGameState(GameState.HostWaitingRoom);
 		}
@@ -50,6 +51,9 @@ namespace Bambulanci
 			}
 		}
 
+		/// <summary>
+		/// Redraws form controls.
+		/// </summary>
 		public void ChangeGameState(GameState newState)
 		{
 			switch (newState)
@@ -118,14 +122,14 @@ namespace Bambulanci
 		private void BCreateGame_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.HostSelect);
-			lBNumOfPlayers.SelectedIndex = 0; //default select
+			lBNumOfPlayers.SelectedIndex = 0;
 		}
 
 		private void BCreateGame2_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.HostWaiting);
 			int numOfPlayers = lBNumOfPlayers.SelectedIndex + 1;
-			host.BWStartHostStarter(numOfPlayers, (int)nListenPort.Value);
+			host.BWStartClientWaiter(numOfPlayers, (int)nListenPort.Value);
 		}
 
 		private void BConnect_Click(object sender, EventArgs e)
@@ -153,7 +157,7 @@ namespace Bambulanci
 		private void BCancelHost_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.HostSelect);
-			host.BWCancelHostStarter();
+			host.BWCancelClientWaiter();
 		}
 
 		private void BIntro_Click(object sender, EventArgs e)
@@ -164,10 +168,15 @@ namespace Bambulanci
 
 		public Game Game { get; private set; }
 		public int GameTime { get; private set; }
-		private void BStartGame_Click(object sender, EventArgs e) //host only
+
+		/// <summary>
+		/// Host only.
+		/// Sets up game time. Starts host's client and his parallel listener. Starts host's parallel listener. Creates Game and it's players.
+		/// </summary>
+		private void BStartGame_Click(object sender, EventArgs e)
 		{
 			GameTime = (int)nGameTime.Value * 1000 / TimerInGame.Interval;
-			//create host's client
+			
 			client.StartClient(IPAddress.Loopback);
 			client.hostEP = new IPEndPoint(IPAddress.Loopback, host.ListenPort);
 			client.InGame = true;
@@ -175,104 +184,112 @@ namespace Bambulanci
 			host.clientList.Add(new Host.ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
 			
 			byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
-			host.BroadcastMessage(hostStartGame);
+
+			//test---------------------------------------------------------------------------------------
+			host.BroadcastMessage(hostStartGame); //Utility.MultiSend()----------------------------------
+			host.BroadcastMessage(hostStartGame); //Utility.MultiSend()----------------------------------
+			host.BroadcastMessage(hostStartGame); //Utility.MultiSend()----------------------------------
+			//test---------------------------------------------------------------------------------------
+
 			host.StartGameListening();
 			ChangeGameState(GameState.InGame);
 
 			foreach (var client in host.clientList)
 			{
-				(float x, float y) = Game.GetSpawnCoords();
+				(float x, float y) = Game.GetSpawnCoords(rng);
 				Game.Players.Add(new Player(this, x, y, client.Id, ipEndPoint: client.IpEndPoint));
 			}
 			TimerInGame.Enabled = true;
 		}
 
-		Random rng = new Random();
-		private void TimerInGame_Tick(object sender, EventArgs e) //host only
+		private readonly Random rng = new Random();
+		private const double probabilityOfBoxSpawn = 0.003; //cca 1x per 10sec
+
+		/// <summary>
+		/// Host only.
+		/// Moves, kills and respawns players. Creates and moves projectiles. Spawns and collects game boxes.
+		/// </summary>
+		private void TimerInGame_Tick(object sender, EventArgs e)
 		{
 			GameTime--;
 			if(GameTime < 0)
 			{
-				//ChangeGameState(GameState.GameScore);
-				Console.WriteLine("Konec hry-----------------");
 				return;
 			}
 
-			//if (currentGameState == GameState.InGame) //should be-- maybe not necessary to check
-			{
-				byte[] hostTick = Data.ToBytes(Command.HostTick);
-				host.LocalhostAndBroadcastMessage(hostTick);
+			byte[] hostTick = Data.ToBytes(Command.HostTick);
+			host.LocalhostAndBroadcastMessage(hostTick);
 
-				lock (Game.Players)
+			lock (Game.Players)
+			{
+				foreach (var player in Game.Players)
 				{
-					foreach (var player in Game.Players)
+					if (player.isAlive)
 					{
-						if (player.isAlive)
-						{
-							byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, values: (player.PlayerId, (byte)player.Direction, player.X, player.Y));
-							host.LocalhostAndBroadcastMessage(hostPlayerMovement);
-						}
-						else
-						{
-							byte[] hostKillPlayer = Data.ToBytes(Command.HostKillPlayer, integer: player.PlayerId, integer2: player.killedBy);
-							host.LocalhostAndBroadcastMessage(hostKillPlayer);
-						}
+						byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, values: (player.PlayerId, (byte)player.Direction, player.X, player.Y));
+						host.LocalhostAndBroadcastMessage(hostPlayerMovement);
+					}
+					else
+					{
+						byte[] hostKillPlayer = Data.ToBytes(Command.HostKillPlayer, integer: player.PlayerId, integer2: player.killedBy);
+						host.LocalhostAndBroadcastMessage(hostKillPlayer);
 					}
 				}
-				lock (Game.DeadPlayers)
+			}
+			lock (Game.DeadPlayers)
+			{
+				foreach (var player in Game.DeadPlayers)
 				{
-					foreach (var player in Game.DeadPlayers)
+					player.respawnTimer--;
+					if (player.respawnTimer < 0)
 					{
-						player.respawnTimer--;
-						if (player.respawnTimer < 0) //i might want to set players weapon to pistol------
-						{
-							(float x, float y) = Game.GetSpawnCoords();
-							byte[] hostPlayerRespawn = Data.ToBytes(Command.HostPlayerRespawn, values: (player.PlayerId, 0, x, y));
-							host.LocalhostAndBroadcastMessage(hostPlayerRespawn);
-						}
+						(float x, float y) = Game.GetSpawnCoords(rng);
+						byte[] hostPlayerRespawn = Data.ToBytes(Command.HostPlayerRespawn, values: (player.PlayerId, 0, x, y));
+						host.LocalhostAndBroadcastMessage(hostPlayerRespawn);
 					}
 				}
-				lock (Game.Projectiles)
+			}
+			lock (Game.Projectiles)
+			{
+				foreach (var projectile in Game.Projectiles)
 				{
-					foreach (var projectile in Game.Projectiles)
+					Game.Move(projectile, projectile.id);
+					byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.id, (byte)projectile.Direction, projectile.X, projectile.Y));
+					host.BroadcastMessage(hostPlayerFire);
+					if (projectile.shouldBeDestroyed)
 					{
-						Game.Move(projectile, projectile.id);
-						byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.id, (byte)projectile.Direction, projectile.X, projectile.Y));
-						host.BroadcastMessage(hostPlayerFire);
-						if (projectile.shouldBeDestroyed)
-						{
-							byte[] hostDestroyProjectile = Data.ToBytes(Command.HostDestroyProjectile, integer: projectile.id);
-							host.LocalhostAndBroadcastMessage(hostDestroyProjectile);
-						}
+						byte[] hostDestroyProjectile = Data.ToBytes(Command.HostDestroyProjectile, integer: projectile.id);
+						host.LocalhostAndBroadcastMessage(hostDestroyProjectile);
 					}
 				}
-				bool addBox = rng.Next(0, 1000) > 996; //1x per 10sec----constant.....
-				lock (Game.Boxes)
+			}
+			bool addBox = rng.NextDouble() < probabilityOfBoxSpawn;
+			lock (Game.Boxes)
+			{
+				if (addBox)
 				{
-					if (addBox)
+					int numOfWeapons = Enum.GetNames(typeof(WeaponType)).Length;
+					byte weaponNum = (byte)rng.Next(numOfWeapons);
+					WeaponType weaponType = (WeaponType)weaponNum;
+					(float x, float y) = Game.GetSpawnCoords(rng);
+					ICollectableObject newBox = WeaponBox.Generate(Game.boxIdCounter, x, y, this, weaponType);
+					byte[] hostBoxSpawned = Data.ToBytes(Command.HostBoxSpawned, values: (Game.boxIdCounter, (byte)weaponType, x, y));
+					host.LocalhostAndBroadcastMessage(hostBoxSpawned);
+				}
+				foreach (var box in Game.Boxes)
+				{
+					if(box.CollectedBy != -1)
 					{
-						int numOfWeapons = Enum.GetNames(typeof(WeaponType)).Length;
-						byte weaponNum = (byte)rng.Next(numOfWeapons);
-						WeaponType weaponType = (WeaponType)weaponNum;
-						(float x, float y) = Game.GetSpawnCoords();
-						ICollectableObject newBox = null;
-						newBox = WeaponBox.Generate(Game.boxIdCounter, x, y, this, weaponType);
-						byte[] hostBoxSpawned = Data.ToBytes(Command.HostBoxSpawned, values: (Game.boxIdCounter, (byte)weaponType, x, y));
-						host.LocalhostAndBroadcastMessage(hostBoxSpawned);
-						Game.boxIdCounter++;
-					}
-					foreach (var box in Game.Boxes)
-					{
-						if(box.CollectedBy != -1)
-						{
-							byte[] hostBoxCollected = Data.ToBytes(Command.HostBoxCollected, integer: box.Id, integer2: box.CollectedBy);
-							host.LocalhostAndBroadcastMessage(hostBoxCollected);
-						}
+						byte[] hostBoxCollected = Data.ToBytes(Command.HostBoxCollected, integer: box.Id, integer2: box.CollectedBy);
+						host.LocalhostAndBroadcastMessage(hostBoxCollected);
 					}
 				}
 			}
 		}
 
+		/// <summary>
+		/// In-game drawing.
+		/// </summary>
 		private void FormBambulanci_Paint(object sender, PaintEventArgs e)
 		{
 			Graphics g = e.Graphics;

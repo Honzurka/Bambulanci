@@ -4,10 +4,11 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Net;
+using System.Net.Sockets;
 
 namespace Bambulanci
 {
-	class Utility
+	static class Utility
 	{
 		//taken from: https://stackoverflow.com/questions/1922040/how-to-resize-an-image-c-sharp
 		/// <summary>
@@ -39,6 +40,16 @@ namespace Bambulanci
 
 			return destImage;
 		}
+
+		public static void MultiSend(UdpClient sender, byte[] msg, IPEndPoint receiver) //test---------------
+		{
+			sender.Send(msg, msg.Length, receiver);
+			sender.Send(msg, msg.Length, receiver);
+			sender.Send(msg, msg.Length, receiver);
+
+			//ref: GL_Completed
+			//ref: BStartGame_Click
+		}
 	}
 
 	public enum WeaponType { Pistol, Shotgun, Machinegun }
@@ -50,7 +61,7 @@ namespace Bambulanci
 		public float Y { get; }
 		public int SizePx { get; }
 		public int CollectedBy { get; set; }
-		public WeaponType weaponContained { get; }
+		public WeaponType WeaponContained { get; }
 	}
 
 	class WeaponBox : ICollectableObject
@@ -60,13 +71,13 @@ namespace Bambulanci
 		public float Y { get; }
 		public int SizePx { get; }
 		public int CollectedBy { get; set; } = -1;
-		public WeaponType weaponContained { get; }
+		public WeaponType WeaponContained { get; }
 		private WeaponBox(int id, float x, float y, FormBambulanci form, WeaponType weaponType)
 		{
 			Id = id;
 			X = x;
 			Y = y;
-			weaponContained = weaponType;
+			WeaponContained = weaponType;
 			SizePx = form.Game.graphicsDrawer.BoxSizePx;
 		}
 		public static WeaponBox Generate(int id, float x, float y, FormBambulanci form, WeaponType weaponType)
@@ -86,6 +97,7 @@ namespace Bambulanci
 				default:
 					break;
 			}
+			form.Game.boxIdCounter++;
 			return newBox;
 		}
 	}
@@ -185,7 +197,7 @@ namespace Bambulanci
 		public float Y { get; set; }
 
 		public Direction Direction { get; }
-		public float speed { get; }
+		public float Speed { get; }
 		public int PlayerId { get; }
 		public int SizePx { get; }
 
@@ -197,7 +209,7 @@ namespace Bambulanci
 		public float Y { get; set; }
 
 		public Direction Direction { get; set; }
-		public float speed { get; } = 0.02f; //const but from Iface
+		public float Speed { get; } = 0.02f; //const but from Iface
 		public int PlayerId { get; }
 		public int SizePx { get; }
 
@@ -239,7 +251,7 @@ namespace Bambulanci
 		//coords between 0 and 1
 		public float X { get; set; }
 		public float Y { get; set; }
-		public float speed { get; } = 0.01f;
+		public float Speed { get; } = 0.01f;
 
 		public Direction Direction { get; private set; } //definitely not Stay
 
@@ -268,7 +280,7 @@ namespace Bambulanci
 		/// Called by host only.
 		/// </summary>
 		/// <param name="playerSize"> in pixels </param>
-		public void MoveByHost(Direction direction, GraphicsDrawer graphicsDrawer, FormBambulanci form) //form just for graphics debuging //graphicsDrawer for playerSize -- not absolutely necessary, window collision is bad anyways
+		public void MoveByHost(Direction direction, FormBambulanci form) //form just for graphics debuging //graphicsDrawer for playerSize -- not absolutely necessary, window collision is bad anyways
 		{ //might be moved under ref directly??----------
 			if (direction != Direction.Stay)
 			{
@@ -386,8 +398,8 @@ namespace Bambulanci
 		private readonly Bitmap[] playerImg; //left, up, right, down
 		private readonly Brush[] allowedColors = new Brush[] { Brushes.Yellow, Brushes.Red, Brushes.Aqua, Brushes.BlueViolet, Brushes.Chocolate };
 
-		private Bitmap projectileImg;
-		private Bitmap boxImg;
+		private readonly Bitmap projectileImg;
+		private readonly Bitmap boxImg;
 		public GraphicsDrawer(int formWidth, int formHeight, Map map)
 		{
 			this.formWidth = formWidth;
@@ -508,8 +520,8 @@ namespace Bambulanci
 	{
 		public readonly GraphicsDrawer graphicsDrawer;
 		public readonly Map map;
-		private int formWidth;
-		private int formHeight;
+		private readonly int formWidth;
+		private readonly int formHeight;
 
 		private const int respawnTime = 100;
 
@@ -527,12 +539,11 @@ namespace Bambulanci
 			graphicsDrawer = new GraphicsDrawer(formWidth, formHeight, map);
 		}
 
-		Random rng = new Random();
 		/// <summary>
 		/// Return spawn coords on tile that is not a wall.
 		/// </summary>
 		/// <returns> Coords scaled between 0 and 1. </returns>
-		public (float, float) GetSpawnCoords()
+		public (float, float) GetSpawnCoords(Random rng)
 		{
 			int col = rng.Next(map.cols);
 			int row = rng.Next(map.rows);
@@ -660,16 +671,16 @@ namespace Bambulanci
 			switch (obj.Direction)
 			{
 				case Direction.Left:
-					newX -= obj.speed;
+					newX -= obj.Speed;
 					break;
 				case Direction.Right:
-					newX += obj.speed;
+					newX += obj.Speed;
 					break;
 				case Direction.Up:
-					newY -= obj.speed;
+					newY -= obj.Speed;
 					break;
 				case Direction.Down:
-					newY += obj.speed;
+					newY += obj.Speed;
 					break;
 				default:
 					break;

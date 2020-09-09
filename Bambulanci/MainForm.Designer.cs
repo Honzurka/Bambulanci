@@ -304,7 +304,7 @@
 			this.nGameTime.Size = new System.Drawing.Size(150, 27);
 			this.nGameTime.TabIndex = 18;
 			this.nGameTime.Value = new decimal(new int[] {
-            10,
+            120,
             0,
             0,
             0});
