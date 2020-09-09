@@ -588,21 +588,7 @@ namespace Bambulanci
 						lock (form.Game.Boxes)
 						{
 							//box should be spawned only once
-							ICollectableObject newBox = null;
-							switch (weaponType)
-							{
-								case WeaponType.Pistol:
-									newBox = new PistolBox(boxId, x, y, form);
-									break;
-								case WeaponType.Shotgun:
-									newBox = new ShotgunBox(boxId, x, y, form);
-									break;
-								case WeaponType.Machinegun:
-									newBox = new MachinegunBox(boxId, x, y, form);
-									break;
-								default:
-									break;
-							}
+							ICollectableObject newBox = WeaponBox.Generate(boxId,x,y,form,weaponType);
 							form.Game.Boxes.Add(newBox);
 						}
 						break;

@@ -1,14 +1,9 @@
-﻿using Bambulanci;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Net;
-using System.Runtime.CompilerServices;
-using System.Transactions;
-using System.Windows.Forms;
-using System.Xaml.Permissions;
 
 namespace Bambulanci
 {
@@ -47,7 +42,8 @@ namespace Bambulanci
 	}
 
 	public enum WeaponType { Pistol, Shotgun, Machinegun }
-	public interface ICollectableObject //mozna genericka implementace??---------------
+	
+	public interface ICollectableObject
 	{
 		public int Id { get; }
 		public float X { get; }
@@ -57,52 +53,40 @@ namespace Bambulanci
 		public WeaponType weaponContained { get; }
 	}
 
-	class PistolBox : ICollectableObject
+	class WeaponBox : ICollectableObject
 	{
 		public int Id { get; }
 		public float X { get; }
 		public float Y { get; }
 		public int SizePx { get; }
 		public int CollectedBy { get; set; } = -1;
-		public WeaponType weaponContained { get; } = WeaponType.Pistol;
-		public PistolBox(int id, float x, float y, FormBambulanci form)
+		public WeaponType weaponContained { get; }
+		private WeaponBox(int id, float x, float y, FormBambulanci form, WeaponType weaponType)
 		{
 			Id = id;
 			X = x;
 			Y = y;
+			weaponContained = weaponType;
 			SizePx = form.Game.graphicsDrawer.BoxSizePx;
 		}
-	}
-	class ShotgunBox : ICollectableObject
-	{
-		public int Id { get; }
-		public float X { get; }
-		public float Y { get; }
-		public int SizePx { get; }
-		public int CollectedBy { get; set; } = -1;
-		public WeaponType weaponContained { get; } = WeaponType.Shotgun;
-		public ShotgunBox(int id, float x, float y, FormBambulanci form)
+		public static WeaponBox Generate(int id, float x, float y, FormBambulanci form, WeaponType weaponType)
 		{
-			Id = id;
-			X = x;
-			Y = y;
-			SizePx = form.Game.graphicsDrawer.BoxSizePx;
-		}
-	}
-	class MachinegunBox : ICollectableObject
-	{
-		public int Id { get; }
-		public float X { get; }
-		public float Y { get; }
-		public int SizePx { get; }
-		public int CollectedBy { get; set; } = -1;
-		public WeaponType weaponContained { get; } = WeaponType.Machinegun;
-		public MachinegunBox(int id, float x, float y, FormBambulanci form)
-		{
-			Id = id;
-			X = x;
-			Y = y;
-			SizePx = form.Game.graphicsDrawer.BoxSizePx;
+			WeaponBox newBox = null;
+			switch (weaponType)
+			{
+				case WeaponType.Pistol:
+					newBox = new WeaponBox(id, x, y, form, WeaponType.Pistol);
+					break;
+				case WeaponType.Shotgun:
+					newBox = new WeaponBox(id, x, y, form, WeaponType.Shotgun);
+					break;
+				case WeaponType.Machinegun:
+					newBox = new WeaponBox(id, x, y, form, WeaponType.Machinegun);
+					break;
+				default:
+					break;
+			}
+			return newBox;
 		}
 	}
 

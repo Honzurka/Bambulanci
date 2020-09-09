@@ -269,9 +269,9 @@
 			this.lScore.AutoSize = true;
 			this.lScore.Location = new System.Drawing.Point(204, 91);
 			this.lScore.Name = "lScore";
-			this.lScore.Size = new System.Drawing.Size(50, 20);
+			this.lScore.Size = new System.Drawing.Size(114, 20);
 			this.lScore.TabIndex = 16;
-			this.lScore.Text = "label1";
+			this.lScore.Text = "Endgame score.";
 			// 
 			// FormBambulanci
 			// 

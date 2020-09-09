@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Drawing;
 using System.Net;
-using System.Runtime.CompilerServices;
 using System.Windows.Forms;
 
 namespace Bambulanci
@@ -23,8 +22,8 @@ namespace Bambulanci
 			ChangeGameState(GameState.Intro);
 
 			//singlePlayer:
-			//host.BWStartHostStarter(0, 45000);
-			//ChangeGameState(GameState.HostWaitingRoom);
+			host.BWStartHostStarter(0, 45000);
+			ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -159,7 +158,7 @@ namespace Bambulanci
 		public int GameTime { get; private set; }
 		private void BStartGame_Click(object sender, EventArgs e) //host only
 		{
-			GameTime = 2000;
+			GameTime = 20000;
 
 			//create host's client
 			client.StartClient(IPAddress.Loopback);
@@ -188,6 +187,7 @@ namespace Bambulanci
 			if(GameTime < 0)
 			{
 				//ChangeGameState(GameState.GameScore);
+				Console.WriteLine("Konec hry-----------------");
 				return;
 			}
 
@@ -239,7 +239,7 @@ namespace Bambulanci
 						}
 					}
 				}
-				bool addBox = rng.Next(0, 1000) > 996; //1x per 10sec
+				bool addBox = rng.Next(0, 1000) > 996; //1x per 10sec----constant.....
 				lock (Game.Boxes)
 				{
 					if (addBox)
@@ -249,21 +249,7 @@ namespace Bambulanci
 						WeaponType weaponType = (WeaponType)weaponNum;
 						(float x, float y) = Game.GetSpawnCoords();
 						ICollectableObject newBox = null;
-						switch (weaponType) //same as code in Networking response....---------- 
-						{
-							case WeaponType.Pistol:
-								newBox = new PistolBox(Game.boxIdCounter, x, y, this);
-								break;
-							case WeaponType.Shotgun:
-								newBox = new ShotgunBox(Game.boxIdCounter, x, y, this);
-								break;
-							case WeaponType.Machinegun:
-								newBox = new MachinegunBox(Game.boxIdCounter, x, y, this);
-								break;
-							default:
-								break;
-						}
-						//Game.Boxes.Add(newBox);
+						newBox = WeaponBox.Generate(Game.boxIdCounter, x, y, this, weaponType);
 						byte[] hostBoxSpawned = Data.ToBytes(Command.HostBoxSpawned, values: (Game.boxIdCounter, (byte)weaponType, x, y));
 						host.LocalhostAndBroadcastMessage(hostBoxSpawned);
 						Game.boxIdCounter++;
