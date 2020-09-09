@@ -67,6 +67,8 @@ namespace Bambulanci
 					EnableControl(nListenPort);
 					EnableControl(bIntro);
 					EnableControl(lPort);
+					EnableControl(lGameTime);
+					EnableControl(nGameTime);
 					break;
 				case GameState.HostWaiting:
 					DisableAllControls();
@@ -158,15 +160,13 @@ namespace Bambulanci
 		{
 			client.StopCLient();
 			ChangeGameState(GameState.Intro);
-			//close client/host socket
 		}
 
 		public Game Game { get; private set; }
 		public int GameTime { get; private set; }
 		private void BStartGame_Click(object sender, EventArgs e) //host only
 		{
-			GameTime = 100; //constant...--- or settable by host
-
+			GameTime = (int)nGameTime.Value * 1000 / TimerInGame.Interval;
 			//create host's client
 			client.StartClient(IPAddress.Loopback);
 			client.hostEP = new IPEndPoint(IPAddress.Loopback, host.ListenPort);

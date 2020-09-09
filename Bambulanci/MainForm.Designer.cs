@@ -47,8 +47,11 @@
 			this.TimerInGame = new System.Windows.Forms.Timer(this.components);
 			this.lScore = new System.Windows.Forms.Label();
 			this.lPort = new System.Windows.Forms.Label();
+			this.nGameTime = new System.Windows.Forms.NumericUpDown();
+			this.lGameTime = new System.Windows.Forms.Label();
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).BeginInit();
 			((System.ComponentModel.ISupportInitialize)(this.nHostPort)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.nGameTime)).BeginInit();
 			this.SuspendLayout();
 			// 
 			// bCreateGame
@@ -284,11 +287,44 @@
 			this.lPort.TabIndex = 17;
 			this.lPort.Text = "Port:";
 			// 
+			// nGameTime
+			// 
+			this.nGameTime.Location = new System.Drawing.Point(168, 231);
+			this.nGameTime.Maximum = new decimal(new int[] {
+            300,
+            0,
+            0,
+            0});
+			this.nGameTime.Minimum = new decimal(new int[] {
+            10,
+            0,
+            0,
+            0});
+			this.nGameTime.Name = "nGameTime";
+			this.nGameTime.Size = new System.Drawing.Size(150, 27);
+			this.nGameTime.TabIndex = 18;
+			this.nGameTime.Value = new decimal(new int[] {
+            10,
+            0,
+            0,
+            0});
+			// 
+			// lGameTime
+			// 
+			this.lGameTime.AutoSize = true;
+			this.lGameTime.Location = new System.Drawing.Point(72, 233);
+			this.lGameTime.Name = "lGameTime";
+			this.lGameTime.Size = new System.Drawing.Size(90, 20);
+			this.lGameTime.TabIndex = 19;
+			this.lGameTime.Text = "Délka hry(s):";
+			// 
 			// FormBambulanci
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(914, 600);
+			this.Controls.Add(this.lGameTime);
+			this.Controls.Add(this.nGameTime);
 			this.Controls.Add(this.lPort);
 			this.Controls.Add(this.lScore);
 			this.Controls.Add(this.bStartGame);
@@ -315,6 +351,7 @@
 			this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.FormBambulanci_KeyUp);
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).EndInit();
 			((System.ComponentModel.ISupportInitialize)(this.nHostPort)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.nGameTime)).EndInit();
 			this.ResumeLayout(false);
 			this.PerformLayout();
 
@@ -340,6 +377,8 @@
 		public System.Windows.Forms.Button bLogin;
 		public System.Windows.Forms.Label lScore;
 		private System.Windows.Forms.Label lPort;
+		private System.Windows.Forms.NumericUpDown nGameTime;
+		private System.Windows.Forms.Label lGameTime;
 	}
 }
 
