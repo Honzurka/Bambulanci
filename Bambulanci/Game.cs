@@ -5,42 +5,12 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Net;
 using System.Net.Sockets;
+using System.Windows.Forms.VisualStyles;
 
 namespace Bambulanci
 {
 	static class Utility
 	{
-		//taken from: https://stackoverflow.com/questions/1922040/how-to-resize-an-image-c-sharp
-		/// <summary>
-		/// Resize the image to the specified width and height.
-		/// </summary>
-		/// <param name="image">The image to resize.</param>
-		/// <param name="width">The width to resize to.</param>
-		/// <param name="height">The height to resize to.</param>
-		/// <returns>The resized image.</returns>
-		public static Bitmap ResizeImage(Image image, int width, int height)
-		{
-			var destRect = new Rectangle(0, 0, width, height);
-			var destImage = new Bitmap(width, height);
-
-			using (var graphics = Graphics.FromImage(destImage))
-			{
-				graphics.CompositingMode = CompositingMode.SourceCopy;
-				graphics.CompositingQuality = CompositingQuality.HighQuality;
-				graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-				graphics.SmoothingMode = SmoothingMode.HighQuality;
-				graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-
-				using (var wrapMode = new ImageAttributes())
-				{
-					wrapMode.SetWrapMode(WrapMode.TileFlipXY);
-					graphics.DrawImage(image, destRect, 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, wrapMode);
-				}
-			}
-
-			return destImage;
-		}
-
 		public static void MultiSend(UdpClient sender, byte[] msg, IPEndPoint receiver) //test---------------
 		{
 			sender.Send(msg, msg.Length, receiver);
@@ -60,6 +30,7 @@ namespace Bambulanci
 		public float X { get; }
 		public float Y { get; }
 		public int SizePx { get; }
+		const int Noone = -1;
 		public int CollectedBy { get; set; }
 		public WeaponType WeaponContained { get; }
 	}
@@ -70,7 +41,7 @@ namespace Bambulanci
 		public float X { get; }
 		public float Y { get; }
 		public int SizePx { get; }
-		public int CollectedBy { get; set; } = -1;
+		public int CollectedBy { get; set; } = ICollectableObject.Noone;
 		public WeaponType WeaponContained { get; }
 		private WeaponBox(int id, float x, float y, FormBambulanci form, WeaponType weaponType)
 		{
@@ -110,7 +81,7 @@ namespace Bambulanci
 		protected readonly FormBambulanci form;
 		protected readonly Player player;
 
-		public virtual int Cooldown { get; } = 30;
+		public abstract int Cooldown { get; }
 		protected int currentCooldown;
 		public Weapon(FormBambulanci form, Player player)
 		{
@@ -137,6 +108,7 @@ namespace Bambulanci
 	}
 	sealed class Pistol : Weapon
 	{
+		public override int Cooldown => 1; //30
 		public Pistol(FormBambulanci form, Player player) : base(form, player) { }
 	}
 
@@ -352,7 +324,7 @@ namespace Bambulanci
 
 				Rectangle cloneRect = new Rectangle(x, y, tileSize.Width, tileSize.Height);
 				Bitmap tile = tileAtlas.Clone(cloneRect, tileAtlas.PixelFormat); //pixelFormat??
-				Bitmap tileScaled = Utility.ResizeImage(tile, result.tileSizeScaled.Width, result.tileSizeScaled.Height);
+				Bitmap tileScaled = GraphicsDrawer.ResizeImage(tile, result.tileSizeScaled.Width, result.tileSizeScaled.Height);
 				
 				result.tiles[i] = tileScaled;	
 			}
@@ -514,6 +486,39 @@ namespace Bambulanci
 		{
 			g.DrawImage(boxImg, box.X * formWidth, box.Y * formHeight);
 		}
+
+
+		//taken from: https://stackoverflow.com/questions/1922040/how-to-resize-an-image-c-sharp
+		/// <summary>
+		/// Resize the image to the specified width and height.
+		/// </summary>
+		/// <param name="image">The image to resize.</param>
+		/// <param name="width">The width to resize to.</param>
+		/// <param name="height">The height to resize to.</param>
+		/// <returns>The resized image.</returns>
+		public static Bitmap ResizeImage(Image image, int width, int height)
+		{
+			var destRect = new Rectangle(0, 0, width, height);
+			var destImage = new Bitmap(width, height);
+
+			using (var graphics = Graphics.FromImage(destImage))
+			{
+				graphics.CompositingMode = CompositingMode.SourceCopy;
+				graphics.CompositingQuality = CompositingQuality.HighQuality;
+				graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+				graphics.SmoothingMode = SmoothingMode.HighQuality;
+				graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+				using (var wrapMode = new ImageAttributes())
+				{
+					wrapMode.SetWrapMode(WrapMode.TileFlipXY);
+					graphics.DrawImage(image, destRect, 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, wrapMode);
+				}
+			}
+
+			return destImage;
+		}
+
 	}
 
 	public class Game

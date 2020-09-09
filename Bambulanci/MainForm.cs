@@ -29,8 +29,8 @@ namespace Bambulanci
 			ChangeGameState(GameState.Intro);
 
 			//singlePlayer---debug:
-			//nGameTime.Value = 10; //in seconds
-			//host.BWStartHostStarter(0, 45000);
+			//nGameTime.Value = 30; //in seconds
+			//host.BWStartClientWaiter(0, 45000);
 			//ChangeGameState(GameState.HostWaitingRoom);
 		}
 
@@ -189,7 +189,7 @@ namespace Bambulanci
 			//test---------------------------------------------------------------------------------------
 			foreach (var client in host.clientList)
 			{
-				byte[] hostStartGame = Data.ToBytes(Command.HostStartGame, integer: client.Id);
+				byte[] hostStartGame = Data.ToBytes(Command.HostStartGame, client.Id);
 				host.udpHost.Send(hostStartGame, hostStartGame.Length, client.IpEndPoint);
 				host.udpHost.Send(hostStartGame, hostStartGame.Length, client.IpEndPoint);
 				host.udpHost.Send(hostStartGame, hostStartGame.Length, client.IpEndPoint);
@@ -229,12 +229,12 @@ namespace Bambulanci
 				{
 					if (player.isAlive)
 					{
-						byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, values: (player.PlayerId, (byte)player.Direction, player.X, player.Y));
+						byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, (player.PlayerId, (byte)player.Direction, player.X, player.Y));
 						host.LocalhostAndBroadcastMessage(hostPlayerMovement);
 					}
 					else
 					{
-						byte[] hostKillPlayer = Data.ToBytes(Command.HostKillPlayer, integer: player.PlayerId, integer2: player.killedBy);
+						byte[] hostKillPlayer = Data.ToBytes(Command.HostKillPlayer, player.PlayerId, player.killedBy);
 						host.LocalhostAndBroadcastMessage(hostKillPlayer);
 					}
 				}
@@ -247,7 +247,7 @@ namespace Bambulanci
 					if (player.respawnTimer < 0)
 					{
 						(float x, float y) = Game.GetSpawnCoords(rng);
-						byte[] hostPlayerRespawn = Data.ToBytes(Command.HostPlayerRespawn, values: (player.PlayerId, 0, x, y));
+						byte[] hostPlayerRespawn = Data.ToBytes(Command.HostPlayerRespawn, (player.PlayerId, 0, x, y));
 						host.LocalhostAndBroadcastMessage(hostPlayerRespawn);
 					}
 				}
@@ -257,11 +257,11 @@ namespace Bambulanci
 				foreach (var projectile in Game.Projectiles)
 				{
 					Game.Move(projectile, projectile.id);
-					byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, values: (projectile.id, (byte)projectile.Direction, projectile.X, projectile.Y));
+					byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, (projectile.id, (byte)projectile.Direction, projectile.X, projectile.Y));
 					host.BroadcastMessage(hostPlayerFire);
 					if (projectile.shouldBeDestroyed)
 					{
-						byte[] hostDestroyProjectile = Data.ToBytes(Command.HostDestroyProjectile, integer: projectile.id);
+						byte[] hostDestroyProjectile = Data.ToBytes(Command.HostDestroyProjectile, projectile.id);
 						host.LocalhostAndBroadcastMessage(hostDestroyProjectile);
 					}
 				}
@@ -276,14 +276,14 @@ namespace Bambulanci
 					WeaponType weaponType = (WeaponType)weaponNum;
 					(float x, float y) = Game.GetSpawnCoords(rng);
 					ICollectableObject newBox = WeaponBox.Generate(Game.boxIdCounter, x, y, this, weaponType);
-					byte[] hostBoxSpawned = Data.ToBytes(Command.HostBoxSpawned, values: (Game.boxIdCounter, (byte)weaponType, x, y));
+					byte[] hostBoxSpawned = Data.ToBytes(Command.HostBoxSpawned, (Game.boxIdCounter, (byte)weaponType, x, y));
 					host.LocalhostAndBroadcastMessage(hostBoxSpawned);
 				}
 				foreach (var box in Game.Boxes)
 				{
 					if(box.CollectedBy != -1)
 					{
-						byte[] hostBoxCollected = Data.ToBytes(Command.HostBoxCollected, integer: box.Id, integer2: box.CollectedBy);
+						byte[] hostBoxCollected = Data.ToBytes(Command.HostBoxCollected, box.Id, box.CollectedBy);
 						host.LocalhostAndBroadcastMessage(hostBoxCollected);
 					}
 				}

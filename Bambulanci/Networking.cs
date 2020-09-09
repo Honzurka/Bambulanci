@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Windows.Forms.VisualStyles;
 
 namespace Bambulanci
 {
@@ -74,40 +75,48 @@ namespace Bambulanci
 			}
 		}
 
-		public static byte[] ToBytes(Command cmd, string msg = null, byte b = 0, int integer = 0, int integer2 = 0, (int id, byte enumData, float x, float y) values = default)
+		public static byte[] ToBytes(Command cmd)
+		{
+			byte[] result = new byte[] { (byte)cmd };
+			return result;
+		}
+		public static byte[] ToBytes(Command cmd, (int id, byte enumData, float x, float y) values)
 		{
 			List<byte> result = new List<byte>() { (byte)cmd };
-			if (cmd == Command.HostPlayerMovement || cmd == Command.HostPlayerFire || cmd == Command.HostPlayerRespawn || cmd == Command.HostBoxSpawned)
-			{
-				result.AddRange(BitConverter.GetBytes(values.id));
-				result.Add(values.enumData);
-				result.AddRange(BitConverter.GetBytes(values.x));
-				result.AddRange(BitConverter.GetBytes(values.y));
-			}
-
-			if (cmd == Command.ClientMove || cmd == Command.ClientFire)
-			{
-				result.Add(b);
-			}
-
-			if(cmd == Command.HostDestroyProjectile || cmd == Command.HostStartGame)
-			{
-				result.AddRange(BitConverter.GetBytes(integer));
-			}
-			if (cmd == Command.HostBoxCollected || cmd == Command.HostKillPlayer)
-			{
-				result.AddRange(BitConverter.GetBytes(integer));
-				result.AddRange(BitConverter.GetBytes(integer2));
-			}
-
-			if (msg != null)
-			{
-				result.AddRange(BitConverter.GetBytes(msg.Length));
-				result.AddRange(Encoding.ASCII.GetBytes(msg));
-			}
-
+			result.AddRange(BitConverter.GetBytes(values.id));
+			result.Add(values.enumData);
+			result.AddRange(BitConverter.GetBytes(values.x));
+			result.AddRange(BitConverter.GetBytes(values.y));
 			return result.ToArray();
 		}
+		public static byte[] ToBytes(Command cmd, byte b)
+		{
+			List<byte> result = new List<byte>() { (byte)cmd };
+			result.Add(b);
+			return result.ToArray();
+		}
+		public static byte[] ToBytes(Command cmd, int integer)
+		{
+			List<byte> result = new List<byte>() { (byte)cmd };
+			result.AddRange(BitConverter.GetBytes(integer));
+			return result.ToArray();
+		}
+		public static byte[] ToBytes(Command cmd, int integer1, int integer2)
+		{
+			List<byte> result = new List<byte>() { (byte)cmd };
+			result.AddRange(BitConverter.GetBytes(integer1));
+			result.AddRange(BitConverter.GetBytes(integer2));
+			return result.ToArray();
+
+		}
+		public static byte[] ToBytes(Command cmd, string msg)
+		{
+			List<byte> result = new List<byte>() { (byte)cmd };
+			result.AddRange(BitConverter.GetBytes(msg.Length));
+			result.AddRange(Encoding.ASCII.GetBytes(msg));
+			return result.ToArray();
+		}
+
 	}
 	class Host
 	{
@@ -601,21 +610,19 @@ namespace Bambulanci
 			form.Invalidate(); //redraws form
 
 			//sends info about movement
-			byte[] clientMove = Data.ToBytes(Command.ClientMove, b: (byte)form.playerMovement);
+			byte[] clientMove = Data.ToBytes(Command.ClientMove, (byte)form.playerMovement);
 			udpClient.Send(clientMove, clientMove.Length, hostEP);
 
 			//sends info about weapon
-			byte[] clientFire = Data.ToBytes(Command.ClientFire, b: (byte)form.weaponState);
+			byte[] clientFire = Data.ToBytes(Command.ClientFire, (byte)form.weaponState);
 			udpClient.Send(clientFire, clientFire.Length, hostEP);
 		}
 
 		private void IGL_DisplayScore(object sender, RunWorkerCompletedEventArgs e)
 		{
 			form.ChangeGameState(GameState.GameScore);
-			
-			//test
 			form.BackColor = Color.White; 
-			form.Invalidate(); //redraw!--wasnt tested--nefunguje
+			form.Invalidate();
 
 			List<Player> allPlayers = form.Game.Players.Concat(form.Game.DeadPlayers).ToList();
 			string score = "";
