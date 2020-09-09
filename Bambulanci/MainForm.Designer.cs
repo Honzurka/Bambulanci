@@ -46,6 +46,7 @@
 			this.bStartGame = new System.Windows.Forms.Button();
 			this.TimerInGame = new System.Windows.Forms.Timer(this.components);
 			this.lScore = new System.Windows.Forms.Label();
+			this.lPort = new System.Windows.Forms.Label();
 			((System.ComponentModel.ISupportInitialize)(this.nListenPort)).BeginInit();
 			((System.ComponentModel.ISupportInitialize)(this.nHostPort)).BeginInit();
 			this.SuspendLayout();
@@ -53,7 +54,7 @@
 			// bCreateGame
 			// 
 			this.bCreateGame.Enabled = false;
-			this.bCreateGame.Location = new System.Drawing.Point(361, 145);
+			this.bCreateGame.Location = new System.Drawing.Point(360, 180);
 			this.bCreateGame.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.bCreateGame.Name = "bCreateGame";
 			this.bCreateGame.Size = new System.Drawing.Size(191, 61);
@@ -66,7 +67,7 @@
 			// bConnect
 			// 
 			this.bConnect.Enabled = false;
-			this.bConnect.Location = new System.Drawing.Point(361, 255);
+			this.bConnect.Location = new System.Drawing.Point(360, 260);
 			this.bConnect.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.bConnect.Name = "bConnect";
 			this.bConnect.Size = new System.Drawing.Size(191, 65);
@@ -85,19 +86,19 @@
             "2 hraci",
             "3 hraci",
             "4 hraci"});
-			this.lBNumOfPlayers.Location = new System.Drawing.Point(625, 100);
+			this.lBNumOfPlayers.Location = new System.Drawing.Point(365, 196);
 			this.lBNumOfPlayers.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.lBNumOfPlayers.Name = "lBNumOfPlayers";
-			this.lBNumOfPlayers.Size = new System.Drawing.Size(137, 124);
+			this.lBNumOfPlayers.Size = new System.Drawing.Size(137, 104);
 			this.lBNumOfPlayers.TabIndex = 2;
 			this.lBNumOfPlayers.Visible = false;
 			// 
 			// bCreateGame2
 			// 
 			this.bCreateGame2.Enabled = false;
-			this.bCreateGame2.Location = new System.Drawing.Point(640, 245);
+			this.bCreateGame2.Location = new System.Drawing.Point(168, 264);
 			this.bCreateGame2.Name = "bCreateGame2";
-			this.bCreateGame2.Size = new System.Drawing.Size(94, 29);
+			this.bCreateGame2.Size = new System.Drawing.Size(150, 29);
 			this.bCreateGame2.TabIndex = 3;
 			this.bCreateGame2.Text = "Vytvorit";
 			this.bCreateGame2.UseVisualStyleBackColor = true;
@@ -119,7 +120,7 @@
 			// nListenPort
 			// 
 			this.nListenPort.Enabled = false;
-			this.nListenPort.Location = new System.Drawing.Point(768, 145);
+			this.nListenPort.Location = new System.Drawing.Point(168, 198);
 			this.nListenPort.Maximum = new decimal(new int[] {
             59999,
             0,
@@ -145,7 +146,7 @@
 			this.lBServers.Enabled = false;
 			this.lBServers.FormattingEnabled = true;
 			this.lBServers.ItemHeight = 20;
-			this.lBServers.Location = new System.Drawing.Point(27, 255);
+			this.lBServers.Location = new System.Drawing.Point(365, 196);
 			this.lBServers.Name = "lBServers";
 			this.lBServers.Size = new System.Drawing.Size(150, 104);
 			this.lBServers.TabIndex = 8;
@@ -154,9 +155,9 @@
 			// bLogin
 			// 
 			this.bLogin.Enabled = false;
-			this.bLogin.Location = new System.Drawing.Point(82, 380);
+			this.bLogin.Location = new System.Drawing.Point(168, 264);
 			this.bLogin.Name = "bLogin";
-			this.bLogin.Size = new System.Drawing.Size(94, 29);
+			this.bLogin.Size = new System.Drawing.Size(150, 29);
 			this.bLogin.TabIndex = 9;
 			this.bLogin.Text = "Připojit";
 			this.bLogin.UseVisualStyleBackColor = true;
@@ -166,7 +167,7 @@
 			// nHostPort
 			// 
 			this.nHostPort.Enabled = false;
-			this.nHostPort.Location = new System.Drawing.Point(11, 145);
+			this.nHostPort.Location = new System.Drawing.Point(168, 196);
 			this.nHostPort.Maximum = new decimal(new int[] {
             65535,
             0,
@@ -190,9 +191,9 @@
 			// bRefreshServers
 			// 
 			this.bRefreshServers.Enabled = false;
-			this.bRefreshServers.Location = new System.Drawing.Point(38, 179);
+			this.bRefreshServers.Location = new System.Drawing.Point(168, 229);
 			this.bRefreshServers.Name = "bRefreshServers";
-			this.bRefreshServers.Size = new System.Drawing.Size(139, 29);
+			this.bRefreshServers.Size = new System.Drawing.Size(150, 29);
 			this.bRefreshServers.TabIndex = 10;
 			this.bRefreshServers.Text = "Vyhledat servery";
 			this.bRefreshServers.UseVisualStyleBackColor = true;
@@ -202,7 +203,7 @@
 			// bExit
 			// 
 			this.bExit.Enabled = false;
-			this.bExit.Location = new System.Drawing.Point(361, 341);
+			this.bExit.Location = new System.Drawing.Point(360, 340);
 			this.bExit.Name = "bExit";
 			this.bExit.Size = new System.Drawing.Size(191, 67);
 			this.bExit.TabIndex = 11;
@@ -226,9 +227,9 @@
 			// bIntro
 			// 
 			this.bIntro.Enabled = false;
-			this.bIntro.Location = new System.Drawing.Point(768, 245);
+			this.bIntro.Location = new System.Drawing.Point(625, 509);
 			this.bIntro.Name = "bIntro";
-			this.bIntro.Size = new System.Drawing.Size(94, 29);
+			this.bIntro.Size = new System.Drawing.Size(94, 28);
 			this.bIntro.TabIndex = 13;
 			this.bIntro.Text = "Zpět";
 			this.bIntro.UseVisualStyleBackColor = true;
@@ -240,7 +241,7 @@
 			this.lWaitingRoom.AutoSize = true;
 			this.lWaitingRoom.Enabled = false;
 			this.lWaitingRoom.Font = new System.Drawing.Font("Segoe UI", 18F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-			this.lWaitingRoom.Location = new System.Drawing.Point(390, 9);
+			this.lWaitingRoom.Location = new System.Drawing.Point(390, 40);
 			this.lWaitingRoom.Name = "lWaitingRoom";
 			this.lWaitingRoom.Size = new System.Drawing.Size(125, 41);
 			this.lWaitingRoom.TabIndex = 14;
@@ -250,9 +251,9 @@
 			// bStartGame
 			// 
 			this.bStartGame.Enabled = false;
-			this.bStartGame.Location = new System.Drawing.Point(407, 61);
+			this.bStartGame.Location = new System.Drawing.Point(360, 180);
 			this.bStartGame.Name = "bStartGame";
-			this.bStartGame.Size = new System.Drawing.Size(94, 29);
+			this.bStartGame.Size = new System.Drawing.Size(191, 67);
 			this.bStartGame.TabIndex = 15;
 			this.bStartGame.Text = "Spustit Hru";
 			this.bStartGame.UseVisualStyleBackColor = true;
@@ -267,17 +268,28 @@
 			// lScore
 			// 
 			this.lScore.AutoSize = true;
-			this.lScore.Location = new System.Drawing.Point(204, 91);
+			this.lScore.Font = new System.Drawing.Font("Segoe UI", 15F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+			this.lScore.Location = new System.Drawing.Point(310, 81);
 			this.lScore.Name = "lScore";
-			this.lScore.Size = new System.Drawing.Size(114, 20);
+			this.lScore.Size = new System.Drawing.Size(192, 35);
 			this.lScore.TabIndex = 16;
 			this.lScore.Text = "Endgame score.";
+			// 
+			// lPort
+			// 
+			this.lPort.AutoSize = true;
+			this.lPort.Location = new System.Drawing.Point(124, 196);
+			this.lPort.Name = "lPort";
+			this.lPort.Size = new System.Drawing.Size(38, 20);
+			this.lPort.TabIndex = 17;
+			this.lPort.Text = "Port:";
 			// 
 			// FormBambulanci
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(914, 600);
+			this.Controls.Add(this.lPort);
 			this.Controls.Add(this.lScore);
 			this.Controls.Add(this.bStartGame);
 			this.Controls.Add(this.lWaitingRoom);
@@ -327,6 +339,7 @@
 		private System.Windows.Forms.Timer TimerInGame;
 		public System.Windows.Forms.Button bLogin;
 		public System.Windows.Forms.Label lScore;
+		private System.Windows.Forms.Label lPort;
 	}
 }
 

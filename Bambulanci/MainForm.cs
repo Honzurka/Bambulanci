@@ -12,7 +12,11 @@ namespace Bambulanci
 		private GameState currentGameState;
 		private readonly Client client;
 		private readonly Host host;
-		public int TrueHeight { get; private set; } //height without border
+		
+		/// <summary>
+		/// Form height without border.
+		/// </summary>
+		public int TrueHeight { get; private set; }
 
 		public FormBambulanci()
 		{
@@ -21,7 +25,7 @@ namespace Bambulanci
 			host = new Host(this);
 			ChangeGameState(GameState.Intro);
 
-			//singlePlayer:
+			//singlePlayer---debug:
 			host.BWStartHostStarter(0, 45000);
 			ChangeGameState(GameState.HostWaitingRoom);
 		}
@@ -62,6 +66,7 @@ namespace Bambulanci
 					EnableControl(bCreateGame2);
 					EnableControl(nListenPort);
 					EnableControl(bIntro);
+					EnableControl(lPort);
 					break;
 				case GameState.HostWaiting:
 					DisableAllControls();
@@ -80,6 +85,7 @@ namespace Bambulanci
 					EnableControl(nHostPort);
 					EnableControl(bRefreshServers);
 					EnableControl(bIntro);
+					EnableControl(lPort);
 					break;
 				case GameState.ClientWaiting:
 					DisableAllControls();
@@ -148,8 +154,9 @@ namespace Bambulanci
 			host.BWCancelHostStarter();
 		}
 
-		private void BIntro_Click(object sender, EventArgs e) //zatim spise nepouzivat, potrebuju zvlast pro clienta i hosta
+		private void BIntro_Click(object sender, EventArgs e)
 		{
+			client.StopCLient();
 			ChangeGameState(GameState.Intro);
 			//close client/host socket
 		}
@@ -158,7 +165,7 @@ namespace Bambulanci
 		public int GameTime { get; private set; }
 		private void BStartGame_Click(object sender, EventArgs e) //host only
 		{
-			GameTime = 20000;
+			GameTime = 100; //constant...--- or settable by host
 
 			//create host's client
 			client.StartClient(IPAddress.Loopback);

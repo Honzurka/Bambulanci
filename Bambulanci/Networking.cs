@@ -352,6 +352,14 @@ namespace Bambulanci
 		{
 			udpClient = new UdpClient(new IPEndPoint(iPAddress, listenPort));
 		}
+		public void StopCLient()
+		{
+			if (udpClient != null)
+			{
+				udpClient.Close();
+				udpClient = null;
+			}
+		}
 
 		/// <summary>
 		/// Server refresh paralelism.
