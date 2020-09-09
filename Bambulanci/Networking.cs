@@ -356,6 +356,12 @@ namespace Bambulanci
 		{
 			if (udpClient != null)
 			{
+				if (bwServerRefresher != null) //kills serverRefresher
+				{
+					byte[] poisonPill = Data.ToBytes(Command.ClientStopRefreshing);
+					IPEndPoint localhostEP = new IPEndPoint(IPAddress.Loopback, listenPort);
+					udpClient.Send(poisonPill, poisonPill.Length, localhostEP);
+				}
 				udpClient.Close();
 				udpClient = null;
 			}
