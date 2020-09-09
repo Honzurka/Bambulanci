@@ -189,7 +189,7 @@ namespace Bambulanci
 			foreach (var client in host.clientList)
 			{
 				byte[] hostStartGame = Data.ToBytes(Command.HostStartGame, client.Id);
-				host.TargetMessage(hostStartGame, client.IpEndPoint);
+				host.SendMessageToTarget(hostStartGame, client.IpEndPoint);
 			}
 
 			host.StartGameListening();

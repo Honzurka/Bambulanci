@@ -164,7 +164,6 @@ namespace Bambulanci
 				this.Id = id;
 				this.IpEndPoint = ipEndPoint;
 			}
-
 		}
 
 		private BackgroundWorker bwClientWaiter;
@@ -178,7 +177,8 @@ namespace Bambulanci
 		public void BWCancelClientWaiter()
 		{
 			byte[] cancel = Data.ToBytes(Command.HostStopHosting);
-			udpHost.Send(cancel, cancel.Length, new IPEndPoint(IPAddress.Loopback, ListenPort));
+			IPEndPoint localHost = new IPEndPoint(IPAddress.Loopback, ListenPort);
+			SendMessageToTarget(cancel, localHost);
 		}
 
 		/// <summary>
@@ -214,11 +214,11 @@ namespace Bambulanci
 						UpdateRemainingPlayers(numOfPlayers);
 						id++;
 						byte[] hostLoginAccepted = Data.ToBytes(Command.HostLoginAccepted);
-						TargetMessage(hostLoginAccepted, clientEP);
+						SendMessageToTarget(hostLoginAccepted, clientEP);
 						break;
 					case Command.ClientFindServers:
 						byte[] hostFoundServer = Data.ToBytes(Command.HostFoundServer);
-						udpHost.Send(hostFoundServer, hostFoundServer.Length, clientEP);
+						SendMessageToTarget(hostFoundServer, clientEP);
 						break;
 					case Command.HostStopHosting:
 						hostClosed = true;
@@ -260,19 +260,13 @@ namespace Bambulanci
 		/// <summary>
 		/// Broadcast on network and localhost.
 		/// </summary>
-		public void LocalhostAndBroadcastMessage(byte[] message)///x3---test--------------------------------------------------------------
+		public void LocalhostAndBroadcastMessage(byte[] message)
 		{
-			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
-			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort));
-
-			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
-			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort));
-
 			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
 			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort));
 		}
 
-		public void TargetMessage(byte[] message, IPEndPoint targetEP)///x3---test--------------------------------------------------------------
+		public void SendMessageToTarget(byte[] message, IPEndPoint targetEP)///x3---test--------------------------------------------------------------
 		{
 			udpHost.Send(message, message.Length, targetEP);
 			udpHost.Send(message, message.Length, targetEP);
@@ -365,6 +359,11 @@ namespace Bambulanci
 			}
 		}
 
+		public void SendMessageToTarget(byte[] message, IPEndPoint targetEP)
+		{
+			udpClient.Send(message, message.Length, targetEP);
+		}
+
 		private BackgroundWorker bwServerRefresher;
 		/// <summary>
 		/// Sends "poison pill" on localHost => stops server refreshing backgroundWorker.
@@ -373,7 +372,7 @@ namespace Bambulanci
 		{
 			byte[] poisonPill = Data.ToBytes(Command.ClientStopRefreshing);
 			IPEndPoint localhostEP = new IPEndPoint(IPAddress.Loopback, listenPort);
-			udpClient.Send(poisonPill, poisonPill.Length, localhostEP);
+			SendMessageToTarget(poisonPill, localhostEP);
 		}
 		public void BWServerRefresherStart(int hostPort)
 		{
@@ -396,7 +395,7 @@ namespace Bambulanci
 			var hostEPVar = new IPEndPoint(IPAddress.Any, listenPort);
 
 			byte[] findServerMessage = Data.ToBytes(Command.ClientFindServers);
-			udpClient.Send(findServerMessage, findServerMessage.Length, broadcastEP);
+			SendMessageToTarget(findServerMessage, broadcastEP);
 
 			bool searching = true;
 			while (searching)
@@ -446,7 +445,7 @@ namespace Bambulanci
 
 			hostEP = (IPEndPoint)form.lBServers.SelectedItem;
 			byte[] loginMessage = Data.ToBytes(Command.ClientLogin);			
-			udpClient.Send(loginMessage, loginMessage.Length, hostEP);
+			SendMessageToTarget(loginMessage, hostEP);
 
 			WaitForCommand(Command.HostLoginAccepted);
 			form.ChangeGameState(GameState.ClientWaiting);
@@ -648,11 +647,11 @@ namespace Bambulanci
 
 			//sends info about movement
 			byte[] clientMove = Data.ToBytes(Command.ClientMove, (byte)form.playerMovement);
-			udpClient.Send(clientMove, clientMove.Length, hostEP);
+			SendMessageToTarget(clientMove, hostEP);
 
 			//sends info about weapon
 			byte[] clientFire = Data.ToBytes(Command.ClientFire, (byte)form.weaponState);
-			udpClient.Send(clientFire, clientFire.Length, hostEP);
+			SendMessageToTarget(clientFire, hostEP);
 		}
 
 		private void IGL_DisplayScore(object sender, RunWorkerCompletedEventArgs e)
