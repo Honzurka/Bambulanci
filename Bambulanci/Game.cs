@@ -93,25 +93,21 @@ namespace Bambulanci
 	public enum Direction { Left, Up, Right, Down, Stay }
 	public enum WeaponState { Fired, Still}
 
-	public interface IWeapon
+	public abstract class Weapon
 	{
-		public void Fire(WeaponState weaponState);
-	}
-	class Pistol : IWeapon
-	{
-		int cooldown = 0;
-		private readonly FormBambulanci form;
-		private readonly Player player;
-		
-		public Pistol(FormBambulanci form, Player player)
+		protected readonly FormBambulanci form;
+		protected readonly Player player;
+
+		public virtual int Cooldown { get; } = 30;
+		protected int currentCooldown;
+		public Weapon(FormBambulanci form, Player player)
 		{
 			this.form = form;
 			this.player = player;
 		}
-
-		public void Fire(WeaponState weaponState)
+		public virtual void Fire(WeaponState weaponState)
 		{
-			if (weaponState == WeaponState.Fired && cooldown <= 0)
+			if (weaponState == WeaponState.Fired && currentCooldown <= 0)
 			{
 				float offset = form.Game.graphicsDrawer.PlayerSizePx / 2f / form.Width;
 				lock (form.Game.Projectiles)
@@ -119,32 +115,30 @@ namespace Bambulanci
 					form.Game.Projectiles.Add(new Projectile(player.X + offset, player.Y + offset, player.Direction, player.projectileIdGenerator, form, player.PlayerId));
 				}
 				player.projectileIdGenerator++;
-				cooldown = 30;
+				currentCooldown = Cooldown;
 			}
 			else
 			{
-				cooldown--;
+				currentCooldown--;
 			}
 		}
 	}
-
-	class Shotgun : IWeapon
+	sealed class Pistol : Weapon
 	{
-		int cooldown = 0;
-		private readonly FormBambulanci form;
-		private readonly Player player;
-		const float shellOffset = 20f; //might throw error on map without walls
+		public Pistol(FormBambulanci form, Player player) : base(form, player) { }
+	}
 
-		public Shotgun(FormBambulanci form, Player player)
+	sealed class Shotgun : Weapon
+	{
+		public override int Cooldown => 50;
+		public Shotgun(FormBambulanci form, Player player) : base(form, player) { }
+
+		const float shellOffset = 20f; //might throw error on map without walls
+		public override void Fire(WeaponState weaponState)
 		{
-			this.form = form;
-			this.player = player;
-		}
-		public void Fire(WeaponState weaponState)
-		{
-			if (weaponState == WeaponState.Fired && cooldown <= 0)
+			if (weaponState == WeaponState.Fired && currentCooldown <= 0)
 			{
-				
+
 				float offset = form.Game.graphicsDrawer.PlayerSizePx / 2f / form.Width;
 				float projectileMidX = player.X + offset;
 				float projectileMidY = player.Y + offset;
@@ -159,7 +153,6 @@ namespace Bambulanci
 				{
 					offsetY = shellOffset / form.TrueHeight;
 				}
-				
 
 				lock (form.Game.Projectiles)
 				{
@@ -172,47 +165,18 @@ namespace Bambulanci
 					form.Game.Projectiles.Add(new Projectile(projectileMidX + offsetX, projectileMidY + offsetY, player.Direction, player.projectileIdGenerator, form, player.PlayerId));
 					player.projectileIdGenerator++;
 				}
-				cooldown = 50;
-
+				currentCooldown = Cooldown;
 			}
 			else
 			{
-				cooldown--;
+				currentCooldown--;
 			}
-
-
 		}
 	}
-
-	class Machinegun : IWeapon //copied code from Pistol, just cooldown differs...
+	sealed class Machinegun : Weapon
 	{
-		int cooldown = 0;
-		private readonly FormBambulanci form;
-		private readonly Player player;
-
-		public Machinegun(FormBambulanci form, Player player)
-		{
-			this.form = form;
-			this.player = player;
-		}
-
-		public void Fire(WeaponState weaponState)
-		{
-			if (weaponState == WeaponState.Fired && cooldown <= 0)
-			{
-				float offset = form.Game.graphicsDrawer.PlayerSizePx / 2f / form.Width;
-				lock (form.Game.Projectiles)
-				{
-					form.Game.Projectiles.Add(new Projectile(player.X + offset, player.Y + offset, player.Direction, player.projectileIdGenerator, form, player.PlayerId));
-				}
-				player.projectileIdGenerator++;
-				cooldown = 5;
-			}
-			else
-			{
-				cooldown--;
-			}
-		}
+		public override int Cooldown => 5;
+		public Machinegun(FormBambulanci form, Player player) : base(form, player) { }
 	}
 
 	public interface IMovableObject
@@ -279,7 +243,7 @@ namespace Bambulanci
 
 		public Direction Direction { get; private set; } //definitely not Stay
 
-		public IWeapon Weapon { get; private set; }
+		public Weapon Weapon { get; private set; }
 		const int projectileIdMultiplier = 1000000;
 		public int projectileIdGenerator;
 		public readonly IPEndPoint ipEndPoint; //for host only
