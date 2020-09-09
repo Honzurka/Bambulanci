@@ -5,7 +5,9 @@ using System.Windows.Forms;
 
 namespace Bambulanci
 {
-	public enum GameState { Intro, HostSelect, HostWaiting, ClientWaiting, HostWaitingRoom, ClientWaitingRoom, ClientSearch, InGame, GameScore }
+	public enum GameState { Intro, HostSelect, HostWaiting, ClientWaiting, HostWaitingRoom, ClientWaitingRoom, ClientSearch, 
+		//client only: (in host's case done by host's client!!!)
+		InGame, GameScore }
 
 	public partial class FormBambulanci : Form
 	{
@@ -162,7 +164,7 @@ namespace Bambulanci
 
 		private void BIntro_Click(object sender, EventArgs e)
 		{
-			client.StopCLient();
+			client.StopClient();
 			ChangeGameState(GameState.Intro);
 		}
 
@@ -180,7 +182,7 @@ namespace Bambulanci
 			client.StartClient(IPAddress.Loopback);
 			client.hostEP = new IPEndPoint(IPAddress.Loopback, host.ListenPort);
 			client.InGame = true;
-			client.BW_WaitingCompleted(null, null);
+			client.HW_WaitingCompleted(null, null);
 			host.clientList.Add(new Host.ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
 			
 			byte[] hostStartGame = Data.ToBytes(Command.HostStartGame);
@@ -192,8 +194,6 @@ namespace Bambulanci
 			//test---------------------------------------------------------------------------------------
 
 			host.StartGameListening();
-			ChangeGameState(GameState.InGame);
-
 			foreach (var client in host.clientList)
 			{
 				(float x, float y) = Game.GetSpawnCoords(rng);

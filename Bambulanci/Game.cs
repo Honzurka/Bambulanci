@@ -49,7 +49,7 @@ namespace Bambulanci
 
 			//ref: GL_Completed
 			//ref: BStartGame_Click
-		}
+		}//--------------------------------------------------------------------------------------------------
 	}
 
 	public enum WeaponType { Pistol, Shotgun, Machinegun }

@@ -13,7 +13,7 @@ namespace Bambulanci
 	/// </summary>
 	enum Command { ClientLogin, ClientFindServers, ClientStopRefreshing,
 		HostFoundServer, HostMoveToWaitingRoom, HostStopHosting,
-		HostLoginAccepted, HostLoginDeclined, HostStartGame,
+		HostLoginAccepted, HostStartGame,
 		
 		//InGame
 		HostTick,
@@ -34,7 +34,7 @@ namespace Bambulanci
 		public byte b;
 		public int integer;
 		public int integer2;
-		public ValueTuple<int, byte, float, float> ibffInfo;
+		public ValueTuple<int, byte, float, float> ibffTuple;
 		public Data(byte[] data)
 		{
 			Cmd = (Command)data[0];
@@ -44,7 +44,7 @@ namespace Bambulanci
 				byte enumData = data[5];
 				float x = BitConverter.ToSingle(data, 6);
 				float y = BitConverter.ToSingle(data, 10);
-				ibffInfo = (id, enumData, x, y);
+				ibffTuple = (id, enumData, x, y);
 			}
 			else if (Cmd == Command.ClientMove || Cmd == Command.ClientFire)
 			{
@@ -322,44 +322,58 @@ namespace Bambulanci
 	class Client
 	{
 		private readonly FormBambulanci form;
+		private const int notUsed = 0;
+		private const int notFound = -1;
 
 		public bool InGame;
 		public IPEndPoint hostEP;
 
-		public Client(FormBambulanci form) => this.form = form;
+		public Client(FormBambulanci form)
+		{
+			this.form = form;
+		}
 
 		private UdpClient udpClient;
-		public const int listenPort = 60000; //wont allow multiple servers--------------------------
+		public const int listenPort = 60000; //wont allow multiple servers
 
-		public void StartClient(IPAddress iPAddress)
-		{
-			udpClient = new UdpClient(new IPEndPoint(iPAddress, listenPort));
-		}
-		public void StopCLient()
+		public void StartClient(IPAddress iPAddress) => udpClient = new UdpClient(new IPEndPoint(iPAddress, listenPort));
+		public void StopClient()
 		{
 			if (udpClient != null)
 			{
-				if (bwServerRefresher != null) //kills serverRefresher
+				if (bwServerRefresher != null)
 				{
-					byte[] poisonPill = Data.ToBytes(Command.ClientStopRefreshing);
-					IPEndPoint localhostEP = new IPEndPoint(IPAddress.Loopback, listenPort);
-					udpClient.Send(poisonPill, poisonPill.Length, localhostEP);
+					ServerRefresherStop();
 				}
 				udpClient.Close();
 				udpClient = null;
 			}
 		}
 
-		/// <summary>
-		/// Server refresh paralelism.
-		/// </summary>
 		private BackgroundWorker bwServerRefresher;
+		/// <summary>
+		/// Sends "poison pill" on localHost => stops server refreshing backgroundWorker.
+		/// </summary>
+		private void ServerRefresherStop()
+		{
+			byte[] poisonPill = Data.ToBytes(Command.ClientStopRefreshing);
+			IPEndPoint localhostEP = new IPEndPoint(IPAddress.Loopback, listenPort);
+			udpClient.Send(poisonPill, poisonPill.Length, localhostEP);
+		}
 		public void BWServerRefresherStart(int hostPort)
 		{
-			ParallelBW.ActivateWorker(ref bwServerRefresher, true, BW_RefreshServers, BW_RefreshCompleted, BW_ServerFound, hostPort);
+			if (bwServerRefresher != null)
+			{
+				ServerRefresherStop();
+			}
+			ParallelBW.ActivateWorker(ref bwServerRefresher, true, SR_RefreshServers, null, SR_ServerFound, hostPort);
 		}
 
-		private void BW_RefreshServers(object sender, DoWorkEventArgs e) //nekdy vyzkouset vice serveru - kvuli hostEP / co kdyz zrovna broadcastuje jiny server...
+		/// <summary>
+		/// Sends broadcast and waits for host's response.
+		/// Each responding host is then added to server listBox
+		/// </summary>
+		private void SR_RefreshServers(object sender, DoWorkEventArgs e)
 		{
 			int hostPort = (int)e.Argument;
 			IPEndPoint broadcastEP = new IPEndPoint(IPAddress.Broadcast, hostPort);
@@ -376,7 +390,7 @@ namespace Bambulanci
 				switch (received.Cmd)
 				{
 					case Command.HostFoundServer:
-						bwServerRefresher.ReportProgress(0, hostEPVar); //0 is ignored
+						bwServerRefresher.ReportProgress(notUsed, hostEPVar);
 						break;
 					case Command.ClientStopRefreshing:
 						searching = false;
@@ -387,17 +401,24 @@ namespace Bambulanci
 			}
 		}
 
-		private void BW_ServerFound(object sender, ProgressChangedEventArgs e) //progress
+		private void SR_ServerFound(object sender, ProgressChangedEventArgs e)
 		{
 			var newHostEP = e.UserState;
 			form.lBServers.Items.Add(newHostEP);
 			form.bLogin.Enabled = true;
 			form.lBServers.SelectedIndex = 0;
-			
 		}
-		private void BW_RefreshCompleted(object sender, RunWorkerCompletedEventArgs e) //not used 
-		{
 
+		/// <summary>
+		/// Loops until right command is received.
+		/// </summary>
+		private void WaitForCommand(Command command)
+		{
+			Data received = new Data(udpClient.Receive(ref hostEP));
+			while (received.Cmd != command)
+			{
+				received = new Data(udpClient.Receive(ref hostEP));
+			}
 		}
 
 		/// <summary>
@@ -405,53 +426,29 @@ namespace Bambulanci
 		/// </summary>
 		public void LoginToSelectedServer()
 		{
-			//send poison pill on localHost == stops server refreshing backgroundWorker
-			byte[] poisonPill = Data.ToBytes(Command.ClientStopRefreshing);
-			IPEndPoint localhostEP = new IPEndPoint(IPAddress.Loopback, listenPort);
-			udpClient.Send(poisonPill, poisonPill.Length, localhostEP);
+			ServerRefresherStop();
 
 			hostEP = (IPEndPoint)form.lBServers.SelectedItem;
 			byte[] loginMessage = Data.ToBytes(Command.ClientLogin);			
 			udpClient.Send(loginMessage, loginMessage.Length, hostEP);
 
-			Data received = new Data(udpClient.Receive(ref hostEP));
-			switch (received.Cmd)
-			{
-				case Command.HostLoginAccepted:
-					form.ChangeGameState(GameState.ClientWaiting);
-					break;
-				case Command.HostLoginDeclined:
-					//not implemented yet
-					break;
-				default:
-					break;
-			}
+			WaitForCommand(Command.HostLoginAccepted);
+			form.ChangeGameState(GameState.ClientWaiting);
 
-			ParallelBW.ActivateWorker(ref bwHostWaiter, true, BW_ClientWaiting, BW_WaitingCompleted, BW_WaitingProgress);
+			ParallelBW.ActivateWorker(ref bwHostWaiter, true, HW_ClientWaiting, HW_WaitingCompleted, HW_WaitingProgress);
 		}
 
-		BackgroundWorker bwHostWaiter;
-
-		private void BW_ClientWaiting(object sender, DoWorkEventArgs e)
+		private BackgroundWorker bwHostWaiter;
+		private void HW_ClientWaiting(object sender, DoWorkEventArgs e)
 		{
-			Data received = new Data(udpClient.Receive(ref hostEP));
+			WaitForCommand(Command.HostMoveToWaitingRoom);
+			bwHostWaiter.ReportProgress((int)Command.HostMoveToWaitingRoom);
 
-			//waiting for everyone to connect.
-			while (received.Cmd != Command.HostMoveToWaitingRoom) //while, but host sends cmd only 1x.
-			{
-				received = new Data(udpClient.Receive(ref hostEP));
-			}
-			bwHostWaiter.ReportProgress((int)received.Cmd);
-
-			//waiting for host to start game
-			while (received.Cmd != Command.HostStartGame)
-			{
-				received = new Data(udpClient.Receive(ref hostEP));
-			}
-			bwHostWaiter.ReportProgress((int)received.Cmd);
+			WaitForCommand(Command.HostStartGame);
+			bwHostWaiter.ReportProgress((int)Command.HostStartGame);
 		}
 
-		private void BW_WaitingProgress(object sender, ProgressChangedEventArgs e)
+		private void HW_WaitingProgress(object sender, ProgressChangedEventArgs e)
 		{
 			Command cmd = (Command)e.ProgressPercentage;
 			switch (cmd)
@@ -467,123 +464,132 @@ namespace Bambulanci
 			}
 		}
 		
-		public void BW_WaitingCompleted(object sender, RunWorkerCompletedEventArgs e)
+		public void HW_WaitingCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
-			//after startGame/hostCanceled
 			if (InGame)
 			{
 				form.ChangeGameState(GameState.InGame);
-				ParallelBW.ActivateWorker(ref bwInGameListener, true, IGL_DoWork, IGL_Completed, IGL_RedrawProgress);
+				ParallelBW.ActivateWorker(ref bwInGameListener, true, IGL_DoWork, IGL_DisplayScore, IGL_RedrawProgress);
 			}
-			//else==hostCanceled not implemented
-
 		}
 
-		BackgroundWorker bwInGameListener;
+		private BackgroundWorker bwInGameListener;
 		private void IGL_DoWork(object sender, DoWorkEventArgs e)
 		{
+			Game game = form.Game;
 			while (true)
 			{
 				Data received = new Data(udpClient.Receive(ref hostEP));
 				switch (received.Cmd)
 				{
 					case Command.HostTick:
-						bwInGameListener.ReportProgress(0); //0 not needed
+						bwInGameListener.ReportProgress(notUsed);
 						break;
 					case Command.HostPlayerMovement:
-						(int playerId, byte direction, float x, float y) = received.ibffInfo;
+						(int playerId, byte direction, float x, float y) = received.ibffTuple;
 						int index;
-						lock (form.Game.Players)
+						lock (game.Players)
 						{
-							index = form.Game.Players.FindIndex(p => p.PlayerId == playerId); //form.Game -- maybe should be Game. -----
-							if (index == -1)
+							index = game.Players.FindIndex(p => p.PlayerId == playerId);
+							if (index == notFound)
 							{
-								form.Game.Players.Add(new Player(form, x, y, playerId, (Direction)direction));
+								game.Players.Add(new Player(form, x, y, playerId, (Direction)direction));
 							}
 							else
 							{
-								form.Game.Players[index].MoveByClient((Direction)direction, x, y);
+								game.Players[index].MoveByClient((Direction)direction, x, y);
 							}
 						}
 						break;
 					case Command.HostPlayerFire:
 						int projectileId;
-						(projectileId, direction, x, y) = received.ibffInfo;
-						lock (form.Game.Projectiles)
+						(projectileId, direction, x, y) = received.ibffTuple;
+						lock (game.Projectiles)
 						{
-							index = form.Game.Projectiles.FindIndex(p => p.id == projectileId);
-							if (index == -1)
+							index = game.Projectiles.FindIndex(p => p.id == projectileId);
+							if (index == notFound)
 							{
-								form.Game.Projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId, form));
+								game.Projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId, form));
 							}
 							else
 							{
-								form.Game.Projectiles[index].X = x;
-								form.Game.Projectiles[index].Y = y;
+								game.Projectiles[index].X = x;
+								game.Projectiles[index].Y = y;
 							}
 						}
 						break;
 					case Command.HostDestroyProjectile:
 						projectileId = received.integer;
-						lock (form.Game.Projectiles)
+						lock (game.Projectiles)
 						{
-							index = form.Game.Projectiles.FindIndex(p => p.id == projectileId);
-							form.Game.Projectiles.RemoveAt(index);
+							index = game.Projectiles.FindIndex(p => p.id == projectileId);
+							if (index != notFound)
+							{
+								game.Projectiles.RemoveAt(index);
+							}
 						}
 						break;
-					case Command.HostKillPlayer:
-						Player player;
+					case Command.HostKillPlayer://client is calculating kills, there is no need to send it to them at the end of game!!!!!
+						Player player = null;
 						playerId = received.integer;
 						int killedBy = received.integer2;
-						index = form.Game.Players.FindIndex(p => p.PlayerId == playerId); //not locked...---
-						if (index != -1)
+						lock(game.Players)
 						{
-							lock (form.Game.Players)
+							index = game.Players.FindIndex(p => p.PlayerId == playerId);
+							if (index != notFound)
 							{
-								player = form.Game.Players[index];
+								player = game.Players[index];
 								player.deaths++;
-								form.Game.Players.RemoveAt(index);
+								game.Players.RemoveAt(index);
 
-								int killedByIndex = form.Game.Players.FindIndex(p => p.PlayerId == killedBy);
-								form.Game.Players[killedByIndex].kills++;
+								int killedByIndex = game.Players.FindIndex(p => p.PlayerId == killedBy);
+								game.Players[killedByIndex].kills++;
 							}
-							//prob lock deadPlayers too
-							lock (form.Game.DeadPlayers)
+						}
+						if(index != notFound)
+						{
+							lock (game.DeadPlayers)
 							{
-								form.Game.DeadPlayers.Add(player);
+								game.DeadPlayers.Add(player);
 							}
 						}
 						break;
 					case Command.HostPlayerRespawn:
-						(playerId, _, x, y) = received.ibffInfo;
-						index = form.Game.DeadPlayers.FindIndex(p => p.PlayerId == playerId); //not locked...
-						if(index != -1)
+						(playerId, _, x, y) = received.ibffTuple;
+						player = null;
+						lock (game.DeadPlayers)
 						{
-							lock (form.Game.DeadPlayers)
+							index = game.DeadPlayers.FindIndex(p => p.PlayerId == playerId);
+							if (index != notFound)
 							{
-								player = form.Game.DeadPlayers[index];
-								form.Game.DeadPlayers.RemoveAt(index);
+								player = game.DeadPlayers[index];
+								game.DeadPlayers.RemoveAt(index);
 							}
+						}
+						if (index != notFound)
+						{
 							player.isAlive = true;
 							player.X = x;
 							player.Y = y;
-							lock(form.Game.Players)
+							lock (game.Players)
 							{
-								form.Game.Players.Add(player);
+								game.Players.Add(player);
 							}
 						}
 						break;
 					case Command.HostBoxSpawned:
 						int boxId;
 						byte b;
-						(boxId, b, x, y) = received.ibffInfo; //add implicit cast for WeaponType,Direction,....---------
+						(boxId, b, x, y) = received.ibffTuple;
 						WeaponType weaponType = (WeaponType)b;
-
-						lock (form.Game.Boxes)
+						lock (game.Boxes)
 						{
-							//box should be spawned only once
-							ICollectableObject newBox = WeaponBox.Generate(boxId,x,y,form,weaponType);
-							form.Game.Boxes.Add(newBox);
+							index = game.Boxes.FindIndex(b => b.Id == boxId);
+							if (index == notFound)
+							{
+								ICollectableObject newBox = WeaponBox.Generate(boxId, x, y, form, weaponType);
+								game.Boxes.Add(newBox);
+							}
 						}
 						break;
 					case Command.HostBoxCollected:
@@ -593,7 +599,7 @@ namespace Bambulanci
 						lock (form.Game.Boxes)
 						{
 							index = form.Game.Boxes.FindIndex(b => b.Id == boxId);
-							if (index != -1)
+							if (index != notFound)
 							{
 								collectedBox = form.Game.Boxes[index];
 								form.Game.Boxes.RemoveAt(index);
@@ -601,14 +607,17 @@ namespace Bambulanci
 						}
 						if (collectedBox != null)
 						{
-							lock (form.Game.Players)
+							lock (game.Players)
 							{
-								int playerIndex = form.Game.Players.FindIndex(p => p.PlayerId == collectedBy);
-								form.Game.Players[playerIndex].ChangeWeapon(collectedBox.WeaponContained);
+								index = form.Game.Players.FindIndex(p => p.PlayerId == collectedBy);
+								if (index != notFound)
+								{
+									form.Game.Players[index].ChangeWeapon(collectedBox.WeaponContained);
+								}
 							}
 						}
 						break;
-					case Command.HostGameEnded:
+					case Command.HostGameEnded: //pokud dlouho nedostanu odpoved od serveru(skoncil), mohl bych ukazat skore sam od sebe
 						return;
 					default:
 						break;
@@ -627,9 +636,10 @@ namespace Bambulanci
 			byte[] clientFire = Data.ToBytes(Command.ClientFire, b: (byte)form.weaponState);
 			udpClient.Send(clientFire, clientFire.Length, hostEP);
 		}
-		private void IGL_Completed(object sender, RunWorkerCompletedEventArgs e)//not used yet -due to infinite ingame loop
+		private void IGL_DisplayScore(object sender, RunWorkerCompletedEventArgs e)
 		{
 			form.ChangeGameState(GameState.GameScore);
+			//...
 			string score = "";
 			int numOfMessages = form.Game.Players.Count + form.Game.DeadPlayers.Count;
 			while (numOfMessages > 0)
