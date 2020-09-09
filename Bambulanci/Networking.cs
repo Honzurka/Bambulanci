@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Drawing;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -611,6 +612,11 @@ namespace Bambulanci
 		private void IGL_DisplayScore(object sender, RunWorkerCompletedEventArgs e)
 		{
 			form.ChangeGameState(GameState.GameScore);
+			
+			//test
+			form.BackColor = Color.White; 
+			form.Invalidate(); //redraw!--wasnt tested--nefunguje
+
 			List<Player> allPlayers = form.Game.Players.Concat(form.Game.DeadPlayers).ToList();
 			string score = "";
 			foreach (var player in allPlayers)

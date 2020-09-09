@@ -523,6 +523,8 @@ namespace Bambulanci
 		private readonly int formWidth;
 		private readonly int formHeight;
 
+
+		private const int notFound = -1;
 		private const int respawnTime = 100;
 
 		public List<Player> Players { get; set; } = new List<Player>();
@@ -704,12 +706,15 @@ namespace Bambulanci
 				if(projectileId != -1)
 				{
 					MarkProjectileForDestruction(projectileId);
-					int index = Players.FindIndex(p => p.PlayerId == playerId);
 					lock (Players)
 					{
-						Players[index].isAlive = false;
-						Players[index].killedBy = obj.PlayerId;
-						Players[index].respawnTimer = respawnTime;
+						int index = Players.FindIndex(p => p.PlayerId == playerId);
+						if (index != notFound)
+						{
+							Players[index].isAlive = false;
+							Players[index].killedBy = obj.PlayerId;
+							Players[index].respawnTimer = respawnTime;
+						}
 					}
 				}
 			}
@@ -728,7 +733,10 @@ namespace Bambulanci
 				lock (Boxes)
 				{
 					int index = Boxes.FindIndex(b => b.Id == boxId);
-					Boxes[index].CollectedBy = obj.PlayerId;
+					if (index != notFound)
+					{
+						Boxes[index].CollectedBy = obj.PlayerId;
+					}
 				}
 			}
 			if (!windowCollision)
@@ -746,7 +754,10 @@ namespace Bambulanci
 			lock (Projectiles)
 			{
 				int index = Projectiles.FindIndex(p => p.id == projectileId);
-				Projectiles[index].shouldBeDestroyed = true;
+				if (index != notFound)
+				{
+					Projectiles[index].shouldBeDestroyed = true;
+				}
 			}
 		}
 	}
