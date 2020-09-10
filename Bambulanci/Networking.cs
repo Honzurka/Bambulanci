@@ -10,25 +10,6 @@ using System.Windows.Forms.VisualStyles;
 
 namespace Bambulanci
 {
-	//new*************************************************
-	enum NetworkingCommands
-	{
-		ClientLogin, ClientFindServers, ClientStopRefreshing,
-		HostFoundServer, HostMoveToWaitingRoom, HostStopHosting,
-		HostLoginAccepted, HostStartGame,
-	}
-
-	enum IngameCommands
-	{
-		HostTick,
-		ClientMove, HostPlayerMovement,
-		ClientFire, HostPlayerFire,
-		HostDestroyProjectile, HostKillPlayer, HostPlayerRespawn,
-		HostBoxSpawned, HostBoxCollected,
-		HostGameEnded, HostScore
-	}
-	//*************************************************
-
 	/// <summary>
 	/// Client___ - commands sent by client.
 	/// Host___ - commands sent by host.
@@ -57,7 +38,7 @@ namespace Bambulanci
 		public int Integer2 { get; private set; }
 		public ValueTuple<int, byte, float, float> Values { get; private set; }
 
-		private readonly static Dictionary<Command, Func<byte[], Data>> Commands = new Dictionary<Command, Func<byte[], Data>>()
+		private readonly static Dictionary<Command, Func<byte[], Data>> FuncByCommand = new Dictionary<Command, Func<byte[], Data>>()
 		{
 			{Command.HostPlayerMovement, ReconstructValues },
 			{Command.HostPlayerFire, ReconstructValues },
@@ -111,7 +92,7 @@ namespace Bambulanci
 		public static Data GetData(byte[] data)
 		{
 			Command cmd = (Command)data[0];
-			if (Commands.TryGetValue(cmd, out Func<byte[], Data> func))
+			if (FuncByCommand.TryGetValue(cmd, out Func<byte[], Data> func))
 			{
 				return func(data);
 			}
@@ -537,18 +518,18 @@ namespace Bambulanci
 			form.ChangeGameState(GameState.InGame);
 			IngameClient.StartClient(form, udpClient, hostEP, myPlayerId);
 		}
-		public void LocalStartIngameClient(int sendPort) //for host only
+		public void HostStartIngameClient(int sendPort)
 		{
 			form.ChangeGameState(GameState.InGame);
-			UdpClient u = new UdpClient(new IPEndPoint(IPAddress.Loopback, listenPort));
-			IPEndPoint hostep = new IPEndPoint(IPAddress.Loopback, sendPort);
-
-			IngameClient.StartClient(form, u, hostep, myPlayerId);
+			UdpClient udpClient = new UdpClient(new IPEndPoint(IPAddress.Loopback, listenPort));
+			IPEndPoint hostEP = new IPEndPoint(IPAddress.Loopback, sendPort);
+			IngameClient.StartClient(form, udpClient, hostEP, myPlayerId);
 		}
 	}
 
 	class IngameClient : Client
 	{
+		Game game;
 		private IngameClient(FormBambulanci form) : base(form) { }
 		public static void StartClient(FormBambulanci form, UdpClient udpClient, IPEndPoint hostEP, int myPlayerId)
 		{
@@ -556,165 +537,198 @@ namespace Bambulanci
 			client.udpClient = udpClient;
 			client.hostEP = hostEP;
 			client.myPlayerId = myPlayerId;
+			client.game = form.Game;
 			client.StartGameListening();
 		}
 
 		private void StartGameListening()
 		{
-			ParallelBW.ActivateWorker(ref bwInGameListener, true, IGL_DoWork, IGL_DisplayScore, IGL_RedrawProgress);
+			ParallelBW.ActivateWorker(ref bwInGameListener, true, IGL_ProcessHostCommands, IGL_DisplayScore, IGL_RedrawProgress);
 		}
 
-		private BackgroundWorker bwInGameListener;
-		private void IGL_DoWork(object sender, DoWorkEventArgs e)
+		private void HostTick(Data ignored)
 		{
-			Game game = form.Game;
-			while (true)
+			bwInGameListener.ReportProgress(notUsed);
+		}
+		private void MoveOrAddPlayer(Data received)
+		{
+			(int playerId, byte direction, float x, float y) = received.Values;
+			int index;
+			lock (game.Players)
 			{
-				Data received = Data.GetData(udpClient.Receive(ref hostEP));
-				switch (received.Cmd)
+				index = game.Players.FindIndex(p => p.PlayerId == playerId);
+				if (index == notFound)
 				{
-					case Command.HostTick:
-						bwInGameListener.ReportProgress(notUsed);
-						break;
-					case Command.HostPlayerMovement:
-						(int playerId, byte direction, float x, float y) = received.Values;
-						int index;
-						lock (game.Players)
-						{
-							index = game.Players.FindIndex(p => p.PlayerId == playerId);
-							if (index == notFound)
-							{
-								game.Players.Add(new Player(form, x, y, playerId, (Direction)direction));
-							}
-							else
-							{
-								game.Players[index].MoveByClient((Direction)direction, x, y);
-							}
-						}
-						break;
-					case Command.HostPlayerFire:
-						int projectileId;
-						(projectileId, direction, x, y) = received.Values;
-						lock (game.Projectiles)
-						{
-							index = game.Projectiles.FindIndex(p => p.id == projectileId);
-							if (index == notFound)
-							{
-								game.Projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId, form));
-							}
-							else
-							{
-								game.Projectiles[index].X = x;
-								game.Projectiles[index].Y = y;
-							}
-						}
-						break;
-					case Command.HostDestroyProjectile:
-						projectileId = received.Integer1;
-						lock (game.Projectiles)
-						{
-							index = game.Projectiles.FindIndex(p => p.id == projectileId);
-							if (index != notFound)
-							{
-								game.Projectiles.RemoveAt(index);
-							}
-						}
-						break;
-					case Command.HostKillPlayer:
-						Player player = null;
-						playerId = received.Integer1;
-						int killedBy = received.Integer2;
-						lock (game.Players)
-						{
-							index = game.Players.FindIndex(p => p.PlayerId == playerId);
-							if (index != notFound)
-							{
-								player = game.Players[index];
-								player.deaths++;
-								game.Players.RemoveAt(index);
-
-								int killedByIndex = game.Players.FindIndex(p => p.PlayerId == killedBy);
-								game.Players[killedByIndex].kills++;
-							}
-						}
-						if (index != notFound)
-						{
-							lock (game.DeadPlayers)
-							{
-								game.DeadPlayers.Add(player);
-							}
-						}
-						break;
-					case Command.HostPlayerRespawn:
-						(playerId, _, x, y) = received.Values;
-						player = null;
-						lock (game.DeadPlayers)
-						{
-							index = game.DeadPlayers.FindIndex(p => p.PlayerId == playerId);
-							if (index != notFound)
-							{
-								player = game.DeadPlayers[index];
-								game.DeadPlayers.RemoveAt(index);
-							}
-						}
-						if (index != notFound)
-						{
-							player.isAlive = true;
-							player.X = x;
-							player.Y = y;
-							lock (game.Players)
-							{
-								game.Players.Add(player);
-							}
-						}
-						break;
-					case Command.HostBoxSpawned:
-						int boxId;
-						byte b;
-						(boxId, b, x, y) = received.Values;
-						WeaponType weaponType = (WeaponType)b;
-						lock (game.Boxes)
-						{
-							index = game.Boxes.FindIndex(b => b.Id == boxId);
-							if (index == notFound)
-							{
-								ICollectableObject newBox = WeaponBox.Generate(boxId, x, y, form, weaponType);
-								game.Boxes.Add(newBox);
-							}
-						}
-						break;
-					case Command.HostBoxCollected:
-						boxId = received.Integer1;
-						int collectedBy = received.Integer2;
-						ICollectableObject collectedBox = null;
-						lock (form.Game.Boxes)
-						{
-							index = form.Game.Boxes.FindIndex(b => b.Id == boxId);
-							if (index != notFound)
-							{
-								collectedBox = form.Game.Boxes[index];
-								form.Game.Boxes.RemoveAt(index);
-							}
-						}
-						if (collectedBox != null)
-						{
-							lock (game.Players)
-							{
-								index = form.Game.Players.FindIndex(p => p.PlayerId == collectedBy);
-								if (index != notFound)
-								{
-									form.Game.Players[index].ChangeWeapon(collectedBox.WeaponContained);
-								}
-							}
-						}
-						break;
-					case Command.HostGameEnded: //pokud dlouho nedostanu odpoved od serveru(skoncil), mohl bych ukazat skore sam od sebe
-						return;
-					default:
-						break;
+					game.Players.Add(new Player(form, x, y, playerId, (Direction)direction));
+				}
+				else
+				{
+					game.Players[index].MoveByClient((Direction)direction, x, y);
 				}
 			}
 		}
+		private void MoveOrAddProjectile(Data received)
+		{
+			(int projectileId, int direction, float x, float y) = received.Values;
+			lock (game.Projectiles)
+			{
+				int index = game.Projectiles.FindIndex(p => p.id == projectileId);
+				if (index == notFound)
+				{
+					game.Projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId, form));
+				}
+				else
+				{
+					game.Projectiles[index].X = x;
+					game.Projectiles[index].Y = y;
+				}
+			}
+		}
+		private void DestroyProjectile(Data received)
+		{
+			int projectileId = received.Integer1;
+			lock (game.Projectiles)
+			{
+				int index = game.Projectiles.FindIndex(p => p.id == projectileId);
+				if (index != notFound)
+				{
+					game.Projectiles.RemoveAt(index);
+				}
+			}
+		}
+		private void KillPlayer(Data received)
+		{
+			Player player = null;
+			int playerId = received.Integer1;
+			int killedBy = received.Integer2;
+			int index = notFound;
+			lock (game.Players)
+			{
+				index = game.Players.FindIndex(p => p.PlayerId == playerId);
+				if (index != notFound)
+				{
+					player = game.Players[index];
+					player.deaths++;
+					game.Players.RemoveAt(index);
+
+					int killedByIndex = game.Players.FindIndex(p => p.PlayerId == killedBy);
+					game.Players[killedByIndex].kills++;
+				}
+			}
+			if (index != notFound)
+			{
+				lock (game.DeadPlayers)
+				{
+					game.DeadPlayers.Add(player);
+				}
+			}
+		}
+		private void RespawnPlayer(Data received)
+		{
+			(int playerId, _, float x, float y) = received.Values;
+			Player player = null;
+			int index = notFound;
+			lock (game.DeadPlayers)
+			{
+				index = game.DeadPlayers.FindIndex(p => p.PlayerId == playerId);
+				if (index != notFound)
+				{
+					player = game.DeadPlayers[index];
+					game.DeadPlayers.RemoveAt(index);
+				}
+			}
+			if (index != notFound)
+			{
+				player.isAlive = true;
+				player.X = x;
+				player.Y = y;
+				lock (game.Players)
+				{
+					game.Players.Add(player);
+				}
+			}
+		}
+		private void SpawnBox(Data received)
+		{
+			(int boxId, byte b, float x, float y) = received.Values;
+			WeaponType weaponType = (WeaponType)b;
+			lock (game.Boxes)
+			{
+				int index = game.Boxes.FindIndex(b => b.Id == boxId);
+				if (index == notFound)
+				{
+					ICollectableObject newBox = WeaponBox.Generate(boxId, x, y, form, weaponType);
+					game.Boxes.Add(newBox);
+				}
+			}
+		}
+		private void CollectBox(Data received)
+		{
+			int boxId = received.Integer1;
+			int collectedBy = received.Integer2;
+			ICollectableObject collectedBox = null;
+			int index = notFound;
+			lock (form.Game.Boxes)
+			{
+				index = form.Game.Boxes.FindIndex(b => b.Id == boxId);
+				if (index != notFound)
+				{
+					collectedBox = form.Game.Boxes[index];
+					form.Game.Boxes.RemoveAt(index);
+				}
+			}
+			if (collectedBox != null)
+			{
+				lock (game.Players)
+				{
+					index = form.Game.Players.FindIndex(p => p.PlayerId == collectedBy);
+					if (index != notFound)
+					{
+						form.Game.Players[index].ChangeWeapon(collectedBox.WeaponContained);
+					}
+				}
+			}
+		}
+
+		private BackgroundWorker bwInGameListener;
+
+		private void ActionByCommandInitializer()
+		{
+			ActionByCommand = new Dictionary<Command, Action<Data>>()
+			{
+				{ Command.HostTick, HostTick },
+				{ Command.HostPlayerMovement, MoveOrAddPlayer },
+				{ Command.HostPlayerFire, MoveOrAddProjectile },
+				{ Command.HostDestroyProjectile, DestroyProjectile },
+				{ Command.HostKillPlayer, KillPlayer},
+				{ Command.HostPlayerRespawn, RespawnPlayer },
+				{ Command.HostBoxSpawned, SpawnBox },
+				{ Command.HostBoxCollected, CollectBox }
+			};
+
+		}
+		private Dictionary<Command, Action<Data>> ActionByCommand;
+
+		/// <summary>
+		/// Alters game state based commands sent by host.
+		/// </summary>
+		private void IGL_ProcessHostCommands(object sender, DoWorkEventArgs e) //pokud dlouho nedostanu odpoved od serveru(skoncil), mohl bych ukazat skore sam od sebe
+		{
+			ActionByCommandInitializer();
+			while (true)
+			{
+				Data received = Data.GetData(udpClient.Receive(ref hostEP));
+				if (ActionByCommand.TryGetValue(received.Cmd, out Action<Data> action))
+				{
+					action(received);
+				}
+				else if (received.Cmd == Command.HostGameEnded) return;
+				
+			}
+		}
+		/// <summary>
+		/// Redraws form. Sends playerMovement and weaponState info to host.
+		/// </summary>
 		private void IGL_RedrawProgress(object sender, ProgressChangedEventArgs e)
 		{
 			form.Invalidate(); //redraws form

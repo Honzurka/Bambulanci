@@ -182,7 +182,7 @@ namespace Bambulanci
 			GameTime = (int)nGameTime.Value * 1000 / TimerInGame.Interval;
 
 			int sendPort = waiterHost.ListenPort;
-			waiterClient.LocalStartIngameClient(sendPort);
+			waiterClient.HostStartIngameClient(sendPort);
 
 			waiterHost.clientList.Add(new WaiterHost.ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
 			
