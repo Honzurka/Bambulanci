@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Text;
 using System.Net;
 using System.Net.Sockets;
 using System.Windows.Forms;
@@ -235,7 +236,7 @@ namespace Bambulanci
 					}
 				}
 			}
-		} //should be split into : move only and kill only methods -- how to connect enumeration??? maybe ITERATOR METHODS
+		}
 		private void RespawnPlayers()
 		{
 			lock (Game.DeadPlayers)
@@ -269,6 +270,14 @@ namespace Bambulanci
 				}
 			}
 		}
+		private (int boxId, byte weaponType, float x, float y) GenerateBoxValues()
+		{
+			byte randomWeaponId = (byte)rng.Next(Enum.GetNames(typeof(WeaponType)).Length);
+			(float x, float y) = Game.GetSpawnCoords(rng);
+			Game.boxIdCounter++;
+
+			return (Game.boxIdCounter, randomWeaponId, x, y);
+		}
 		private void SpawnAndCollectBoxes()
 		{
 			bool addBox = rng.NextDouble() < probabilityOfBoxSpawn;
@@ -276,12 +285,8 @@ namespace Bambulanci
 			{
 				if (addBox)
 				{
-					int numOfWeapons = Enum.GetNames(typeof(WeaponType)).Length;
-					byte weaponNum = (byte)rng.Next(numOfWeapons);
-					WeaponType weaponType = (WeaponType)weaponNum;
-					(float x, float y) = Game.GetSpawnCoords(rng);
-					ICollectableObject newBox = WeaponBox.Generate(Game.boxIdCounter, x, y, this, weaponType);
-					byte[] hostBoxSpawned = Data.ToBytes(Command.HostBoxSpawned, (Game.boxIdCounter, (byte)weaponType, x, y));
+					var boxValues = GenerateBoxValues();
+					byte[] hostBoxSpawned = Data.ToBytes(Command.HostBoxSpawned, boxValues);
 					ingameHost.LocalhostAndBroadcastMessage(hostBoxSpawned);
 				}
 				foreach (var box in Game.Boxes)

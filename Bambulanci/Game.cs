@@ -34,32 +34,33 @@ namespace Bambulanci
 		public int SizePx { get; }
 		public int CollectedBy { get; set; } = ICollectableObject.Noone;
 		public WeaponType WeaponContained { get; }
-		private WeaponBox(int id, float x, float y, FormBambulanci form, WeaponType weaponType)
+		private WeaponBox(int id, float x, float y, int boxSizePx, WeaponType weaponType)
 		{
 			Id = id;
 			X = x;
 			Y = y;
 			WeaponContained = weaponType;
-			SizePx = form.Game.graphicsDrawer.BoxSizePx;
+			SizePx = boxSizePx;
 		}
-		public static WeaponBox Generate(int id, float x, float y, FormBambulanci form, WeaponType weaponType)
+		public static WeaponBox Generate(Data data, int boxSizePx)
 		{
+			(int boxId, byte b, float x, float y) = data.Values;
+			WeaponType weaponType = (WeaponType)b;
 			WeaponBox newBox = null;
 			switch (weaponType)
 			{
 				case WeaponType.Pistol:
-					newBox = new WeaponBox(id, x, y, form, WeaponType.Pistol);
+					newBox = new WeaponBox(boxId, x, y, boxSizePx, WeaponType.Pistol);
 					break;
 				case WeaponType.Shotgun:
-					newBox = new WeaponBox(id, x, y, form, WeaponType.Shotgun);
+					newBox = new WeaponBox(boxId, x, y, boxSizePx, WeaponType.Shotgun);
 					break;
 				case WeaponType.Machinegun:
-					newBox = new WeaponBox(id, x, y, form, WeaponType.Machinegun);
+					newBox = new WeaponBox(boxId, x, y, boxSizePx, WeaponType.Machinegun);
 					break;
 				default:
 					break;
 			}
-			form.Game.boxIdCounter++;
 			return newBox;
 		}
 	}
@@ -253,7 +254,7 @@ namespace Bambulanci
 		/// Called by host only.
 		/// </summary>
 		/// <param name="playerSize"> in pixels </param>
-		public void MoveByHost(Direction direction)
+		private void MoveByHost(Direction direction)
 		{ //might be moved under ref directly??----------
 			if (direction != Direction.Stay)
 			{

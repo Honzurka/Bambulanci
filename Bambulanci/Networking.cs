@@ -622,7 +622,7 @@ namespace Bambulanci
 					game.DeadPlayers.Add(player);
 				}
 			}
-		} //locks should be reimplemented-------------------(after bug fix)
+		}
 		private void RespawnPlayer(Data received)
 		{
 			(int playerId, _, float x, float y) = received.Values;
@@ -650,14 +650,13 @@ namespace Bambulanci
 		}
 		private void SpawnBox(Data received)
 		{
-			(int boxId, byte b, float x, float y) = received.Values;
-			WeaponType weaponType = (WeaponType)b;
+			(int boxId, _, _, _) = received.Values;
 			lock (game.Boxes)
 			{
 				int index = game.Boxes.FindIndex(b => b.Id == boxId);
 				if (index == notFound)
 				{
-					ICollectableObject newBox = WeaponBox.Generate(boxId, x, y, form, weaponType);
+					ICollectableObject newBox = WeaponBox.Generate(received, game.graphicsDrawer.BoxSizePx);
 					game.Boxes.Add(newBox);
 				}
 			}
