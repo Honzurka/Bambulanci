@@ -622,7 +622,7 @@ namespace Bambulanci
 					game.DeadPlayers.Add(player);
 				}
 			}
-		}
+		} //locks should be reimplemented-------------------(after bug fix)
 		private void RespawnPlayer(Data received)
 		{
 			(int playerId, _, float x, float y) = received.Values;

@@ -11,11 +11,15 @@ namespace Bambulanci
 {
 	public enum WeaponType { Pistol, Shotgun, Machinegun }
 	
-	public interface ICollectableObject
+	public interface IDrawable
 	{
-		public int Id { get; }
 		public float X { get; }
 		public float Y { get; }
+	}
+
+	public interface ICollectableObject : IDrawable
+	{
+		public int Id { get; }
 		public int SizePx { get; }
 		const int Noone = -1;
 		public int CollectedBy { get; set; }
@@ -150,10 +154,10 @@ namespace Bambulanci
 		public Machinegun(FormBambulanci form, Player player) : base(form, player) { }
 	}
 
-	public interface IMovableObject
+	public interface IMovableObject : IDrawable
 	{
-		public float X { get; set; }
-		public float Y { get; set; }
+		new public float X { get; set; }
+		new public float Y { get; set; }
 
 		public Direction Direction { get; }
 		public float Speed { get; }
@@ -441,14 +445,13 @@ namespace Bambulanci
 			return result;
 		}
 
-		public void DrawPlayer(Graphics g, Player player)
+		public void DrawPlayer(Graphics g, IDrawable drawablePlayer)
 		{
+			Player player = (Player)drawablePlayer;
 			int i = player.PlayerId * colorsPerPlayer + (byte)player.Direction;
 			int mod = allowedColors.Length * colorsPerPlayer;
 			Bitmap playerBitmap = playerImg[i % mod];
 			g.DrawImage(playerBitmap, player.X * formWidth, player.Y * formHeight);
-
-			//g.DrawRectangle(Pens.Silver, player.X*formWidth, player.Y*formHeight, 100, 100); //player hitbox
 		}
 
 		private Bitmap CreateProjectileImg()
@@ -463,7 +466,7 @@ namespace Bambulanci
 			return bitmap;
 		}
 
-		public void DrawProjectile(Graphics g, Projectile projectile)
+		public void DrawProjectile(Graphics g, IDrawable projectile)
 		{
 			g.DrawImage(projectileImg, projectile.X * formWidth, projectile.Y * formHeight);
 		}
@@ -478,7 +481,7 @@ namespace Bambulanci
 			
 			return bitmap;
 		}
-		public void DrawBox(Graphics g, ICollectableObject box)
+		public void DrawBox(Graphics g, IDrawable box)
 		{
 			g.DrawImage(boxImg, box.X * formWidth, box.Y * formHeight);
 		}

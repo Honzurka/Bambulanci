@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Net;
 using System.Net.Sockets;
@@ -6,9 +7,7 @@ using System.Windows.Forms;
 
 namespace Bambulanci
 {
-	public enum GameState { Intro, HostSelect, HostWaiting, ClientWaiting, HostWaitingRoom, ClientWaitingRoom, ClientSearch, 
-		//client only: (in host's case done by host's client!!!)
-		InGame, GameScore }
+	public enum GameState { Intro, HostSelect, HostWaiting, ClientWaiting, HostWaitingRoom, ClientWaitingRoom, ClientSearch, InGame, GameScore }
 
 	public partial class FormBambulanci : Form
 	{
@@ -30,7 +29,7 @@ namespace Bambulanci
 
 			//singlePlayer---debug:
 			//nGameTime.Value = 30; //in seconds
-			//host.BWStartClientWaiter(0, 45000);
+			//waiterHost.BWStartClientWaiter(0, 45000);
 			//ChangeGameState(GameState.HostWaitingRoom);
 		}
 
@@ -55,7 +54,7 @@ namespace Bambulanci
 		}
 
 		/// <summary>
-		/// Redraws form controls.
+		/// Enables/Disables form controls.
 		/// </summary>
 		public void ChangeGameState(GameState newState)
 		{
@@ -174,50 +173,52 @@ namespace Bambulanci
 		public int GameTime { get; private set; }
 
 		/// <summary>
+		/// Starts client's game and add client's player to Game.
+		/// </summary>
+		private void AddPlayersToGame(List<WaiterHost.ClientInfo> clientList)
+		{
+			foreach (var client in clientList)
+			{
+				byte[] hostStartGame = Data.ToBytes(Command.HostStartGame, client.Id);
+				waiterHost.SendMessageToTarget(hostStartGame, client.IpEndPoint);
+
+				(float x, float y) = Game.GetSpawnCoords(rng);
+				Game.Players.Add(new Player(this, x, y, client.Id, ipEndPoint: client.IpEndPoint));
+			}
+		}
+		
+		/// <summary>
+		/// Starts host's client and adds him to host's clientList.
+		/// </summary>
+		private void AddHostsClient(WaiterHost waiterHost)
+		{
+			//start host's client
+			int sendPort = waiterHost.ListenPort;
+			waiterClient.HostStartIngameClient(sendPort);
+
+			//add host's client
+			waiterHost.clientList.Add(new WaiterHost.ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
+
+		}
+
+		/// <summary>
 		/// Host only.
 		/// Sets up game time. Starts host's client and his parallel listener. Starts host's parallel listener. Creates Game and it's players.
 		/// </summary>
 		private void BStartGame_Click(object sender, EventArgs e)
 		{
 			GameTime = (int)nGameTime.Value * 1000 / TimerInGame.Interval;
-
-			int sendPort = waiterHost.ListenPort;
-			waiterClient.HostStartIngameClient(sendPort);
-
-			waiterHost.clientList.Add(new WaiterHost.ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
-			
-			foreach (var client in waiterHost.clientList)
-			{
-				//start client'game
-				byte[] hostStartGame = Data.ToBytes(Command.HostStartGame, client.Id);
-				waiterHost.SendMessageToTarget(hostStartGame, client.IpEndPoint);
-
-				//add players to Game
-				(float x, float y) = Game.GetSpawnCoords(rng);
-				Game.Players.Add(new Player(this, x, y, client.Id, ipEndPoint: client.IpEndPoint));
-			}
+			AddHostsClient(waiterHost);
+			AddPlayersToGame(waiterHost.clientList);
 			ingameHost = waiterHost.StartIngameHost();
 			TimerInGame.Enabled = true;
 		}
 
 		private readonly Random rng = new Random();
-		private const double probabilityOfBoxSpawn = 0.003; //cca 1x per 10sec
+		private const double probabilityOfBoxSpawn = 0.003; //cca 1x per 10sec in case of 30ms/tick
 
-		/// <summary>
-		/// Host only.
-		/// Moves, kills and respawns players. Creates and moves projectiles. Spawns and collects game boxes.
-		/// </summary>
-		private void TimerInGame_Tick(object sender, EventArgs e) //method is too long--------------------
+		private void MoveOrKillPlayers()
 		{
-			GameTime--;
-			if(GameTime < 0)
-			{
-				return;
-			}
-
-			byte[] hostTick = Data.ToBytes(Command.HostTick);
-			ingameHost.LocalhostAndBroadcastMessage(hostTick);
-
 			lock (Game.Players)
 			{
 				foreach (var player in Game.Players)
@@ -234,6 +235,9 @@ namespace Bambulanci
 					}
 				}
 			}
+		}
+		private void RespawnPlayers()
+		{
 			lock (Game.DeadPlayers)
 			{
 				foreach (var player in Game.DeadPlayers)
@@ -247,6 +251,9 @@ namespace Bambulanci
 					}
 				}
 			}
+		}
+		private void MoveAddDestroyProjectiles()
+		{
 			lock (Game.Projectiles)
 			{
 				foreach (var projectile in Game.Projectiles)
@@ -261,6 +268,9 @@ namespace Bambulanci
 					}
 				}
 			}
+		}
+		private void SpawnAndCollectBoxes()
+		{
 			bool addBox = rng.NextDouble() < probabilityOfBoxSpawn;
 			lock (Game.Boxes)
 			{
@@ -276,11 +286,40 @@ namespace Bambulanci
 				}
 				foreach (var box in Game.Boxes)
 				{
-					if(box.CollectedBy != -1)
+					if (box.CollectedBy != -1)
 					{
 						byte[] hostBoxCollected = Data.ToBytes(Command.HostBoxCollected, box.Id, box.CollectedBy);
 						ingameHost.LocalhostAndBroadcastMessage(hostBoxCollected);
 					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Host only.
+		/// Moves, kills and respawns players. Creates and moves projectiles. Spawns and collects game boxes.
+		/// </summary>
+		private void TimerInGame_Tick(object sender, EventArgs e)
+		{
+			GameTime--;
+			if (GameTime < 0) return;
+
+			byte[] hostTick = Data.ToBytes(Command.HostTick);
+			ingameHost.LocalhostAndBroadcastMessage(hostTick);
+
+			MoveOrKillPlayers();
+			RespawnPlayers();
+			MoveAddDestroyProjectiles();
+			SpawnAndCollectBoxes();
+		}
+
+		private void DrawItems(IEnumerable<IDrawable> drawableItems, Graphics g, Action<Graphics,IDrawable> draw)
+		{
+			lock (drawableItems)
+			{
+				foreach (var item in drawableItems)
+				{
+					draw(g, item);
 				}
 			}
 		}
@@ -294,27 +333,9 @@ namespace Bambulanci
 			if (currentGameState == GameState.InGame)
 			{
 				Game.graphicsDrawer.DrawBackground(g);
-				lock (Game.Boxes)
-				{
-					foreach (var box in Game.Boxes)
-					{
-						Game.graphicsDrawer.DrawBox(g, box);
-					}
-				}
-				lock (Game.Players)
-				{
-					foreach (var player in Game.Players)
-					{
-						Game.graphicsDrawer.DrawPlayer(g, player);
-					}
-				}
-				lock (Game.Projectiles)
-				{
-					foreach (var projectile in Game.Projectiles)
-					{
-						Game.graphicsDrawer.DrawProjectile(g, projectile);
-					}
-				}
+				DrawItems(Game.Boxes, g, Game.graphicsDrawer.DrawBox);
+				DrawItems(Game.Players, g, Game.graphicsDrawer.DrawPlayer);
+				DrawItems(Game.Projectiles, g, Game.graphicsDrawer.DrawProjectile);
 			}
 		}
 
