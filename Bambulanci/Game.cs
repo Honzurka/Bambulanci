@@ -234,18 +234,27 @@ namespace Bambulanci
 			SizePx = form.Game.graphicsDrawer.PlayerSizePx;
 		}
 
+		public static void CallWeaponFire(Player player, Enum state)
+		{
+			WeaponState weaponState = (WeaponState)state;
+			player.Weapon.Fire(weaponState);
+		}
+		public static void CallMoveByHost(Player player, Enum state)
+		{
+			Direction direction = (Direction)state;
+			player.MoveByHost(direction);
+		}
 
 		/// <summary>
 		/// Called by host only.
 		/// </summary>
 		/// <param name="playerSize"> in pixels </param>
-		public void MoveByHost(Direction direction, FormBambulanci form) //form just for graphics debuging //graphicsDrawer for playerSize -- not absolutely necessary, window collision is bad anyways
+		public void MoveByHost(Direction direction)
 		{ //might be moved under ref directly??----------
 			if (direction != Direction.Stay)
 			{
 				Direction = direction;
 				form.Game.Move(this);
-				//form.Game.Move(Direction, ref X, ref Y, speed, graphicsDrawer.PlayerWidthPx, graphicsDrawer.PlayerHeightPx, Id);
 			}
 		}
 		public void MoveByClient(Direction direction, float x, float y)
