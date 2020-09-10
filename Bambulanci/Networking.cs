@@ -748,9 +748,8 @@ namespace Bambulanci
 			form.BackColor = Color.White;
 			form.Invalidate();
 
-			List<Player> allPlayers = form.Game.Players.Concat(form.Game.DeadPlayers).ToList();
 			string score = "";
-			foreach (var player in allPlayers)
+			foreach (var player in AllPlayers())
 			{
 				if (player.PlayerId == myPlayerId)
 				{
@@ -763,7 +762,17 @@ namespace Bambulanci
 			}
 			form.lScore.Text = score;
 		}
-
+		private IEnumerable<Player> AllPlayers()
+		{
+			foreach (var player in form.Game.Players)
+			{
+				yield return player;
+			}
+			foreach (var deadPlayer in form.Game.DeadPlayers)
+			{
+				yield return deadPlayer;
+			}
+		}
 	}
 
 	static class ParallelBW

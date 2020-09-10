@@ -235,7 +235,7 @@ namespace Bambulanci
 					}
 				}
 			}
-		}
+		} //should be split into : move only and kill only methods -- how to connect enumeration??? maybe ITERATOR METHODS
 		private void RespawnPlayers()
 		{
 			lock (Game.DeadPlayers)
