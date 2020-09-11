@@ -19,8 +19,6 @@ namespace Bambulanci
 		/// <summary>
 		/// Form height without border.
 		/// </summary>
-		public int TrueHeight { get; private set; }
-
 		public FormBambulanci()
 		{
 			InitializeComponent();
@@ -52,6 +50,20 @@ namespace Bambulanci
 			{
 				DisableControl((Control)control);
 			}
+		}
+
+		public static int WidthStatic { get; private set; }
+		public static int HeightStatic { get; private set; }
+		
+		private void ResizeWindow()
+		{
+			this.WindowState = FormWindowState.Maximized;
+			int borderHeight = this.Height - this.ClientRectangle.Height;
+			FormBambulanci.WidthStatic = this.Width;
+			FormBambulanci.HeightStatic = this.Height - borderHeight;
+			WeaponBox.SetSize(this.Width);
+			Projectile.SetSize(this.Width);
+			Player.SetSize(this.Width);
 		}
 
 		/// <summary>
@@ -107,10 +119,8 @@ namespace Bambulanci
 					break;
 				case GameState.InGame:
 					DisableAllControls();
-					//this.WindowState = FormWindowState.Maximized; //fullscreen
-					int borderHeight = this.Height - this.ClientRectangle.Height;
-					TrueHeight = this.Height - borderHeight;
-					Game = new Game(this.Width, TrueHeight);
+					ResizeWindow();
+					Game = new Game();
 					break;
 				case GameState.GameScore:
 					TimerInGame.Stop();

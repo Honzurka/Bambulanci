@@ -575,7 +575,7 @@ namespace Bambulanci
 				int index = game.Projectiles.FindIndex(p => p.id == projectileId);
 				if (index == notFound)
 				{
-					game.Projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId, form));
+					game.Projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId));
 				}
 				else
 				{
@@ -656,7 +656,7 @@ namespace Bambulanci
 				int index = game.Boxes.FindIndex(b => b.Id == boxId);
 				if (index == notFound)
 				{
-					ICollectableObject newBox = WeaponBox.Generate(received, game.graphicsDrawer.BoxSizePx);
+					ICollectableObject newBox = WeaponBox.Generate(received);
 					game.Boxes.Add(newBox);
 				}
 			}

@@ -5,22 +5,24 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Net;
 using System.Net.Sockets;
+using System.Windows.Forms;
 using System.Windows.Forms.VisualStyles;
 
 namespace Bambulanci
 {
 	public enum WeaponType { Pistol, Shotgun, Machinegun }
-	
+
 	public interface IDrawable
 	{
 		public float X { get; }
 		public float Y { get; }
+		public int GetSizePx();
+		//public static int SizePx { get; } //jak je to se static fieldem pod interface???
 	}
 
 	public interface ICollectableObject : IDrawable
 	{
 		public int Id { get; }
-		public int SizePx { get; }
 		const int Noone = -1;
 		public int CollectedBy { get; set; }
 		public WeaponType WeaponContained { get; }
@@ -31,18 +33,24 @@ namespace Bambulanci
 		public int Id { get; }
 		public float X { get; }
 		public float Y { get; }
-		public int SizePx { get; }
+		public static int SizePx { get; private set; }
+		public static void SetSize(int formWidth)
+		{
+			SizePx = formWidth / 42;
+
+		}
+		public int GetSizePx() => SizePx;
+
 		public int CollectedBy { get; set; } = ICollectableObject.Noone;
 		public WeaponType WeaponContained { get; }
-		private WeaponBox(int id, float x, float y, int boxSizePx, WeaponType weaponType)
+		private WeaponBox(int id, float x, float y, WeaponType weaponType)
 		{
 			Id = id;
 			X = x;
 			Y = y;
 			WeaponContained = weaponType;
-			SizePx = boxSizePx;
 		}
-		public static WeaponBox Generate(Data data, int boxSizePx)
+		public static WeaponBox Generate(Data data)
 		{
 			(int boxId, byte b, float x, float y) = data.Values;
 			WeaponType weaponType = (WeaponType)b;
@@ -50,13 +58,13 @@ namespace Bambulanci
 			switch (weaponType)
 			{
 				case WeaponType.Pistol:
-					newBox = new WeaponBox(boxId, x, y, boxSizePx, WeaponType.Pistol);
+					newBox = new WeaponBox(boxId, x, y, WeaponType.Pistol);
 					break;
 				case WeaponType.Shotgun:
-					newBox = new WeaponBox(boxId, x, y, boxSizePx, WeaponType.Shotgun);
+					newBox = new WeaponBox(boxId, x, y, WeaponType.Shotgun);
 					break;
 				case WeaponType.Machinegun:
-					newBox = new WeaponBox(boxId, x, y, boxSizePx, WeaponType.Machinegun);
+					newBox = new WeaponBox(boxId, x, y, WeaponType.Machinegun);
 					break;
 				default:
 					break;
@@ -70,24 +78,24 @@ namespace Bambulanci
 
 	public abstract class Weapon
 	{
-		protected readonly FormBambulanci form;
+		protected readonly List<Projectile> projectiles;
 		protected readonly Player player;
 
 		public abstract int Cooldown { get; }
 		protected int currentCooldown;
-		public Weapon(FormBambulanci form, Player player)
+		public Weapon(List<Projectile> projectiles, Player player)
 		{
-			this.form = form;
+			this.projectiles = projectiles;
 			this.player = player;
 		}
 		public virtual void Fire(WeaponState weaponState)
 		{
 			if (weaponState == WeaponState.Fired && currentCooldown <= 0)
 			{
-				float offset = form.Game.graphicsDrawer.PlayerSizePx / 2f / form.Width;
-				lock (form.Game.Projectiles)
+				float offset = Player.SizePx / 2f / FormBambulanci.WidthStatic;
+				lock (projectiles)
 				{
-					form.Game.Projectiles.Add(new Projectile(player.X + offset, player.Y + offset, player.Direction, player.projectileIdGenerator, form, player.PlayerId));
+					projectiles.Add(new Projectile(player.X + offset, player.Y + offset, player.Direction, player.projectileIdGenerator, player.PlayerId));
 				}
 				player.projectileIdGenerator++;
 				currentCooldown = Cooldown;
@@ -101,13 +109,13 @@ namespace Bambulanci
 	sealed class Pistol : Weapon
 	{
 		public override int Cooldown => 1; //30
-		public Pistol(FormBambulanci form, Player player) : base(form, player) { }
+		public Pistol(List<Projectile> projectiles, Player player) : base(projectiles, player) { }
 	}
 
 	sealed class Shotgun : Weapon
 	{
 		public override int Cooldown => 50;
-		public Shotgun(FormBambulanci form, Player player) : base(form, player) { }
+		public Shotgun(List<Projectile> projectiles, Player player) : base(projectiles, player) { }
 
 		const float shellOffset = 20f; //might throw error on map without walls
 		public override void Fire(WeaponState weaponState)
@@ -115,7 +123,7 @@ namespace Bambulanci
 			if (weaponState == WeaponState.Fired && currentCooldown <= 0)
 			{
 
-				float offset = form.Game.graphicsDrawer.PlayerSizePx / 2f / form.Width;
+				float offset = Player.SizePx / 2f / FormBambulanci.WidthStatic;
 				float projectileMidX = player.X + offset;
 				float projectileMidY = player.Y + offset;
 
@@ -123,22 +131,22 @@ namespace Bambulanci
 				float offsetY = 0;
 				if (player.Direction == Direction.Up || player.Direction == Direction.Down)
 				{
-					offsetX = shellOffset / form.Width;
+					offsetX = shellOffset / FormBambulanci.WidthStatic;
 				}
 				if (player.Direction == Direction.Left || player.Direction == Direction.Right)
 				{
-					offsetY = shellOffset / form.TrueHeight;
+					offsetY = shellOffset / FormBambulanci.HeightStatic;
 				}
 
-				lock (form.Game.Projectiles)
+				lock (projectiles)
 				{
-					form.Game.Projectiles.Add(new Projectile(projectileMidX - offsetX, projectileMidY - offsetY, player.Direction, player.projectileIdGenerator, form, player.PlayerId));
+					projectiles.Add(new Projectile(projectileMidX - offsetX, projectileMidY - offsetY, player.Direction, player.projectileIdGenerator, player.PlayerId));
 					player.projectileIdGenerator++;
 
-					form.Game.Projectiles.Add(new Projectile(projectileMidX, projectileMidY, player.Direction, player.projectileIdGenerator, form, player.PlayerId));
+					projectiles.Add(new Projectile(projectileMidX, projectileMidY, player.Direction, player.projectileIdGenerator,  player.PlayerId));
 					player.projectileIdGenerator++;
 
-					form.Game.Projectiles.Add(new Projectile(projectileMidX + offsetX, projectileMidY + offsetY, player.Direction, player.projectileIdGenerator, form, player.PlayerId));
+					projectiles.Add(new Projectile(projectileMidX + offsetX, projectileMidY + offsetY, player.Direction, player.projectileIdGenerator, player.PlayerId));
 					player.projectileIdGenerator++;
 				}
 				currentCooldown = Cooldown;
@@ -152,7 +160,7 @@ namespace Bambulanci
 	sealed class Machinegun : Weapon
 	{
 		public override int Cooldown => 5;
-		public Machinegun(FormBambulanci form, Player player) : base(form, player) { }
+		public Machinegun(List<Projectile> projectiles, Player player) : base(projectiles, player) { }
 	}
 
 	public interface IMovableObject : IDrawable
@@ -163,7 +171,6 @@ namespace Bambulanci
 		public Direction Direction { get; }
 		public float Speed { get; }
 		public int PlayerId { get; }
-		public int SizePx { get; }
 
 	}
 	public class Projectile : IMovableObject
@@ -175,20 +182,23 @@ namespace Bambulanci
 		public Direction Direction { get; set; }
 		public float Speed { get; } = 0.02f; //const but from Iface
 		public int PlayerId { get; }
-		public int SizePx { get; }
-
+		public static int SizePx { get; private set; }
+		public static void SetSize(int formWidth)
+		{
+			SizePx = formWidth / 128;
+		}
+		public int GetSizePx() => SizePx;
 		public bool shouldBeDestroyed = false; //host only
 
 		public readonly int id;
 
-		public Projectile(float x, float y, Direction direction, int id, FormBambulanci form, int playerId = -1)
+		public Projectile(float x, float y, Direction direction, int id, int playerId = -1)
 		{
 			this.X = x;
 			this.Y = y;
 			this.Direction = direction;
 			this.PlayerId = playerId;
 			this.id = id;
-			SizePx = form.Game.graphicsDrawer.ProjectileSizePx;
 		}
 
 	}
@@ -210,7 +220,12 @@ namespace Bambulanci
 		//public const float widthScaling = 32;
 		//public const float heightScaling = 18;
 
-		public int SizePx { get; }
+		public static int SizePx { get; private set; }
+		public static void SetSize(int formWidth)
+		{
+			SizePx = formWidth / 32; //(int)(formWidth / 32f)
+		}
+		public int GetSizePx() => SizePx;
 
 		//coords between 0 and 1
 		public float X { get; set; }
@@ -236,7 +251,6 @@ namespace Bambulanci
 			this.form = form;
 			ChangeWeapon(WeaponType.Pistol);
 			projectileIdGenerator = projectileIdMultiplier * id;
-			SizePx = form.Game.graphicsDrawer.PlayerSizePx;
 		}
 
 		public static void CallWeaponFire(Player player, Enum state)
@@ -273,13 +287,13 @@ namespace Bambulanci
 			switch (weaponType)
 			{
 				case WeaponType.Pistol:
-					Weapon = new Pistol(form, this);
+					Weapon = new Pistol(form.Game.Projectiles, this);
 					break;
 				case WeaponType.Shotgun:
-					Weapon = new Shotgun(form, this);
+					Weapon = new Shotgun(form.Game.Projectiles, this);
 					break;
 				case WeaponType.Machinegun:
-					Weapon = new Machinegun(form, this);
+					Weapon = new Machinegun(form.Game.Projectiles, this);
 					break;
 				default:
 					break;
@@ -385,12 +399,6 @@ namespace Bambulanci
 
 		const int colorsPerPlayer = 4;
 
-
-		//in pixels:
-		public int PlayerSizePx { get; private set; }
-		public int ProjectileSizePx { get; private set; }
-		public int BoxSizePx { get; private set; }
-
 		/// <summary>
 		/// Draws background from map to Graphics g
 		/// </summary>
@@ -413,21 +421,21 @@ namespace Bambulanci
 		private Bitmap[] CreatePlayerImg()
 		{
 			const int eyeScaling = 3;
+			int playerSizePx = Player.SizePx;
 
 			Bitmap[] result = new Bitmap[allowedColors.Length * colorsPerPlayer];
 			for (int i = 0; i < allowedColors.Length; i++)
 			{
 				Brush playerColor = allowedColors[i];
-				PlayerSizePx = (int)(formWidth / 32f);
-
-				Bitmap bitmap = new Bitmap(PlayerSizePx, PlayerSizePx);
+				
+				Bitmap bitmap = new Bitmap(playerSizePx, playerSizePx);
 				var g = Graphics.FromImage(bitmap);
 
-				int eyeSizePx = (int)((float)PlayerSizePx / eyeScaling);
-				int offset = (PlayerSizePx / 2 - eyeSizePx) / 2;
-				g.FillRectangle(playerColor, new Rectangle(0, 0, PlayerSizePx, PlayerSizePx));
+				int eyeSizePx = (int)((float)playerSizePx / eyeScaling);
+				int offset = (playerSizePx / 2 - eyeSizePx) / 2;
+				g.FillRectangle(playerColor, new Rectangle(0, 0, playerSizePx, playerSizePx));
 				g.FillEllipse(Brushes.Black, new Rectangle(0, offset, eyeSizePx, eyeSizePx));
-				g.FillEllipse(Brushes.Black, new Rectangle(0, offset + PlayerSizePx / 2, eyeSizePx, eyeSizePx));
+				g.FillEllipse(Brushes.Black, new Rectangle(0, offset + playerSizePx / 2, eyeSizePx, eyeSizePx));
 
 				Bitmap b90 = (Bitmap)bitmap.Clone();
 				b90.RotateFlip(RotateFlipType.Rotate90FlipNone);
@@ -457,12 +465,11 @@ namespace Bambulanci
 
 		private Bitmap CreateProjectileImg()
 		{
-			//ProjectileWidthPx = ProjectileWiPx
-			ProjectileSizePx = formWidth / 128;
+			int projectileSizePx = Projectile.SizePx;
 			
-			Bitmap bitmap = new Bitmap(ProjectileSizePx, ProjectileSizePx);
+			Bitmap bitmap = new Bitmap(projectileSizePx, projectileSizePx);
 			var g = Graphics.FromImage(bitmap);
-			g.FillRectangle(Brushes.Orange, 0, 0, ProjectileSizePx, ProjectileSizePx);
+			g.FillRectangle(Brushes.Orange, 0, 0, projectileSizePx, projectileSizePx);
 
 			return bitmap;
 		}
@@ -474,11 +481,10 @@ namespace Bambulanci
 
 		private Bitmap CreateBoxImg()
 		{
-			BoxSizePx = formWidth / 42;
-			
-			Bitmap bitmap = new Bitmap(BoxSizePx, BoxSizePx);
+			int boxSizePx = WeaponBox.SizePx;
+			Bitmap bitmap = new Bitmap(boxSizePx, boxSizePx);
 			var g = Graphics.FromImage(bitmap);
-			g.FillRectangle(Brushes.Brown, 0, 0, BoxSizePx, BoxSizePx);
+			g.FillRectangle(Brushes.Brown, 0, 0, boxSizePx, boxSizePx);
 			
 			return bitmap;
 		}
@@ -528,7 +534,6 @@ namespace Bambulanci
 		private readonly int formWidth;
 		private readonly int formHeight;
 
-
 		private const int notFound = -1;
 		private const int respawnTime = 100;
 
@@ -538,10 +543,10 @@ namespace Bambulanci
 		public int boxIdCounter = 1;
 		public List<ICollectableObject> Boxes { get;  set; } = new List<ICollectableObject>();
 
-		public Game(int formWidth, int formHeight)
+		public Game()
 		{
-			this.formHeight = formHeight;
-			this.formWidth = formWidth;
+			formWidth = FormBambulanci.WidthStatic;
+			formHeight = FormBambulanci.HeightStatic;
 			map = Map.GetStandardMap(formWidth, formHeight); //might be delegate in case of multiple maps
 			graphicsDrawer = new GraphicsDrawer(formWidth, formHeight, map);
 		}
@@ -595,14 +600,14 @@ namespace Bambulanci
 			int tileCol = (int)(newX * formWidth / tileW);
 			int tileRow = (int)(newY * formHeight / tileH);
 
-			int tileColMax = (int)((newX * formWidth + obj.SizePx) / tileW);
-			int tileRowMax = (int)((newY * formHeight + obj.SizePx) / tileH);
+			int tileColMax = (int)((newX * formWidth + obj.GetSizePx()) / tileW);
+			int tileRowMax = (int)((newY * formHeight + obj.GetSizePx()) / tileH);
 			for (int col = tileCol; col <= tileColMax; col++)
 				for (int row = tileRow; row <= tileRowMax; row++)
 				{
 					if (map.IsWall(col, row))
 					{
-						if (Overlaps(newX, newY, obj.SizePx, col * tileW, row * tileH, tileW, tileH))
+						if (Overlaps(newX, newY, obj.GetSizePx(), col * tileW, row * tileH, tileW, tileH))
 						{
 							return (true, col * map.tileSizeScaled.Width, row * map.tileSizeScaled.Height);
 						}
@@ -619,7 +624,7 @@ namespace Bambulanci
 				{
 					if (player.PlayerId != obj.PlayerId)
 					{
-						if (Overlaps(newX, newY, obj.SizePx, player.X*formWidth, player.Y*formHeight, player.SizePx, player.SizePx))
+						if (Overlaps(newX, newY, obj.GetSizePx(), player.X*formWidth, player.Y*formHeight, Player.SizePx, Player.SizePx))
 						{
 							return (true, (int)(player.X * formWidth), (int)(player.Y * formHeight), player.PlayerId);
 						}
@@ -635,7 +640,7 @@ namespace Bambulanci
 			{
 				foreach (var box in Boxes)
 				{
-					if (Overlaps(newX, newY, obj.SizePx, box.X * formWidth, box.Y * formHeight, box.SizePx, box.SizePx))
+					if (Overlaps(newX, newY, obj.GetSizePx(), box.X * formWidth, box.Y * formHeight, box.GetSizePx(), box.GetSizePx()))
 					{
 						return (true, box.Id);
 					}
@@ -703,11 +708,11 @@ namespace Bambulanci
 				(boxCollision, boxId) = DetectBoxes(newX, newY, obj);
 			}
 			
-			bool windowCollision = newX < 0 || newX > 1 - (float)obj.SizePx / formWidth || newY < 0 || newY > 1 - (float)obj.SizePx / formHeight;
+			bool windowCollision = newX < 0 || newX > 1 - (float)obj.GetSizePx() / formWidth || newY < 0 || newY > 1 - (float)obj.GetSizePx() / formHeight;
 
 			if (playerCollision)
 			{
-				CollisionResponseHug(playerXPx, playerYPx, graphicsDrawer.PlayerSizePx, graphicsDrawer.PlayerSizePx, obj.X, obj.Y, ref newX, ref newY, obj.SizePx);
+				CollisionResponseHug(playerXPx, playerYPx, Player.SizePx, Player.SizePx, obj.X, obj.Y, ref newX, ref newY, obj.GetSizePx());
 				if(projectileId != -1)
 				{
 					MarkProjectileForDestruction(projectileId);
@@ -727,7 +732,7 @@ namespace Bambulanci
 			{
 				int wallWidth = map.tileSizeScaled.Width;
 				int wallHeight = map.tileSizeScaled.Height;
-				CollisionResponseHug(wallXPx, wallYPx, wallWidth, wallHeight, obj.X, obj.Y, ref newX, ref newY, obj.SizePx);
+				CollisionResponseHug(wallXPx, wallYPx, wallWidth, wallHeight, obj.X, obj.Y, ref newX, ref newY, obj.GetSizePx());
 				if (projectileId != -1)
 				{
 					MarkProjectileForDestruction(projectileId);
