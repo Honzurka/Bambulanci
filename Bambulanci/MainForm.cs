@@ -194,7 +194,7 @@ namespace Bambulanci
 				waiterHost.SendMessageToTarget(hostStartGame, client.IpEndPoint);
 
 				(float x, float y) = Game.GetSpawnCoords(rng);
-				Game.Players.Add(new Player(Game.Projectiles, x, y, client.Id, ipEndPoint: client.IpEndPoint));
+				Game.Players.Add(new Player(Game, x, y, client.Id, ipEndPoint: client.IpEndPoint));
 			}
 		}
 		

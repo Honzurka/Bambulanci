@@ -87,9 +87,9 @@ namespace Bambulanci
 			this.projectiles = projectiles;
 			this.player = player;
 		}
-		public virtual void Fire(WeaponState weaponState)
+		public virtual void Fire()
 		{
-			if (weaponState == WeaponState.Fired && currentCooldown <= 0)
+			if (currentCooldown <= 0)
 			{
 				float offset = Player.SizePx / 2f / FormBambulanci.WidthStatic;
 				lock (projectiles)
@@ -117,9 +117,9 @@ namespace Bambulanci
 		public Shotgun(List<Projectile> projectiles, Player player) : base(projectiles, player) { }
 
 		const float shellOffset = 20f; //might throw error on map without walls
-		public override void Fire(WeaponState weaponState)
+		public override void Fire()
 		{
-			if (weaponState == WeaponState.Fired && currentCooldown <= 0)
+			if (currentCooldown <= 0)
 			{
 
 				float offset = Player.SizePx / 2f / FormBambulanci.WidthStatic;
@@ -223,22 +223,22 @@ namespace Bambulanci
 		public float Y { get; set; }
 		public float GetSpeed() => 0.01f;
 
-		public Direction Direction { get; set; } //definitely not Stay //public set for test only--------------------
+		public Direction Direction { get; private set; }
 
-		public Weapon Weapon { get; private set; }
+		private Weapon weapon;
 		const int projectileIdMultiplier = 1000000;
 		public int projectileIdGenerator;
-		private readonly List<Projectile> projectiles;
+		private readonly Game game;
 		public readonly IPEndPoint ipEndPoint; //host only
 
-		public Player(List<Projectile> projectiles, float x, float y, int id, Direction direction = Direction.Left, IPEndPoint ipEndPoint = null)
+		public Player(Game game, float x, float y, int id, Direction direction = Direction.Left, IPEndPoint ipEndPoint = null)
 		{
 			this.X = x;
 			this.Y = y;
 			this.PlayerId = id;
 			this.Direction = direction;
 			this.ipEndPoint = ipEndPoint;
-			this.projectiles = projectiles;
+			this.game = game;
 			ChangeWeapon(WeaponType.Pistol);
 			projectileIdGenerator = projectileIdMultiplier * id;
 		}
@@ -249,18 +249,33 @@ namespace Bambulanci
 			this.X = x;
 			this.Y = y;
 		}
+		public void MoveByHost(Direction playerMovement)
+		{
+			if(playerMovement != Direction.Stay)
+			{
+				Direction = playerMovement;
+				game.Move(this);
+			}
+		}
+
+		public void FireWeapon(WeaponState weaponState)
+		{
+			if (weaponState != WeaponState.Still)
+				weapon.Fire();
+		}
+
 		public void ChangeWeapon(WeaponType weaponType)
 		{
 			switch (weaponType)
 			{
 				case WeaponType.Pistol:
-					Weapon = new Pistol(projectiles, this);
+					weapon = new Pistol(game.Projectiles, this);
 					break;
 				case WeaponType.Shotgun:
-					Weapon = new Shotgun(projectiles, this);
+					weapon = new Shotgun(game.Projectiles, this);
 					break;
 				case WeaponType.Machinegun:
-					Weapon = new Machinegun(projectiles, this);
+					weapon = new Machinegun(game.Projectiles, this);
 					break;
 				default:
 					break;

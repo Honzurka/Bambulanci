@@ -299,19 +299,6 @@ namespace Bambulanci
 			ParallelBW.ActivateWorker(ref bwGameListener, false, GL_ProcessClientsAction, GL_Completed);
 		}
 
-		
-		private void MovePlayer(Direction playerMovement, IPEndPoint clientEP)
-		{
-			lock (form.Game.Players)
-			{
-				Player senderPlayer = form.Game.Players.Find(p => p.ipEndPoint.Equals(clientEP));
-				if (senderPlayer != null && playerMovement != Direction.Stay)
-				{
-					senderPlayer.Direction = playerMovement;
-					form.Game.Move(senderPlayer);
-				}
-			}
-		}
 		private void FirePlayersWeapon(WeaponState weaponState, IPEndPoint clientEP)
 		{
 			lock (form.Game.Players)
@@ -319,7 +306,18 @@ namespace Bambulanci
 				Player senderPlayer = form.Game.Players.Find(p => p.ipEndPoint.Equals(clientEP));
 				if (senderPlayer != null)
 				{
-					senderPlayer.Weapon.Fire(weaponState);
+					senderPlayer.FireWeapon(weaponState);
+				}
+			}
+		}
+		private void MovePlayer(Direction playerMovement, IPEndPoint clientEP)
+		{
+			lock (form.Game.Players)
+			{
+				Player senderPlayer = form.Game.Players.Find(p => p.ipEndPoint.Equals(clientEP));
+				if (senderPlayer != null && playerMovement != Direction.Stay)
+				{
+					senderPlayer.MoveByHost(playerMovement);
 				}
 			}
 		}
@@ -573,7 +571,7 @@ namespace Bambulanci
 				index = game.Players.FindIndex(p => p.PlayerId == playerId);
 				if (index == notFound)
 				{
-					game.Players.Add(new Player(form.Game.Projectiles, x, y, playerId, (Direction)direction));
+					game.Players.Add(new Player(form.Game, x, y, playerId, (Direction)direction));
 				}
 				else
 				{
