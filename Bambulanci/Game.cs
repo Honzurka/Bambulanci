@@ -17,7 +17,6 @@ namespace Bambulanci
 		public float X { get; }
 		public float Y { get; }
 		public int GetSizePx();
-		//public static int SizePx { get; } //jak je to se static fieldem pod interface???
 	}
 
 	public interface ICollectableObject : IDrawable
@@ -108,7 +107,7 @@ namespace Bambulanci
 	}
 	sealed class Pistol : Weapon
 	{
-		public override int Cooldown => 1; //30
+		public override int Cooldown => 1; //should be 30----DEBUG ONLY----------------
 		public Pistol(List<Projectile> projectiles, Player player) : base(projectiles, player) { }
 	}
 
@@ -169,18 +168,18 @@ namespace Bambulanci
 		new public float Y { get; set; }
 
 		public Direction Direction { get; }
-		public float Speed { get; }
+		public float GetSpeed();
+		//public float Speed { get; }
 		public int PlayerId { get; }
 
 	}
 	public class Projectile : IMovableObject
 	{
-		//between 0 and 1
 		public float X { get; set; }
 		public float Y { get; set; }
 
 		public Direction Direction { get; set; }
-		public float Speed { get; } = 0.02f; //const but from Iface
+		public float GetSpeed() => 0.02f;
 		public int PlayerId { get; }
 		public static int SizePx { get; private set; }
 		public static void SetSize(int formWidth)
@@ -230,7 +229,7 @@ namespace Bambulanci
 		//coords between 0 and 1
 		public float X { get; set; }
 		public float Y { get; set; }
-		public float Speed { get; } = 0.01f;
+		public float GetSpeed() => 0.01f;
 
 		public Direction Direction { get; private set; } //definitely not Stay
 
@@ -683,16 +682,16 @@ namespace Bambulanci
 			switch (obj.Direction)
 			{
 				case Direction.Left:
-					newX -= obj.Speed;
+					newX -= obj.GetSpeed();
 					break;
 				case Direction.Right:
-					newX += obj.Speed;
+					newX += obj.GetSpeed();
 					break;
 				case Direction.Up:
-					newY -= obj.Speed;
+					newY -= obj.GetSpeed();
 					break;
 				case Direction.Down:
-					newY += obj.Speed;
+					newY += obj.GetSpeed();
 					break;
 				default:
 					break;
