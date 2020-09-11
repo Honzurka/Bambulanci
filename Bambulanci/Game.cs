@@ -355,7 +355,7 @@ namespace Bambulanci
 
 		public bool IsWall(int col, int row)
 		{
-			if (col < 0 || col >= grid.GetLength(1) || row < 0 || row >= grid.GetLength(0))
+			if (col < 0 || col >= cols || row < 0 || row >= rows)
 			{
 				return true;
 			}
@@ -368,26 +368,23 @@ namespace Bambulanci
 
 	public class GraphicsDrawer
 	{
-		private readonly int formWidth;
-		private readonly int formHeight;
+		private readonly int formWidth = FormBambulanci.WidthStatic;
+		private readonly int formHeight = FormBambulanci.HeightStatic;
 		private readonly Map map;
 
-		private readonly Bitmap[] playerImg; //left, up, right, down
-		private readonly Brush[] allowedColors = new Brush[] { Brushes.Yellow, Brushes.Red, Brushes.Aqua, Brushes.BlueViolet, Brushes.Chocolate };
+		const int imagesPerColor = 4; //1 for each direction
+		private readonly Bitmap[] playerImg; // [left, up, right, down] of each color
+		private readonly Brush[] allowedColors = new Brush[] { Brushes.Yellow, Brushes.Red, Brushes.Aqua, Brushes.BlueViolet };
 
 		private readonly Bitmap projectileImg;
 		private readonly Bitmap boxImg;
-		public GraphicsDrawer(int formWidth, int formHeight, Map map)
+		public GraphicsDrawer(Map map)
 		{
-			this.formWidth = formWidth;
-			this.formHeight = formHeight;
 			this.map = map;
 			playerImg = CreatePlayerImg();
 			projectileImg = CreateProjectileImg();
 			boxImg = CreateBoxImg();
 		}
-
-		const int colorsPerPlayer = 4;
 
 		/// <summary>
 		/// Draws background from map to Graphics g
@@ -413,7 +410,7 @@ namespace Bambulanci
 			const int eyeScaling = 3;
 			int playerSizePx = Player.SizePx;
 
-			Bitmap[] result = new Bitmap[allowedColors.Length * colorsPerPlayer];
+			Bitmap[] result = new Bitmap[allowedColors.Length * imagesPerColor];
 			for (int i = 0; i < allowedColors.Length; i++)
 			{
 				Brush playerColor = allowedColors[i];
@@ -447,8 +444,8 @@ namespace Bambulanci
 		public void DrawPlayer(Graphics g, IDrawable drawablePlayer)
 		{
 			Player player = (Player)drawablePlayer;
-			int i = player.PlayerId * colorsPerPlayer + (byte)player.Direction;
-			int mod = allowedColors.Length * colorsPerPlayer;
+			int i = player.PlayerId * imagesPerColor + (byte)player.Direction;
+			int mod = allowedColors.Length * imagesPerColor;
 			Bitmap playerBitmap = playerImg[i % mod];
 			g.DrawImage(playerBitmap, player.X * formWidth, player.Y * formHeight);
 		}
@@ -471,18 +468,13 @@ namespace Bambulanci
 
 		private Bitmap CreateBoxImg()
 		{
-			int boxSizePx = WeaponBox.SizePx;
-			Bitmap bitmap = new Bitmap(boxSizePx, boxSizePx);
-			var g = Graphics.FromImage(bitmap);
-			g.FillRectangle(Brushes.Brown, 0, 0, boxSizePx, boxSizePx);
-			
-			return bitmap;
+			Bitmap box = Properties.Resources.box;
+			return ResizeImage(box, WeaponBox.SizePx, WeaponBox.SizePx);
 		}
 		public void DrawBox(Graphics g, IDrawable box)
 		{
 			g.DrawImage(boxImg, box.X * formWidth, box.Y * formHeight);
 		}
-
 
 		//taken from: https://stackoverflow.com/questions/1922040/how-to-resize-an-image-c-sharp
 		/// <summary>
@@ -538,7 +530,7 @@ namespace Bambulanci
 			formWidth = FormBambulanci.WidthStatic;
 			formHeight = FormBambulanci.HeightStatic;
 			map = Map.GetStandardMap(); //might be delegate in case of multiple maps
-			graphicsDrawer = new GraphicsDrawer(formWidth, formHeight, map);
+			graphicsDrawer = new GraphicsDrawer(map);
 		}
 
 		/// <summary>
@@ -698,6 +690,7 @@ namespace Bambulanci
 				(boxCollision, boxId) = DetectBoxes(newX, newY, obj);
 			}
 			
+			//not needed anymore------------------------------- wall collision with window NOW
 			bool windowCollision = newX < 0 || newX > 1 - (float)obj.GetSizePx() / formWidth || newY < 0 || newY > 1 - (float)obj.GetSizePx() / formHeight;
 
 			if (playerCollision)
