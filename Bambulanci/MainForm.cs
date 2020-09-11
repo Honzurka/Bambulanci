@@ -27,9 +27,9 @@ namespace Bambulanci
 			ChangeGameState(GameState.Intro);
 
 			//singlePlayer---debug:
-			//nGameTime.Value = 30; //in seconds
-			//waiterHost.BWStartClientWaiter(0, 45000);
-			//ChangeGameState(GameState.HostWaitingRoom);
+			nGameTime.Value = 30; //in seconds
+			waiterHost.BWStartClientWaiter(0, 45000);
+			ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)

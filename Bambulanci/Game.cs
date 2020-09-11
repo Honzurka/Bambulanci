@@ -169,7 +169,6 @@ namespace Bambulanci
 
 		public Direction Direction { get; }
 		public float GetSpeed();
-		//public float Speed { get; }
 		public int PlayerId { get; }
 
 	}
@@ -300,11 +299,11 @@ namespace Bambulanci
 			this.tileSizeScaled = tileSizeScaled;
 		}
 
-		public static Map GetStandardMap(int formWidth, int formHeight)
+		public static Map GetStandardMap()
 		{
 			int cols = 20;
 			int rows = 12;
-			Size tileSizeScaled = new Size(formWidth / cols, formHeight / rows);
+			Size tileSizeScaled = new Size(FormBambulanci.WidthStatic / cols, FormBambulanci.HeightStatic / rows);
 			Map result = new Map(cols,rows, tileSizeScaled);
 
 			Bitmap tileAtlas = Properties.Resources.standardTileAtlas;
@@ -343,6 +342,8 @@ namespace Bambulanci
 			};
 
 			result.wallTiles = new int[] { 6, 7, 8, 9, 18, 19, 20, 21, 15 };
+
+
 			return result;
 		}
 
@@ -352,9 +353,16 @@ namespace Bambulanci
 			return tiles[tileNum];
 		}
 
-		public bool IsWall(int col, int row) //might throw index out of range error
+		public bool IsWall(int col, int row)
 		{
-			return Array.IndexOf(wallTiles, grid[row, col]) != -1;
+			if (col < 0 || col >= grid.GetLength(1) || row < 0 || row >= grid.GetLength(0))
+			{
+				return true;
+			}
+			else
+			{
+				return Array.IndexOf(wallTiles, grid[row, col]) != -1;
+			}
 		}
 	}
 
@@ -529,7 +537,7 @@ namespace Bambulanci
 		{
 			formWidth = FormBambulanci.WidthStatic;
 			formHeight = FormBambulanci.HeightStatic;
-			map = Map.GetStandardMap(formWidth, formHeight); //might be delegate in case of multiple maps
+			map = Map.GetStandardMap(); //might be delegate in case of multiple maps
 			graphicsDrawer = new GraphicsDrawer(formWidth, formHeight, map);
 		}
 
@@ -731,12 +739,18 @@ namespace Bambulanci
 					}
 				}
 			}
+
+
+			//test----------------------
+			obj.X = newX;
+			obj.Y = newY;
 			if (!windowCollision)
 			{
 				obj.X = newX;
 				obj.Y = newY;
 			}
-			else if (projectileId != -1)
+			else
+			if (projectileId != -1)
 			{
 				MarkProjectileForDestruction(projectileId);
 			}
