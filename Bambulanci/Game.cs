@@ -77,7 +77,7 @@ namespace Bambulanci
 
 	public abstract class Weapon
 	{
-		protected readonly List<Projectile> projectiles;
+		protected readonly List<Projectile> projectiles; //needed??--under player already...
 		protected readonly Player player;
 
 		public abstract int Cooldown { get; }
@@ -177,20 +177,19 @@ namespace Bambulanci
 	{
 		public float X { get; set; }
 		public float Y { get; set; }
-
 		public Direction Direction { get; set; }
-		public float GetSpeed() => 0.02f;
 		public int PlayerId { get; }
+		public bool shouldBeDestroyed = false; //host only
+		public readonly int id; //host only
+
+		public float GetSpeed() => 0.02f;
 		public static int SizePx { get; private set; }
 		public static void SetSize(int formWidth)
 		{
 			SizePx = formWidth / 128;
 		}
 		public int GetSizePx() => SizePx;
-		public bool shouldBeDestroyed = false; //host only
-
-		public readonly int id;
-
+		
 		public Projectile(float x, float y, Direction direction, int id, int playerId = -1)
 		{
 			this.X = x;
@@ -199,7 +198,6 @@ namespace Bambulanci
 			this.PlayerId = playerId;
 			this.id = id;
 		}
-
 	}
 
 
@@ -207,17 +205,12 @@ namespace Bambulanci
 	{
 		public int PlayerId { get; }
 
-		//toDo:
 		public int kills = 0;
 		public int deaths = 0;
 
 		public bool isAlive = true;
 		public int killedBy = -1;
 		public int respawnTimer = 0;
-
-		//constants for player image scaling
-		//public const float widthScaling = 32;
-		//public const float heightScaling = 18;
 
 		public static int SizePx { get; private set; }
 		public static void SetSize(int formWidth)
@@ -226,55 +219,30 @@ namespace Bambulanci
 		}
 		public int GetSizePx() => SizePx;
 
-		//coords between 0 and 1
 		public float X { get; set; }
 		public float Y { get; set; }
 		public float GetSpeed() => 0.01f;
 
-		public Direction Direction { get; private set; } //definitely not Stay
+		public Direction Direction { get; set; } //definitely not Stay //public set for test only--------------------
 
 		public Weapon Weapon { get; private set; }
 		const int projectileIdMultiplier = 1000000;
 		public int projectileIdGenerator;
-		public readonly IPEndPoint ipEndPoint; //for host only
+		private readonly List<Projectile> projectiles;
+		public readonly IPEndPoint ipEndPoint; //host only
 
-		private readonly FormBambulanci form;
-
-		public Player(FormBambulanci form, float x, float y, int id, Direction direction = Direction.Left, IPEndPoint ipEndPoint = null)
+		public Player(List<Projectile> projectiles, float x, float y, int id, Direction direction = Direction.Left, IPEndPoint ipEndPoint = null)
 		{
 			this.X = x;
 			this.Y = y;
 			this.PlayerId = id;
 			this.Direction = direction;
 			this.ipEndPoint = ipEndPoint;
-			this.form = form;
+			this.projectiles = projectiles;
 			ChangeWeapon(WeaponType.Pistol);
 			projectileIdGenerator = projectileIdMultiplier * id;
 		}
 
-		public static void CallWeaponFire(Player player, Enum state)
-		{
-			WeaponState weaponState = (WeaponState)state;
-			player.Weapon.Fire(weaponState);
-		}
-		public static void CallMoveByHost(Player player, Enum state)
-		{
-			Direction direction = (Direction)state;
-			player.MoveByHost(direction);
-		}
-
-		/// <summary>
-		/// Called by host only.
-		/// </summary>
-		/// <param name="playerSize"> in pixels </param>
-		private void MoveByHost(Direction direction)
-		{ //might be moved under ref directly??----------
-			if (direction != Direction.Stay)
-			{
-				Direction = direction;
-				form.Game.Move(this);
-			}
-		}
 		public void MoveByClient(Direction direction, float x, float y)
 		{
 			this.Direction = direction;
@@ -286,13 +254,13 @@ namespace Bambulanci
 			switch (weaponType)
 			{
 				case WeaponType.Pistol:
-					Weapon = new Pistol(form.Game.Projectiles, this);
+					Weapon = new Pistol(projectiles, this);
 					break;
 				case WeaponType.Shotgun:
-					Weapon = new Shotgun(form.Game.Projectiles, this);
+					Weapon = new Shotgun(projectiles, this);
 					break;
 				case WeaponType.Machinegun:
-					Weapon = new Machinegun(form.Game.Projectiles, this);
+					Weapon = new Machinegun(projectiles, this);
 					break;
 				default:
 					break;

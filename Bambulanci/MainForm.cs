@@ -57,7 +57,7 @@ namespace Bambulanci
 		
 		private void ResizeWindow()
 		{
-			this.WindowState = FormWindowState.Maximized;
+			//this.WindowState = FormWindowState.Maximized;
 			int borderHeight = this.Height - this.ClientRectangle.Height;
 			FormBambulanci.WidthStatic = this.Width;
 			FormBambulanci.HeightStatic = this.Height - borderHeight;
@@ -194,7 +194,7 @@ namespace Bambulanci
 				waiterHost.SendMessageToTarget(hostStartGame, client.IpEndPoint);
 
 				(float x, float y) = Game.GetSpawnCoords(rng);
-				Game.Players.Add(new Player(this, x, y, client.Id, ipEndPoint: client.IpEndPoint));
+				Game.Players.Add(new Player(Game.Projectiles, x, y, client.Id, ipEndPoint: client.IpEndPoint));
 			}
 		}
 		

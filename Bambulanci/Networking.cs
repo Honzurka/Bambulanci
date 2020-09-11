@@ -299,14 +299,28 @@ namespace Bambulanci
 			ParallelBW.ActivateWorker(ref bwGameListener, false, GL_ProcessClientsAction, GL_Completed);
 		}
 
-		private void PlayerAct(IPEndPoint playerEP, Enum state, Action<Player,Enum> action)
+		
+		private void MovePlayer(Direction playerMovement, IPEndPoint clientEP)
 		{
 			lock (form.Game.Players)
 			{
-				Player senderPlayer = form.Game.Players.Find(p => p.ipEndPoint.Equals(playerEP));
+				Player senderPlayer = form.Game.Players.Find(p => p.ipEndPoint.Equals(clientEP));
+				if (senderPlayer != null && playerMovement != Direction.Stay)
+				{
+					senderPlayer.Direction = playerMovement;
+					form.Game.Move(senderPlayer);
+				}
+			}
+		}
+		private void FirePlayersWeapon(WeaponState weaponState, IPEndPoint clientEP)
+		{
+			lock (form.Game.Players)
+			{
+				Player senderPlayer = form.Game.Players.Find(p => p.ipEndPoint.Equals(clientEP));
 				if (senderPlayer != null)
-					action(senderPlayer, state);
-					
+				{
+					senderPlayer.Weapon.Fire(weaponState);
+				}
 			}
 		}
 
@@ -325,11 +339,11 @@ namespace Bambulanci
 				{
 					case Command.ClientMove:
 						Direction playerMovement = (Direction)data.B;
-						PlayerAct(clientEP, playerMovement, Player.CallMoveByHost);
+						MovePlayer(playerMovement, clientEP);
 						break;
 					case Command.ClientFire:
 						WeaponState weaponState = (WeaponState)data.B;
-						PlayerAct(clientEP, weaponState, Player.CallWeaponFire);
+						FirePlayersWeapon(weaponState, clientEP);
 						break;
 					default:
 						break;
@@ -559,7 +573,7 @@ namespace Bambulanci
 				index = game.Players.FindIndex(p => p.PlayerId == playerId);
 				if (index == notFound)
 				{
-					game.Players.Add(new Player(form, x, y, playerId, (Direction)direction));
+					game.Players.Add(new Player(form.Game.Projectiles, x, y, playerId, (Direction)direction));
 				}
 				else
 				{
