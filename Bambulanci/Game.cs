@@ -273,7 +273,7 @@ namespace Bambulanci
 			int formWidth = FormBambulanci.WidthStatic;
 			int formHeight = FormBambulanci.HeightStatic;
 
-			lock (game.Players) //host deadlock??????????
+			lock (game.Players)
 			{
 				foreach (var player in game.Players)
 				{

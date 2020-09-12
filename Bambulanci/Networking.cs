@@ -313,13 +313,14 @@ namespace Bambulanci
 		}
 		private void MovePlayer(Direction playerMovement, IPEndPoint clientEP)
 		{
+			Player senderPlayer;
 			lock (form.Game.Players)
 			{
-				Player senderPlayer = form.Game.Players.Find(p => p.ipEndPoint.Equals(clientEP));
-				if (senderPlayer != null && playerMovement != Direction.Stay)
-				{
-					senderPlayer.MoveByHost(playerMovement);
-				}
+				senderPlayer = form.Game.Players.Find(p => p.ipEndPoint.Equals(clientEP));
+			}
+			if (senderPlayer != null && playerMovement != Direction.Stay)
+			{
+				senderPlayer.MoveByHost(playerMovement);
 			}
 		}
 
