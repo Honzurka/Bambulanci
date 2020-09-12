@@ -77,14 +77,14 @@ namespace Bambulanci
 
 	public abstract class Weapon
 	{
-		protected readonly List<Projectile> projectiles; //needed??--under player already...
 		protected readonly Player player;
+		protected readonly Game game;
 
 		public abstract int Cooldown { get; }
 		protected int currentCooldown;
-		public Weapon(List<Projectile> projectiles, Player player)
+		public Weapon(Game game, Player player)
 		{
-			this.projectiles = projectiles;
+			this.game = game;
 			this.player = player;
 		}
 		public virtual void Fire()
@@ -92,9 +92,9 @@ namespace Bambulanci
 			if (currentCooldown <= 0)
 			{
 				float offset = Player.SizePx / 2f / FormBambulanci.WidthStatic;
-				lock (projectiles)
+				lock (game.Projectiles)
 				{
-					projectiles.Add(new Projectile(player.X + offset, player.Y + offset, player.Direction, player.projectileIdGenerator, player.PlayerId));
+					game.Projectiles.Add(new Projectile(game, player.X + offset, player.Y + offset, player.Direction, player.projectileIdGenerator, player.PlayerId));
 				}
 				player.projectileIdGenerator++;
 				currentCooldown = Cooldown;
@@ -108,15 +108,15 @@ namespace Bambulanci
 	sealed class Pistol : Weapon
 	{
 		public override int Cooldown => 1; //should be 30----DEBUG ONLY----------------
-		public Pistol(List<Projectile> projectiles, Player player) : base(projectiles, player) { }
+		public Pistol(Game game, Player player) : base(game, player) { }
 	}
 
 	sealed class Shotgun : Weapon
 	{
 		public override int Cooldown => 50;
-		public Shotgun(List<Projectile> projectiles, Player player) : base(projectiles, player) { }
+		public Shotgun(Game game, Player player) : base(game, player) { }
 
-		const float shellOffset = 20f; //might throw error on map without walls
+		const float shellOffset = 20f;
 		public override void Fire()
 		{
 			if (currentCooldown <= 0)
@@ -137,15 +137,15 @@ namespace Bambulanci
 					offsetY = shellOffset / FormBambulanci.HeightStatic;
 				}
 
-				lock (projectiles)
+				lock (game.Projectiles)
 				{
-					projectiles.Add(new Projectile(projectileMidX - offsetX, projectileMidY - offsetY, player.Direction, player.projectileIdGenerator, player.PlayerId));
+					game.Projectiles.Add(new Projectile(game, projectileMidX - offsetX, projectileMidY - offsetY, player.Direction, player.projectileIdGenerator, player.PlayerId));
 					player.projectileIdGenerator++;
 
-					projectiles.Add(new Projectile(projectileMidX, projectileMidY, player.Direction, player.projectileIdGenerator,  player.PlayerId));
+					game.Projectiles.Add(new Projectile(game, projectileMidX, projectileMidY, player.Direction, player.projectileIdGenerator,  player.PlayerId));
 					player.projectileIdGenerator++;
 
-					projectiles.Add(new Projectile(projectileMidX + offsetX, projectileMidY + offsetY, player.Direction, player.projectileIdGenerator, player.PlayerId));
+					game.Projectiles.Add(new Projectile(game, projectileMidX + offsetX, projectileMidY + offsetY, player.Direction, player.projectileIdGenerator, player.PlayerId));
 					player.projectileIdGenerator++;
 				}
 				currentCooldown = Cooldown;
@@ -159,37 +159,187 @@ namespace Bambulanci
 	sealed class Machinegun : Weapon
 	{
 		public override int Cooldown => 5;
-		public Machinegun(List<Projectile> projectiles, Player player) : base(projectiles, player) { }
+		public Machinegun(Game game, Player player) : base(game, player) { }
 	}
 
-	public interface IMovableObject : IDrawable
-	{
-		new public float X { get; set; }
-		new public float Y { get; set; }
-
-		public Direction Direction { get; }
-		public float GetSpeed();
-		public int PlayerId { get; }
-
-	}
-	public class Projectile : IMovableObject
+	public abstract class MovableObject : IDrawable
 	{
 		public float X { get; set; }
 		public float Y { get; set; }
-		public Direction Direction { get; set; }
-		public int PlayerId { get; }
+		public abstract int GetSizePx();
+		public Direction Direction { get; set; } //player's direction had private set....
+		public abstract float GetSpeed();
+		protected readonly Game game;
+		
+		public int PlayerId { get; set; }
+
+		protected virtual void DestroyIfDestructible() { }
+
+		protected MovableObject(Game game) => this.game = game;
+
+		private void CalculateNewCoords(out float newX, out float newY)
+		{
+			newX = X;
+			newY = Y;
+			switch (Direction)
+			{
+				case Direction.Left:
+					newX -= GetSpeed();
+					break;
+				case Direction.Right:
+					newX += GetSpeed();
+					break;
+				case Direction.Up:
+					newY -= GetSpeed();
+					break;
+				case Direction.Down:
+					newY += GetSpeed();
+					break;
+				default:
+					break;
+			}
+		}
+		public void Move()
+		{
+			CalculateNewCoords(out float newX, out float newY);
+			bool wallDetected = DetectWalls(ref newX, ref newY);
+			bool playerDetected = DetectPlayers(ref newX, ref newY); //freezes game
+
+			if(wallDetected)
+			{
+				DestroyIfDestructible();
+			}
+			X = newX;
+			Y = newY;
+		}
+
+		private bool Overlaps(float newX, float newY, float obstacleXPx, float obstacleYPx, float obstacleWidthPx, float obstacleHeightPx)
+		{
+			int formWidth = FormBambulanci.WidthStatic;
+			int formHeight = FormBambulanci.HeightStatic;
+
+			//newX, newY between 0 and 1
+			float objL = newX * formWidth;
+			float objR = newX * formWidth + GetSizePx();
+			float objT = newY * formHeight;
+			float objB = newY * formHeight + GetSizePx();
+
+			//obstacleX,obstacleY in pixels
+			float obstacleL = obstacleXPx;
+			float obstacleR = obstacleXPx + obstacleWidthPx;
+			float obstacleT = obstacleYPx;
+			float obstacleB = obstacleYPx + obstacleHeightPx;
+
+			bool xOverlap = objL < obstacleR && objR > obstacleL;
+			bool yOverlap = objT < obstacleB && objB > obstacleT;
+
+			return xOverlap && yOverlap;
+		}
+
+		private bool DetectWalls(ref float newX, ref float newY)
+		{
+			int tileWidth = game.map.tileSizeScaled.Width;
+			int tileHeight = game.map.tileSizeScaled.Height;
+			int formWidth = FormBambulanci.WidthStatic;
+			int formHeight = FormBambulanci.HeightStatic;
+
+			//get top-left tile
+			int tileCol = (int)(newX * formWidth / tileWidth);
+			int tileRow = (int)(newY * formHeight / tileHeight);
+
+			//get bottom-right tile
+			int tileColMax = (int)((newX * formWidth + GetSizePx()) / tileWidth);
+			int tileRowMax = (int)((newY * formHeight + GetSizePx()) / tileHeight);
+
+			for (int col = tileCol; col <= tileColMax; col++)
+				for (int row = tileRow; row <= tileRowMax; row++)
+				{
+					if (game.map.IsWall(col, row))
+					{
+						int wallXPx = col * tileWidth;
+						int wallYPx = row * tileHeight;
+						if (Overlaps(newX, newY, wallXPx, wallYPx, tileWidth, tileHeight)) 
+						{
+							HugObject(ref newX, ref newY, wallXPx, wallYPx, tileWidth, tileHeight);
+							return true;
+						}
+					}
+				}
+			return false;
+		}
+
+		private bool DetectPlayers(ref float newX, ref float newY)
+		{
+			int formWidth = FormBambulanci.WidthStatic;
+			int formHeight = FormBambulanci.HeightStatic;
+
+			lock (game.Players) //host deadlock??????????
+			{
+				foreach (var player in game.Players)
+				{
+					if (player.PlayerId != PlayerId)
+					{
+						int playerXPx = (int) (player.X * formWidth);
+						int playerYPx = (int) (player.Y * formHeight);
+						if (Overlaps(newX, newY, playerXPx, playerYPx, Player.SizePx, Player.SizePx))
+						{
+							HugObject(ref newX, ref newY, playerXPx, playerYPx, Player.SizePx, Player.SizePx);
+							return true;
+							//return (true, (int)(player.X * formWidth), (int)(player.Y * formHeight), player.PlayerId);
+						}
+					}
+				}
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Moves player towards collided object.
+		/// </summary>
+		private void HugObject(ref float newX, ref float newY, int objXPx, int objYPx, int objWidthPx, int objHeightPx)
+		{
+			int formWidth = FormBambulanci.WidthStatic;
+			int formHeight = FormBambulanci.HeightStatic;
+
+			float horizontal = X - newX;
+			float vertical = Y - newY;
+
+			if (horizontal < 0) //-right
+			{
+				newX = (float)(objXPx - GetSizePx() - 1) / formWidth;
+			}
+			else if (horizontal > 0) //+left
+			{
+				newX = (float)(objXPx + objWidthPx + 1) / formWidth;
+			}
+			else if (vertical > 0) //+up
+			{
+				newY = (float)(objYPx + objHeightPx + 1) / formHeight;
+			}
+			else //-down
+			{
+				newY = (float)(objYPx - GetSizePx() - 1) / formHeight;
+			}
+		}
+
+	}
+	public class Projectile : MovableObject
+	{
+
+		private const int notFound = -1;
+
 		public bool shouldBeDestroyed = false; //host only
 		public readonly int id; //host only
 
-		public float GetSpeed() => 0.02f;
+		public override float GetSpeed() => 0.02f;
 		public static int SizePx { get; private set; }
 		public static void SetSize(int formWidth)
 		{
 			SizePx = formWidth / 128;
 		}
-		public int GetSizePx() => SizePx;
-		
-		public Projectile(float x, float y, Direction direction, int id, int playerId = -1)
+		public override int GetSizePx() => SizePx;
+
+		public Projectile(Game game, float x, float y, Direction direction, int id, int playerId = -1) : base(game)
 		{
 			this.X = x;
 			this.Y = y;
@@ -197,13 +347,21 @@ namespace Bambulanci
 			this.PlayerId = playerId;
 			this.id = id;
 		}
+		protected override void DestroyIfDestructible()
+		{
+			lock (game.Projectiles)
+			{
+				int index = game.Projectiles.FindIndex(p => p.id == id);
+				if (index != notFound)
+				{
+					game.Projectiles[index].shouldBeDestroyed = true;
+				}
+			}
+		}
 	}
 
-
-	public class Player : IMovableObject
+	public class Player : MovableObject
 	{
-		public int PlayerId { get; }
-
 		public int kills = 0;
 		public int deaths = 0;
 
@@ -216,28 +374,21 @@ namespace Bambulanci
 		{
 			SizePx = formWidth / 32; //(int)(formWidth / 32f)
 		}
-		public int GetSizePx() => SizePx;
-
-		public float X { get; set; }
-		public float Y { get; set; }
-		public float GetSpeed() => 0.01f;
-
-		public Direction Direction { get; private set; }
+		public override int GetSizePx() => SizePx;
+		public override float GetSpeed() => 0.01f;
 
 		private Weapon weapon;
 		const int projectileIdMultiplier = 1000000;
 		public int projectileIdGenerator;
-		private readonly Game game;
 		public readonly IPEndPoint ipEndPoint; //host only
 
-		public Player(Game game, float x, float y, int id, Direction direction = Direction.Left, IPEndPoint ipEndPoint = null)
+		public Player(Game game, float x, float y, int id, Direction direction = Direction.Left, IPEndPoint ipEndPoint = null) : base(game)
 		{
 			this.X = x;
 			this.Y = y;
 			this.PlayerId = id;
 			this.Direction = direction;
 			this.ipEndPoint = ipEndPoint;
-			this.game = game;
 			ChangeWeapon(WeaponType.Pistol);
 			projectileIdGenerator = projectileIdMultiplier * id;
 		}
@@ -253,7 +404,7 @@ namespace Bambulanci
 			if(playerMovement != Direction.Stay)
 			{
 				Direction = playerMovement;
-				game.Move(this);
+				Move();
 			}
 		}
 
@@ -268,13 +419,13 @@ namespace Bambulanci
 			switch (weaponType)
 			{
 				case WeaponType.Pistol:
-					weapon = new Pistol(game.Projectiles, this);
+					weapon = new Pistol(game, this);
 					break;
 				case WeaponType.Shotgun:
-					weapon = new Shotgun(game.Projectiles, this);
+					weapon = new Shotgun(game, this);
 					break;
 				case WeaponType.Machinegun:
-					weapon = new Machinegun(game.Projectiles, this);
+					weapon = new Machinegun(game, this);
 					break;
 				default:
 					break;
@@ -516,13 +667,12 @@ namespace Bambulanci
 		private readonly int formWidth;
 		private readonly int formHeight;
 
-		private const int notFound = -1;
 		private const int respawnTime = 100;
 
 		public List<Player> Players { get; set; } = new List<Player>();
 		public List<Player> DeadPlayers { get; set; } = new List<Player>();
 		public List<Projectile> Projectiles { get; private set; } = new List<Projectile>();
-		public int boxIdCounter = 1;
+		public int BoxIdCounter { get; set; } = 1;
 		public List<ICollectableObject> Boxes { get;  set; } = new List<ICollectableObject>();
 
 		public Game()
@@ -551,114 +701,14 @@ namespace Bambulanci
 			return ((float)col * map.tileSizeScaled.Width / formWidth, (float)row * map.tileSizeScaled.Height / formHeight);
 		}
 
-		private bool Overlaps(float newX, float newY, float objSizePx, float obstacleXPx, float obstacleYPx, float obstacleWidthPx, float obstacleHeightPx)
-		{
-			//newX, newY between 0 and 1
-			float objL = newX * formWidth;
-			float objR = newX * formWidth + objSizePx;
-			float objT = newY * formHeight;
-			float objB = newY * formHeight + objSizePx;
 
-			//obstacleX,obstacleY in pixels
-			float obstacleL = obstacleXPx;
-			float obstacleR = obstacleXPx + obstacleWidthPx;
-			float obstacleT = obstacleYPx;
-			float obstacleB = obstacleYPx + obstacleHeightPx;
-			
-			bool xOverlap = objL < obstacleR && objR > obstacleL;
-			bool yOverlap = objT < obstacleB && objB > obstacleT;
-
-			return xOverlap && yOverlap;
-		}
-
-		private (bool collided, int objXPx, int objYPx) DetectWalls(float newX, float newY, IMovableObject obj)
-		{
-			//https://jonathanwhiting.com/tutorial/collision/			
-			//Graphics g = formular.CreateGraphics();
-			int tileW = map.tileSizeScaled.Width;
-			int tileH = map.tileSizeScaled.Height;
-
-			//get current tile
-			int tileCol = (int)(newX * formWidth / tileW);
-			int tileRow = (int)(newY * formHeight / tileH);
-
-			int tileColMax = (int)((newX * formWidth + obj.GetSizePx()) / tileW);
-			int tileRowMax = (int)((newY * formHeight + obj.GetSizePx()) / tileH);
-			for (int col = tileCol; col <= tileColMax; col++)
-				for (int row = tileRow; row <= tileRowMax; row++)
-				{
-					if (map.IsWall(col, row))
-					{
-						if (Overlaps(newX, newY, obj.GetSizePx(), col * tileW, row * tileH, tileW, tileH))
-						{
-							return (true, col * map.tileSizeScaled.Width, row * map.tileSizeScaled.Height);
-						}
-					}
-				}
-			return (false, 0, 0);
-		}
-
-		private (bool collided, int xPx, int yPx, int playerId) DetectPlayers(float newX, float newY, IMovableObject obj)
-		{
-			lock (Players)
-			{
-				foreach (var player in Players)
-				{
-					if (player.PlayerId != obj.PlayerId)
-					{
-						if (Overlaps(newX, newY, obj.GetSizePx(), player.X*formWidth, player.Y*formHeight, Player.SizePx, Player.SizePx))
-						{
-							return (true, (int)(player.X * formWidth), (int)(player.Y * formHeight), player.PlayerId);
-						}
-					}
-				}
-			}
-			return (false, 0, 0, -1);
-		}
-
-		private (bool collided, int boxId) DetectBoxes(float newX, float newY, IMovableObject obj)
-		{
-			lock (Boxes)
-			{
-				foreach (var box in Boxes)
-				{
-					if (Overlaps(newX, newY, obj.GetSizePx(), box.X * formWidth, box.Y * formHeight, box.GetSizePx(), box.GetSizePx()))
-					{
-						return (true, box.Id);
-					}
-				}
-			}
-			return (false, 0);
-		}
-
+		/*
 		/// <summary>
-		/// Moves player towards collided wall.
+		/// 
 		/// </summary>
-		private void CollisionResponseHug(int objXPx, int objYPx, int objWidthPx, int objHeightPx, float X, float Y, ref float newX, ref float newY, int SizePx)
-		{
-			float horizontal = X - newX;
-			float vertical = Y - newY;
-
-			if(horizontal < 0) //-right
-			{
-				newX = (float)(objXPx - SizePx - 1) / formWidth;
-			}
-			if(horizontal > 0) //+left
-			{
-				newX = (float)(objXPx + objWidthPx + 1) / formWidth;
-			}
-			if(vertical > 0) //+up
-			{
-				newY = (float)(objYPx + objHeightPx + 1) / formHeight;
-			}
-			if (vertical < 0) //-down
-			{
-				newY = (float)(objYPx - SizePx - 1) / formHeight;
-			}
-
-		}
-
-		public void Move(IMovableObject obj, int projectileId = -1) //projectileId in case of projectile only
+		/// <param name="obj"></param>
+		/// <param name="projectileId"> Used in case of projectile only. </param> ---------- BAD -----------------
+		public void Move(IMovableObject obj, int projectileId = -1)
 		{
 			float newX = obj.X;
 			float newY = obj.Y;
@@ -680,23 +730,23 @@ namespace Bambulanci
 					break;
 			}
 
-			(bool playerCollision, int playerXPx, int playerYPx, int playerId) = DetectPlayers(newX, newY, obj);// obj.X, obj.Y, obj.SizePx, obj.PlayerId);
-			(bool wallCollision, int wallXPx, int wallYPx) = DetectWalls(newX, newY, obj);// obj.X, obj.Y, obj.SizePx);
-			
+			(bool playerCollision, int playerXPx, int playerYPx, int playerId) = DetectPlayers(newX, newY, obj);
+			(bool wallCollision, int wallXPx, int wallYPx) = DetectWalls(newX, newY, obj);
+
 			bool boxCollision = false;
 			int boxId = 0;
 			if (projectileId == -1) //player only
 			{
 				(boxCollision, boxId) = DetectBoxes(newX, newY, obj);
 			}
-			
+
 			//not needed anymore------------------------------- wall collision with window NOW
 			bool windowCollision = newX < 0 || newX > 1 - (float)obj.GetSizePx() / formWidth || newY < 0 || newY > 1 - (float)obj.GetSizePx() / formHeight;
 
 			if (playerCollision)
 			{
 				CollisionResponseHug(playerXPx, playerYPx, Player.SizePx, Player.SizePx, obj.X, obj.Y, ref newX, ref newY, obj.GetSizePx());
-				if(projectileId != -1)
+				if (projectileId != -1)
 				{
 					MarkProjectileForDestruction(projectileId);
 					lock (Players)
@@ -748,16 +798,25 @@ namespace Bambulanci
 				MarkProjectileForDestruction(projectileId);
 			}
 		}
-		private void MarkProjectileForDestruction(int projectileId)
+		*/
+		/*
+		
+		private (bool collided, int boxId) DetectBoxes(float newX, float newY, IMovableObject obj)
 		{
-			lock (Projectiles)
+			lock (Boxes)
 			{
-				int index = Projectiles.FindIndex(p => p.id == projectileId);
-				if (index != notFound)
+				foreach (var box in Boxes)
 				{
-					Projectiles[index].shouldBeDestroyed = true;
+					if (Overlaps(newX, newY, obj.GetSizePx(), box.X * formWidth, box.Y * formHeight, box.GetSizePx(), box.GetSizePx()))
+					{
+						return (true, box.Id);
+					}
 				}
 			}
+			return (false, 0);
 		}
+		*/
+		
+		
 	}
 }

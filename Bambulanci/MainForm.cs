@@ -27,9 +27,9 @@ namespace Bambulanci
 			ChangeGameState(GameState.Intro);
 
 			//singlePlayer---debug:
-			nGameTime.Value = 30; //in seconds
-			waiterHost.BWStartClientWaiter(0, 45000);
-			ChangeGameState(GameState.HostWaitingRoom);
+			//nGameTime.Value = 30; //in seconds
+			//waiterHost.BWStartClientWaiter(0, 45000);
+			//ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -269,7 +269,7 @@ namespace Bambulanci
 			{
 				foreach (var projectile in Game.Projectiles)
 				{
-					Game.Move(projectile, projectile.id);
+					projectile.Move();
 					byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, (projectile.id, (byte)projectile.Direction, projectile.X, projectile.Y));
 					ingameHost.BroadcastMessage(hostPlayerFire);
 					if (projectile.shouldBeDestroyed)
@@ -284,9 +284,9 @@ namespace Bambulanci
 		{
 			byte randomWeaponId = (byte)rng.Next(Enum.GetNames(typeof(WeaponType)).Length);
 			(float x, float y) = Game.GetSpawnCoords(rng);
-			Game.boxIdCounter++;
+			Game.BoxIdCounter++;
 
-			return (Game.boxIdCounter, randomWeaponId, x, y);
+			return (Game.BoxIdCounter, randomWeaponId, x, y);
 		}
 		private void SpawnAndCollectBoxes()
 		{

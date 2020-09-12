@@ -301,13 +301,14 @@ namespace Bambulanci
 
 		private void FirePlayersWeapon(WeaponState weaponState, IPEndPoint clientEP)
 		{
-			lock (form.Game.Players)
+			Player senderPlayer;
+			lock (form.Game.Players) //host deadlock...............
 			{
-				Player senderPlayer = form.Game.Players.Find(p => p.ipEndPoint.Equals(clientEP));
-				if (senderPlayer != null)
-				{
-					senderPlayer.FireWeapon(weaponState);
-				}
+				senderPlayer = form.Game.Players.Find(p => p.ipEndPoint.Equals(clientEP));
+			}
+			if (senderPlayer != null)
+			{
+				senderPlayer.FireWeapon(weaponState);
 			}
 		}
 		private void MovePlayer(Direction playerMovement, IPEndPoint clientEP)
@@ -587,7 +588,7 @@ namespace Bambulanci
 				int index = game.Projectiles.FindIndex(p => p.id == projectileId);
 				if (index == notFound)
 				{
-					game.Projectiles.Add(new Projectile(x, y, (Direction)direction, projectileId));
+					game.Projectiles.Add(new Projectile(game, x, y, (Direction)direction, projectileId));
 				}
 				else
 				{
