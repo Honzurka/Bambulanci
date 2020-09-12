@@ -59,7 +59,7 @@ namespace Bambulanci
 		
 		private void ResizeWindow()
 		{
-			this.WindowState = FormWindowState.Maximized;
+			//this.WindowState = FormWindowState.Maximized;
 			int borderHeight = this.Height - this.ClientRectangle.Height;
 			FormBambulanci.WidthStatic = this.Width;
 			FormBambulanci.HeightStatic = this.Height - borderHeight;

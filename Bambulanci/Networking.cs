@@ -616,32 +616,35 @@ namespace Bambulanci
 			Player killingPlayer = null;
 			int playerId = received.Integer1;
 			int killedBy = received.Integer2;
-			int index = notFound;
 			lock (game.Players)
 			{
-				index = game.Players.FindIndex(p => p.PlayerId == playerId);
-				if (index != notFound)
+				int index = game.Players.FindIndex(p => p.PlayerId == playerId);
+				deadPlayer = game.Players[index];
+				if (deadPlayer != null)
 				{
-					deadPlayer = game.Players[index];
-					if (deadPlayer != null)
-					{
-						deadPlayer.Deaths++;
-					}
-					game.Players.RemoveAt(index);
-
-					int killedByIndex = game.Players.FindIndex(p => p.PlayerId == killedBy);
-					killingPlayer = game.Players[killedByIndex];
-					if (killingPlayer != null) //nezapocita kill v pripade vzajemneho zabiti-----------------
-					{
-						killingPlayer.Kills++;
-					}
+					deadPlayer.Deaths++;
 				}
-			}
-			if (index != notFound)
-			{
+				game.Players.RemoveAt(index);
 				lock (game.DeadPlayers)
 				{
 					game.DeadPlayers.Add(deadPlayer);
+				}
+
+				killingPlayer = game.Players.Find(p => p.PlayerId == killedBy);
+				if (killingPlayer != null) 
+				{
+					killingPlayer.Kills++;
+				}
+				else
+				{
+					lock (game.DeadPlayers)
+					{
+						killingPlayer = game.DeadPlayers.Find(p => p.PlayerId == killedBy);
+						if(killingPlayer != null)
+						{
+							killingPlayer.Kills++;
+						}
+					}
 				}
 			}
 		}
