@@ -622,11 +622,11 @@ namespace Bambulanci
 				if (index != notFound)
 				{
 					player = game.Players[index];
-					player.deaths++;
+					player.Deaths++;
 					game.Players.RemoveAt(index);
 
 					int killedByIndex = game.Players.FindIndex(p => p.PlayerId == killedBy);
-					game.Players[killedByIndex].kills++;
+					game.Players[killedByIndex].Kills++;
 				}
 			}
 			if (index != notFound)
@@ -653,7 +653,7 @@ namespace Bambulanci
 			}
 			if (index != notFound)
 			{
-				player.isAlive = true;
+				player.IsAlive = true;
 				player.X = x;
 				player.Y = y;
 				lock (game.Players)
@@ -766,11 +766,11 @@ namespace Bambulanci
 			{
 				if (player.PlayerId == myPlayerId)
 				{
-					score = $"(TY) id:{player.PlayerId} kills:{player.kills} deaths:{player.deaths} \n" + score;
+					score = $"(TY) id:{player.PlayerId} kills:{player.Kills} deaths:{player.Deaths} \n" + score;
 				}
 				else
 				{
-					score += $"id:{player.PlayerId} kills:{player.kills} deaths:{player.deaths} \n";
+					score += $"id:{player.PlayerId} kills:{player.Kills} deaths:{player.Deaths} \n";
 				}
 			}
 			form.lScore.Text = score;

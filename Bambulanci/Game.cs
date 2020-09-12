@@ -107,7 +107,7 @@ namespace Bambulanci
 	}
 	sealed class Pistol : Weapon
 	{
-		public override int Cooldown => 1; //should be 30----DEBUG ONLY----------------
+		public override int Cooldown => 30;
 		public Pistol(Game game, Player player) : base(game, player) { }
 	}
 
@@ -164,6 +164,9 @@ namespace Bambulanci
 
 	public abstract class MovableObject : IDrawable
 	{
+		protected const int notUsed = -1;
+		protected const int notFound = -1;
+
 		public float X { get; set; }
 		public float Y { get; set; }
 		public abstract int GetSizePx();
@@ -173,6 +176,7 @@ namespace Bambulanci
 		
 		public int PlayerId { get; set; }
 
+		protected virtual bool CanCollectBoxes { get; set; } = false;
 		protected virtual void DestroyIfDestructible() { }
 
 		protected MovableObject(Game game) => this.game = game;
@@ -203,12 +207,16 @@ namespace Bambulanci
 		{
 			CalculateNewCoords(out float newX, out float newY);
 			bool wallDetected = DetectWalls(ref newX, ref newY);
-			bool playerDetected = DetectPlayers(ref newX, ref newY); //freezes game
+			bool playerDetected = DetectAndKillPlayer(ref newX, ref newY); //check player.Die properties
+			
+			if(CanCollectBoxes)
+				CollectBoxes(newX, newY);
 
-			if(wallDetected)
+			if (wallDetected || playerDetected)
 			{
 				DestroyIfDestructible();
 			}
+
 			X = newX;
 			Y = newY;
 		}
@@ -268,7 +276,7 @@ namespace Bambulanci
 			return false;
 		}
 
-		private bool DetectPlayers(ref float newX, ref float newY)
+		private bool DetectAndKillPlayer(ref float newX, ref float newY)
 		{
 			int formWidth = FormBambulanci.WidthStatic;
 			int formHeight = FormBambulanci.HeightStatic;
@@ -284,13 +292,29 @@ namespace Bambulanci
 						if (Overlaps(newX, newY, playerXPx, playerYPx, Player.SizePx, Player.SizePx))
 						{
 							HugObject(ref newX, ref newY, playerXPx, playerYPx, Player.SizePx, Player.SizePx);
+							player.Die(PlayerId);
 							return true;
-							//return (true, (int)(player.X * formWidth), (int)(player.Y * formHeight), player.PlayerId);
 						}
 					}
 				}
 			}
 			return false;
+		}
+
+		private void CollectBoxes(float newX, float newY)
+		{
+			lock (game.Boxes)
+			{
+				foreach (var box in game.Boxes)
+				{
+					int boxXPx = (int)(box.X * FormBambulanci.WidthStatic);
+					int boxYPx = (int)(box.Y * FormBambulanci.HeightStatic);
+					if (Overlaps(newX, newY, boxXPx, boxYPx, box.GetSizePx(), box.GetSizePx()))
+					{
+						box.CollectedBy = PlayerId;
+					}
+				}
+			}
 		}
 
 		/// <summary>
@@ -325,9 +349,6 @@ namespace Bambulanci
 	}
 	public class Projectile : MovableObject
 	{
-
-		private const int notFound = -1;
-
 		public bool shouldBeDestroyed = false; //host only
 		public readonly int id; //host only
 
@@ -339,7 +360,7 @@ namespace Bambulanci
 		}
 		public override int GetSizePx() => SizePx;
 
-		public Projectile(Game game, float x, float y, Direction direction, int id, int playerId = -1) : base(game)
+		public Projectile(Game game, float x, float y, Direction direction, int id, int playerId = notUsed) : base(game)
 		{
 			this.X = x;
 			this.Y = y;
@@ -362,12 +383,14 @@ namespace Bambulanci
 
 	public class Player : MovableObject
 	{
-		public int kills = 0;
-		public int deaths = 0;
+		private const int respawnTime = 100;
 
-		public bool isAlive = true;
-		public int killedBy = -1;
-		public int respawnTimer = 0;
+		public int Kills { get; set; } = 0;
+		public int Deaths { get; set; } = 0;
+
+		public bool IsAlive { get; set; } = true;
+		public int KilledBy { get; private set; } = -1;
+		public int RespawnTimer { get; set; } = 0;
 
 		public static int SizePx { get; private set; }
 		public static void SetSize(int formWidth)
@@ -376,7 +399,7 @@ namespace Bambulanci
 		}
 		public override int GetSizePx() => SizePx;
 		public override float GetSpeed() => 0.01f;
-
+		protected override bool CanCollectBoxes { get; set; } = true;
 		private Weapon weapon;
 		const int projectileIdMultiplier = 1000000;
 		public int projectileIdGenerator;
@@ -431,10 +454,19 @@ namespace Bambulanci
 					break;
 			}
 		}
+		
+		public void Die(int killedById)
+		{
+			IsAlive = false;
+			KilledBy = killedById;
+			RespawnTimer = respawnTime;
+		}
 	}
 
 	public class Map
 	{
+		private const int notFound = -1; //information duplicity, notFound is always -1...
+
 		public readonly int cols;
 		public readonly int rows;
 		public readonly Size tileSizeScaled;
@@ -512,7 +544,7 @@ namespace Bambulanci
 			}
 			else
 			{
-				return Array.IndexOf(wallTiles, grid[row, col]) != -1;
+				return Array.IndexOf(wallTiles, grid[row, col]) != notFound;
 			}
 		}
 	}
@@ -667,8 +699,6 @@ namespace Bambulanci
 		private readonly int formWidth;
 		private readonly int formHeight;
 
-		private const int respawnTime = 100;
-
 		public List<Player> Players { get; set; } = new List<Player>();
 		public List<Player> DeadPlayers { get; set; } = new List<Player>();
 		public List<Projectile> Projectiles { get; private set; } = new List<Projectile>();
@@ -699,124 +729,6 @@ namespace Bambulanci
 
 			}
 			return ((float)col * map.tileSizeScaled.Width / formWidth, (float)row * map.tileSizeScaled.Height / formHeight);
-		}
-
-
-		/*
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="obj"></param>
-		/// <param name="projectileId"> Used in case of projectile only. </param> ---------- BAD -----------------
-		public void Move(IMovableObject obj, int projectileId = -1)
-		{
-			float newX = obj.X;
-			float newY = obj.Y;
-			switch (obj.Direction)
-			{
-				case Direction.Left:
-					newX -= obj.GetSpeed();
-					break;
-				case Direction.Right:
-					newX += obj.GetSpeed();
-					break;
-				case Direction.Up:
-					newY -= obj.GetSpeed();
-					break;
-				case Direction.Down:
-					newY += obj.GetSpeed();
-					break;
-				default:
-					break;
-			}
-
-			(bool playerCollision, int playerXPx, int playerYPx, int playerId) = DetectPlayers(newX, newY, obj);
-			(bool wallCollision, int wallXPx, int wallYPx) = DetectWalls(newX, newY, obj);
-
-			bool boxCollision = false;
-			int boxId = 0;
-			if (projectileId == -1) //player only
-			{
-				(boxCollision, boxId) = DetectBoxes(newX, newY, obj);
-			}
-
-			//not needed anymore------------------------------- wall collision with window NOW
-			bool windowCollision = newX < 0 || newX > 1 - (float)obj.GetSizePx() / formWidth || newY < 0 || newY > 1 - (float)obj.GetSizePx() / formHeight;
-
-			if (playerCollision)
-			{
-				CollisionResponseHug(playerXPx, playerYPx, Player.SizePx, Player.SizePx, obj.X, obj.Y, ref newX, ref newY, obj.GetSizePx());
-				if (projectileId != -1)
-				{
-					MarkProjectileForDestruction(projectileId);
-					lock (Players)
-					{
-						int index = Players.FindIndex(p => p.PlayerId == playerId);
-						if (index != notFound)
-						{
-							Players[index].isAlive = false;
-							Players[index].killedBy = obj.PlayerId;
-							Players[index].respawnTimer = respawnTime;
-						}
-					}
-				}
-			}
-			if (wallCollision)
-			{
-				int wallWidth = map.tileSizeScaled.Width;
-				int wallHeight = map.tileSizeScaled.Height;
-				CollisionResponseHug(wallXPx, wallYPx, wallWidth, wallHeight, obj.X, obj.Y, ref newX, ref newY, obj.GetSizePx());
-				if (projectileId != -1)
-				{
-					MarkProjectileForDestruction(projectileId);
-				}
-			}
-			if (boxCollision)
-			{
-				lock (Boxes)
-				{
-					int index = Boxes.FindIndex(b => b.Id == boxId);
-					if (index != notFound)
-					{
-						Boxes[index].CollectedBy = obj.PlayerId;
-					}
-				}
-			}
-
-
-			//test----------------------
-			obj.X = newX;
-			obj.Y = newY;
-			if (!windowCollision)
-			{
-				obj.X = newX;
-				obj.Y = newY;
-			}
-			else
-			if (projectileId != -1)
-			{
-				MarkProjectileForDestruction(projectileId);
-			}
-		}
-		*/
-		/*
-		
-		private (bool collided, int boxId) DetectBoxes(float newX, float newY, IMovableObject obj)
-		{
-			lock (Boxes)
-			{
-				foreach (var box in Boxes)
-				{
-					if (Overlaps(newX, newY, obj.GetSizePx(), box.X * formWidth, box.Y * formHeight, box.GetSizePx(), box.GetSizePx()))
-					{
-						return (true, box.Id);
-					}
-				}
-			}
-			return (false, 0);
-		}
-		*/
-		
-		
+		}		
 	}
 }

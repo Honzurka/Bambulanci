@@ -12,6 +12,8 @@ namespace Bambulanci
 
 	public partial class FormBambulanci : Form
 	{
+		const int Noone = -1;
+
 		private GameState currentGameState;
 		private readonly WaiterClient waiterClient;
 		private readonly WaiterHost waiterHost;
@@ -234,14 +236,14 @@ namespace Bambulanci
 			{
 				foreach (var player in Game.Players)
 				{
-					if (player.isAlive)
+					if (player.IsAlive)
 					{
 						byte[] hostPlayerMovement = Data.ToBytes(Command.HostPlayerMovement, (player.PlayerId, (byte)player.Direction, player.X, player.Y));
 						ingameHost.LocalhostAndBroadcastMessage(hostPlayerMovement);
 					}
 					else
 					{
-						byte[] hostKillPlayer = Data.ToBytes(Command.HostKillPlayer, player.PlayerId, player.killedBy);
+						byte[] hostKillPlayer = Data.ToBytes(Command.HostKillPlayer, player.PlayerId, player.KilledBy);
 						ingameHost.LocalhostAndBroadcastMessage(hostKillPlayer);
 					}
 				}
@@ -253,8 +255,8 @@ namespace Bambulanci
 			{
 				foreach (var player in Game.DeadPlayers)
 				{
-					player.respawnTimer--;
-					if (player.respawnTimer < 0)
+					player.RespawnTimer--;
+					if (player.RespawnTimer < 0)
 					{
 						(float x, float y) = Game.GetSpawnCoords(rng);
 						byte[] hostPlayerRespawn = Data.ToBytes(Command.HostPlayerRespawn, (player.PlayerId, 0, x, y));
@@ -301,7 +303,7 @@ namespace Bambulanci
 				}
 				foreach (var box in Game.Boxes)
 				{
-					if (box.CollectedBy != -1)
+					if (box.CollectedBy != Noone)
 					{
 						byte[] hostBoxCollected = Data.ToBytes(Command.HostBoxCollected, box.Id, box.CollectedBy);
 						ingameHost.LocalhostAndBroadcastMessage(hostBoxCollected);
