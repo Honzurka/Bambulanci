@@ -172,7 +172,7 @@ namespace Bambulanci
 		private void BCancelHost_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.HostSelect);
-			waiterHost.BWCancelClientWaiter();
+			waiterHost.BWCancelHost();
 		}
 
 		private void BIntro_Click(object sender, EventArgs e)
@@ -188,15 +188,22 @@ namespace Bambulanci
 		/// <summary>
 		/// Starts client's game and add client's player to Game.
 		/// </summary>
-		private void AddPlayersToGame(List<WaiterHost.ClientInfo> clientList)
+		private void AddPlayersToGame(List<ClientAndStream> connectedClients)
 		{
-			foreach (var client in clientList)
+			foreach (var client in connectedClients)
 			{
-				byte[] hostStartGame = Data.ToBytes(Command.HostStartGame, client.Id);
-				waiterHost.SendMessageToTarget(hostStartGame, client.IpEndPoint);
+				if (client.id != 0) //exludes host
+				{
+					byte[] hostStartGame = Data.ToBytes(Command.HostStartGame, client.id);
+					NetworkStream stream = client.tcpClient.GetStream();
+					stream.Write(hostStartGame, 0, hostStartGame.Length);
+					//test -- creating new stream instead of using old one. == didnt help....
+					stream.Close();
+					client.tcpClient.Close();
+				}
 
 				(float x, float y) = Game.GetSpawnCoords(rng);
-				Game.Players.Add(new Player(Game, x, y, client.Id, ipEndPoint: client.IpEndPoint));
+				Game.Players.Add(new Player(Game, x, y, client.id, ipEndPoint: new IPEndPoint(client.ipEndPoint.Address, Client.listenPort)));
 			}
 		}
 		
@@ -210,8 +217,7 @@ namespace Bambulanci
 			waiterClient.HostStartIngameClient(sendPort);
 
 			//add host's client
-			waiterHost.clientList.Add(new WaiterHost.ClientInfo(0, new IPEndPoint(IPAddress.Loopback, Client.listenPort)));
-
+			waiterHost.connectedClients.Add(new ClientAndStream(null, new IPEndPoint(IPAddress.Loopback, Client.listenPort), 0));
 		}
 
 		/// <summary>
@@ -222,7 +228,7 @@ namespace Bambulanci
 		{
 			GameTime = (int)nGameTime.Value * 1000 / TimerInGame.Interval;
 			AddHostsClient(waiterHost);
-			AddPlayersToGame(waiterHost.clientList);
+			AddPlayersToGame(waiterHost.connectedClients);
 			ingameHost = waiterHost.StartIngameHost();
 			TimerInGame.Enabled = true;
 		}
