@@ -176,7 +176,7 @@ namespace Bambulanci
 		
 		public int PlayerId { get; set; }
 
-		protected virtual bool CanCollectBoxes { get; set; } = false;
+		protected virtual bool IsPlayer { get; set; } = false;
 		protected virtual void DestroyIfDestructible() { }
 
 		protected MovableObject(Game game) => this.game = game;
@@ -207,9 +207,9 @@ namespace Bambulanci
 		{
 			CalculateNewCoords(out float newX, out float newY);
 			bool wallDetected = DetectWalls(ref newX, ref newY);
-			bool playerDetected = DetectAndKillPlayer(ref newX, ref newY); //check player.Die properties
+			bool playerDetected = DetectAndKillPlayer(ref newX, ref newY);
 			
-			if(CanCollectBoxes)
+			if(IsPlayer)
 				CollectBoxes(newX, newY);
 
 			if (wallDetected || playerDetected)
@@ -292,7 +292,10 @@ namespace Bambulanci
 						if (Overlaps(newX, newY, playerXPx, playerYPx, Player.SizePx, Player.SizePx))
 						{
 							HugObject(ref newX, ref newY, playerXPx, playerYPx, Player.SizePx, Player.SizePx);
-							player.Die(PlayerId);
+							if (!IsPlayer)
+							{
+								player.Die(PlayerId);
+							}
 							return true;
 						}
 					}
@@ -398,8 +401,8 @@ namespace Bambulanci
 			SizePx = formWidth / 32; //(int)(formWidth / 32f)
 		}
 		public override int GetSizePx() => SizePx;
-		public override float GetSpeed() => 0.01f;
-		protected override bool CanCollectBoxes { get; set; } = true;
+		public override float GetSpeed() => 0.004f;
+		protected override bool IsPlayer { get; set; } = true;
 		private Weapon weapon;
 		const int projectileIdMultiplier = 1000000;
 		public int projectileIdGenerator;

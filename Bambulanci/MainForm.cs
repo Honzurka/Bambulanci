@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Text;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace Bambulanci
@@ -29,9 +30,11 @@ namespace Bambulanci
 			ChangeGameState(GameState.Intro);
 
 			//singlePlayer---debug:
-			//nGameTime.Value = 30; //in seconds
-			//waiterHost.BWStartClientWaiter(0, 45000);
-			//ChangeGameState(GameState.HostWaitingRoom);
+			/*
+			nGameTime.Minimum = 1;
+			nGameTime.Value = 3; //in seconds
+			waiterHost.BWStartClientWaiter(0, 45000);
+			ChangeGameState(GameState.HostWaitingRoom);*/
 		}
 
 		private void DisableControl(Control c)
@@ -183,7 +186,7 @@ namespace Bambulanci
 
 		public Game Game { get; private set; }
 		private IngameHost ingameHost;
-		public int GameTime { get; private set; }
+		public int GameTime { get; private set; } //not working correctly..-----------------------if ticks are too fast??
 
 		/// <summary>
 		/// Starts client's game and add client's player to Game.
@@ -324,6 +327,9 @@ namespace Bambulanci
 		/// </summary>
 		private void TimerInGame_Tick(object sender, EventArgs e)
 		{
+			//mereni casu volani ticku--------------
+
+			DateTime start = DateTime.Now;
 			GameTime--;
 			if (GameTime < 0) return;
 
@@ -334,6 +340,10 @@ namespace Bambulanci
 			RespawnPlayers();
 			MoveAddDestroyProjectiles();
 			SpawnAndCollectBoxes();
+
+			//konec mereni casu
+			TimeSpan timeSpan = DateTime.Now - start; //posledni sloupec jsou ms 
+			Console.WriteLine(timeSpan);
 		}
 
 		private void DrawItems(IEnumerable<IDrawable> drawableItems, Graphics g, Action<Graphics,IDrawable> draw)
