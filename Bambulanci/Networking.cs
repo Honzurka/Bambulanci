@@ -432,6 +432,9 @@ namespace Bambulanci
 	{
 		public bool InGame;
 
+		TcpClient tcpClient;
+		NetworkStream streamToHost;
+
 		public WaiterClient(FormBambulanci form) : base(form) { }
 
 		public void StartClient(IPAddress iPAddress) => udpClient = new UdpClient(new IPEndPoint(iPAddress, listenPort));
@@ -520,6 +523,19 @@ namespace Bambulanci
 			return received;
 		}
 
+		private Data WaitForCommandTCP(Command command)
+		{
+			byte[] bytes = new byte[1024];
+			/*int bytesRead = */streamToHost.Read(bytes, 0, bytes.Length);
+			Data data = Data.GetData(bytes);
+			while (data.Cmd != Command.HostLoginAccepted)
+			{
+				streamToHost.Read(bytes, 0, bytes.Length);
+				data = Data.GetData(bytes);
+			}
+			return data;
+		}
+
 		/// <summary>
 		/// Logging to server stops refreshing servers in backgroud.
 		/// </summary>
@@ -528,22 +544,27 @@ namespace Bambulanci
 			ServerRefresherStop();
 
 			hostEP = (IPEndPoint)form.lBServers.SelectedItem;
-			byte[] loginMessage = Data.ToBytes(Command.ClientLogin);			
-			SendMessageToTarget(loginMessage, hostEP);
 
-			WaitForCommand(Command.HostLoginAccepted);
+			tcpClient = new TcpClient();
+			tcpClient.Connect(hostEP);
+			streamToHost = tcpClient.GetStream();
+
+			byte[] loginMessage = Data.ToBytes(Command.ClientLogin);
+			streamToHost.Write(loginMessage, 0, loginMessage.Length);
+
+			WaitForCommandTCP(Command.HostLoginAccepted);
 			form.ChangeGameState(GameState.ClientWaiting);
-
+			
 			ParallelBW.ActivateWorker(ref bwHostWaiter, true, HW_ClientWaiting, HW_WaitingCompleted, HW_WaitingProgress);
 		}
 
 		private BackgroundWorker bwHostWaiter;
 		private void HW_ClientWaiting(object sender, DoWorkEventArgs e)
 		{
-			WaitForCommand(Command.HostMoveToWaitingRoom);
+			WaitForCommandTCP(Command.HostMoveToWaitingRoom);
 			bwHostWaiter.ReportProgress((int)Command.HostMoveToWaitingRoom);
 
-			Data received = WaitForCommand(Command.HostStartGame);
+			Data received = WaitForCommandTCP(Command.HostStartGame);
 			int myPlayerId = received.Integer1;
 			bwHostWaiter.ReportProgress((int)Command.HostStartGame, myPlayerId);
 		}
