@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Windows.Forms;
 using System.Windows.Forms.VisualStyles;
 
 namespace Bambulanci
@@ -181,8 +182,22 @@ namespace Bambulanci
 	{
 		public WaiterHost(FormBambulanci form) : base(form) { }
 
-		public List<ClientInfo> clientList;
-		
+		public List<ClientInfo> clientList; //duplicity wuth connectedClients...??
+		private TcpListener tcpHost;
+		private List<ClientAndStream> connectedClients;
+
+		class ClientAndStream //struct???---
+		{
+			public TcpClient client;
+			public NetworkStream stream;
+			public int id;
+			public ClientAndStream(TcpClient client, NetworkStream stream, int id)
+			{
+				this.client = client;
+				this.stream = stream;
+				this.id = id;
+			}
+		}
 		public class ClientInfo
 		{
 			public int Id { get; }
@@ -194,12 +209,38 @@ namespace Bambulanci
 			}
 		}
 
+		private BackgroundWorker bwBroadcastResponder;
+		private void BR_RespondToBroadcast(object sender, DoWorkEventArgs e) //hostStopHosting - should be implemented
+		{
+			bool hostClosed = false;
+			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, ListenPort);
+			while (!hostClosed)
+			{
+				Data data = Data.GetData(udpHost.Receive(ref clientEP));
+				switch (data.Cmd)
+				{
+					case Command.ClientFindServers:
+						byte[] hostFoundServer = Data.ToBytes(Command.HostFoundServer);
+						SendMessageToTarget(hostFoundServer, clientEP);
+						break;
+					case Command.HostStopHosting:
+						hostClosed = true;
+						udpHost.Close();
+						e.Cancel = true;
+						break;
+					default:
+						break;
+				}
+			}
+		}
+
 		private BackgroundWorker bwClientWaiter;
+		
 		
 		public void BWStartClientWaiter(int numOfPlayers, int listenPort)
 		{
 			ListenPort = listenPort;
-			ParallelBW.ActivateWorker(ref bwClientWaiter, true, CW_WaitForClients, CW_Completed, CW_UpdateRemainingPlayers, (numOfPlayers, listenPort));
+			ParallelBW.ActivateWorker(ref bwClientWaiter, true, CW_WaitForClients, CW_Completed, CW_UpdateRemainingPlayers, (numOfPlayers));
 		}
 		
 		public void BWCancelClientWaiter()
@@ -223,40 +264,42 @@ namespace Bambulanci
 		/// </summary>
 		private void CW_WaitForClients(object sender, DoWorkEventArgs e)
 		{
-			(int numOfPlayers, int listenPort) = (ValueTuple<int, int>)e.Argument;
-			clientList = new List<ClientInfo>();
-			udpHost = new UdpClient(new IPEndPoint(IPAddress.Any, listenPort));
+			int numOfPlayers = (int)e.Argument;
 
-			IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, listenPort);
+			clientList = new List<ClientInfo>();
+			IPEndPoint hostEP = new IPEndPoint(IPAddress.Any, ListenPort);
+			udpHost = new UdpClient(hostEP);
+			tcpHost = new TcpListener(hostEP);
+			tcpHost.Start();
+
+			//udpHost handles findServers
+			ParallelBW.ActivateWorker(ref bwBroadcastResponder, false, BR_RespondToBroadcast, null);
+
+			//tcpHost handles logins
 			int id = 1; //0 is host
-			bool hostClosed = false;
-			UpdateRemainingPlayers(numOfPlayers);
-			while (!hostClosed && clientList.Count < numOfPlayers)
+			while (connectedClients.Count < numOfPlayers)
 			{
-				Data data = Data.GetData(udpHost.Receive(ref clientEP));
-				switch (data.Cmd)
+				TcpClient client = tcpHost.AcceptTcpClient();
+				NetworkStream stream = client.GetStream();
+				byte[] bytes = new byte[1024];
+				int bytesRead = stream.Read(bytes, 0, bytes.Length); //bytesRead probably useless-------------
+				Data data = Data.GetData(bytes);
+				if(data.Cmd == Command.ClientLogin)
 				{
-					case Command.ClientLogin:
-						ClientInfo clientInfo = new ClientInfo(id, clientEP);
-						clientList.Add(clientInfo);
-						UpdateRemainingPlayers(numOfPlayers);
-						id++;
-						byte[] hostLoginAccepted = Data.ToBytes(Command.HostLoginAccepted);
-						SendMessageToTarget(hostLoginAccepted, clientEP);
-						break;
-					case Command.ClientFindServers:
-						byte[] hostFoundServer = Data.ToBytes(Command.HostFoundServer);
-						SendMessageToTarget(hostFoundServer, clientEP);
-						break;
-					case Command.HostStopHosting:
-						hostClosed = true;
-						udpHost.Close();
-						e.Cancel = true;
-						break;
-					default:
-						break;
+					ClientAndStream clientAndStream = new ClientAndStream(client, stream, id);
+					connectedClients.Add(clientAndStream);
+					UpdateRemainingPlayers(numOfPlayers); //should be working with connectedClients list
+					id++;
+					byte[] hostLoginAccepted = Data.ToBytes(Command.HostLoginAccepted);
+					stream.Write(hostLoginAccepted, 0, hostLoginAccepted.Length);
 				}
 			}
+			byte[] moveClientsToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom);
+			foreach (var client in connectedClients)
+			{
+				client.stream.Write(moveClientsToWaitingRoom, 0, moveClientsToWaitingRoom.Length);
+			}
+			form.ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void CW_UpdateRemainingPlayers(object sender, ProgressChangedEventArgs e)
@@ -268,14 +311,16 @@ namespace Bambulanci
 		/// <summary>
 		/// Moves connected clients to waiting room.
 		/// </summary>
-		private void CW_Completed(object sender, RunWorkerCompletedEventArgs e)
+		private void CW_Completed(object sender, RunWorkerCompletedEventArgs e) //not used anymore
 		{
+			/*
 			if(e.Error == null && !e.Cancelled)
 			{
 				byte[] moveClientToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom);
 				BroadcastMessage(moveClientToWaitingRoom);
 				form.ChangeGameState(GameState.HostWaitingRoom);
 			}
+			*/
 		}
 
 		public IngameHost StartIngameHost()
