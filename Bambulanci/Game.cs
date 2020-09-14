@@ -401,7 +401,7 @@ namespace Bambulanci
 			SizePx = formWidth / 32; //(int)(formWidth / 32f)
 		}
 		public override int GetSizePx() => SizePx;
-		public override float GetSpeed() => 0.004f;
+		public override float GetSpeed() => 0.01f;
 		protected override bool IsPlayer { get; set; } = true;
 		private Weapon weapon;
 		const int projectileIdMultiplier = 1000000;

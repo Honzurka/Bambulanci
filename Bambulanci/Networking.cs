@@ -16,7 +16,7 @@ namespace Bambulanci
 	/// Host___ - commands sent by host.
 	/// </summary>
 	enum Command { ClientLogin, ClientFindServers, ClientStopRefreshing,
-		HostFoundServer, HostMoveToWaitingRoom, HostStopBroadcasting
+		HostFoundServer, HostMoveToWaitingRoom, HostStopBroadcasting,
 		HostLoginAccepted, HostStartGame,
 		
 		//InGame
@@ -239,7 +239,6 @@ namespace Bambulanci
 				udpHost.Close();
 				udpHost = null;
 			}
-
 			ListenPort = listenPort;
 			ParallelBW.ActivateWorker(ref bwClientWaiter, true, CW_WaitForClients, CW_Completed, CW_UpdateRemainingPlayers, (numOfPlayers));
 		}
@@ -293,18 +292,14 @@ namespace Bambulanci
 					TcpClient client = tcpHost.AcceptTcpClient();
 					NetworkStream stream = client.GetStream();
 					Data data = Data.GetDataTcp(stream);
-					switch (data.Cmd)
+					if (data.Cmd == Command.ClientLogin)
 					{
-						case Command.ClientLogin:
-							ClientInfo clientInfo = new ClientInfo(client, (IPEndPoint)client.Client.RemoteEndPoint, id, stream);
-							ConnectedClients.Add(clientInfo);
-							UpdateRemainingPlayers(numOfPlayers);
-							id++;
-							byte[] hostLoginAccepted = Data.ToBytes(Command.HostLoginAccepted);
-							SendMessageToTargetTCP(stream, hostLoginAccepted);
-							break;
-						default:
-							break;
+						ClientInfo clientInfo = new ClientInfo(client, (IPEndPoint)client.Client.RemoteEndPoint, id, stream);
+						ConnectedClients.Add(clientInfo);
+						UpdateRemainingPlayers(numOfPlayers);
+						id++;
+						byte[] hostLoginAccepted = Data.ToBytes(Command.HostLoginAccepted);
+						SendMessageToTargetTCP(stream, hostLoginAccepted);
 					}
 				}
 			}
@@ -336,8 +331,7 @@ namespace Bambulanci
 				byte[] moveClientsToWaitingRoom = Data.ToBytes(Command.HostMoveToWaitingRoom);
 				foreach (var client in ConnectedClients)
 				{
-					NetworkStream stream = client.TcpClient.GetStream(); //stream might have stayed under client class
-					stream.Write(moveClientsToWaitingRoom, 0, moveClientsToWaitingRoom.Length);
+					client.Stream.Write(moveClientsToWaitingRoom, 0, moveClientsToWaitingRoom.Length);
 				}
 				form.ChangeGameState(GameState.HostWaitingRoom);
 			}
@@ -498,8 +492,7 @@ namespace Bambulanci
 		{
 			int hostPort = (int)e.Argument;
 			IPEndPoint broadcastEP = new IPEndPoint(IPAddress.Broadcast, hostPort);
-
-			var hostEPVar = new IPEndPoint(IPAddress.Any, listenPort);
+			IPEndPoint hostEPVar = new IPEndPoint(IPAddress.Any, listenPort);
 
 			byte[] findServerMessage = Data.ToBytes(Command.ClientFindServers);
 			SendMessageToTarget(findServerMessage, broadcastEP);
@@ -533,25 +526,12 @@ namespace Bambulanci
 		/// <summary>
 		/// Loops until right command is received.
 		/// </summary>
-		private Data WaitForCommand(Command command)
-		{
-			Data received = Data.GetData(udpClient.Receive(ref hostEP));
-			while (received.Cmd != command)
-			{
-				received = Data.GetData(udpClient.Receive(ref hostEP));
-			}
-			return received;
-		}
-
 		private Data WaitForCommandTCP(Command command)
 		{
-			byte[] bytes = new byte[1024];
-			/*int bytesRead = */streamToHost.Read(bytes, 0, bytes.Length);
-			Data data = Data.GetData(bytes);
+			Data data = Data.GetDataTcp(streamToHost);
 			while (data.Cmd != command)
 			{
-				streamToHost.Read(bytes, 0, bytes.Length);
-				data = Data.GetData(bytes);
+				data = Data.GetDataTcp(streamToHost);
 			}
 			return data;
 		}
@@ -824,7 +804,7 @@ namespace Bambulanci
 		/// <summary>
 		/// Alters game state based commands sent by host.
 		/// </summary>
-		private void IGL_ProcessHostCommands(object sender, DoWorkEventArgs e) //pokud dlouho nedostanu odpoved od serveru(skoncil), mohl bych ukazat skore sam od sebe
+		private void IGL_ProcessHostCommands(object sender, DoWorkEventArgs e)
 		{
 			ActionByCommandInitializer();
 			while (true)
@@ -869,7 +849,7 @@ namespace Bambulanci
 				}
 				else
 				{
-					score += $"id:{player.PlayerId} kills:{player.Kills} deaths:{player.Deaths} \n";
+					score += $"\n id:{player.PlayerId} kills:{player.Kills} deaths:{player.Deaths} \n";
 				}
 			}
 			form.lScore.Text = score;

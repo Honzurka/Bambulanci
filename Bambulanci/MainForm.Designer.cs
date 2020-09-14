@@ -265,7 +265,7 @@
 			// 
 			// TimerInGame
 			// 
-			this.TimerInGame.Interval = 5;
+			this.TimerInGame.Interval = 30;
 			this.TimerInGame.Tick += new System.EventHandler(this.TimerInGame_Tick);
 			// 
 			// lScore
@@ -304,7 +304,7 @@
 			this.nGameTime.Size = new System.Drawing.Size(150, 27);
 			this.nGameTime.TabIndex = 18;
 			this.nGameTime.Value = new decimal(new int[] {
-            120,
+            60,
             0,
             0,
             0});

@@ -29,12 +29,14 @@ namespace Bambulanci
 			waiterHost = new WaiterHost(this);
 			ChangeGameState(GameState.Intro);
 
-			//singlePlayer---debug:
-			/*
-			nGameTime.Minimum = 1;
-			nGameTime.Value = 3; //in seconds
+			//StartSinglePlayer(); //debug
+			}
+
+		private void StartSinglePlayer() //debug only
+		{
+			nGameTime.Value = 10;
 			waiterHost.BWStartClientWaiter(0, 45000);
-			ChangeGameState(GameState.HostWaitingRoom);*/
+			ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -188,6 +190,8 @@ namespace Bambulanci
 		private IngameHost ingameHost;
 		public int GameTime { get; private set; } //not working correctly..-----------------------if ticks are too fast??
 
+
+		private const int hostId = 0;
 		/// <summary>
 		/// Starts client's game and add client's player to Game.
 		/// </summary>
@@ -195,16 +199,13 @@ namespace Bambulanci
 		{
 			foreach (var client in connectedClients)
 			{
-				if (client.Id != 0) //exludes host
+				if (client.Id != hostId)
 				{
 					byte[] hostStartGame = Data.ToBytes(Command.HostStartGame, client.Id);
-					NetworkStream stream = client.TcpClient.GetStream();
-					stream.Write(hostStartGame, 0, hostStartGame.Length);
-					//test -- creating new stream instead of using old one. == didnt help....
-					stream.Close();
+					waiterHost.SendMessageToTargetTCP(client.Stream, hostStartGame);
+					client.Stream.Close();
 					client.TcpClient.Close();
 				}
-
 				(float x, float y) = Game.GetSpawnCoords(rng);
 				Game.Players.Add(new Player(Game, x, y, client.Id, ipEndPoint: new IPEndPoint(client.IpEndPoint.Address, Client.listenPort)));
 			}
@@ -237,7 +238,7 @@ namespace Bambulanci
 		}
 
 		private readonly Random rng = new Random();
-		private const double probabilityOfBoxSpawn = 0.003; //cca 1x per 10sec in case of 30ms/tick
+		private const double probabilityOfBoxSpawn = 0.003; //should be relative to timer frequency....
 
 		private void MoveOrKillPlayers()
 		{
@@ -327,9 +328,6 @@ namespace Bambulanci
 		/// </summary>
 		private void TimerInGame_Tick(object sender, EventArgs e)
 		{
-			//mereni casu volani ticku--------------
-
-			DateTime start = DateTime.Now;
 			GameTime--;
 			if (GameTime < 0) return;
 
@@ -340,10 +338,6 @@ namespace Bambulanci
 			RespawnPlayers();
 			MoveAddDestroyProjectiles();
 			SpawnAndCollectBoxes();
-
-			//konec mereni casu
-			TimeSpan timeSpan = DateTime.Now - start; //posledni sloupec jsou ms 
-			Console.WriteLine(timeSpan);
 		}
 
 		private void DrawItems(IEnumerable<IDrawable> drawableItems, Graphics g, Action<Graphics,IDrawable> draw)
