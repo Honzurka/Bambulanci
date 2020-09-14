@@ -2,12 +2,9 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Windows.Forms;
-using System.Windows.Forms.VisualStyles;
 
 namespace Bambulanci
 {
@@ -15,11 +12,14 @@ namespace Bambulanci
 	/// Client___ - commands sent by client.
 	/// Host___ - commands sent by host.
 	/// </summary>
-	enum Command { ClientLogin, ClientFindServers, ClientStopRefreshing,
+	enum Command {
+		
+		//Connecter commands
+		ClientLogin, ClientFindServers, ClientStopRefreshing,
 		HostFoundServer, HostMoveToWaitingRoom, HostStopBroadcasting,
 		HostLoginAccepted, HostStartGame,
 		
-		//InGame
+		//InGame commands
 		HostTick,
 		ClientMove, HostPlayerMovement,
 		ClientFire, HostPlayerFire,
@@ -29,7 +29,7 @@ namespace Bambulanci
 	}
 	
 	/// <summary>
-	/// Data parser for network communication.
+	/// Data serializer and deserializer for network communication.
 	/// </summary>
 	class Data
 	{
@@ -67,21 +67,27 @@ namespace Bambulanci
 		}
 		private static Data ReconstructByte(byte[] data)
 		{
-			Data result = new Data(data[0]);
-			result.B = data[1];
+			Data result = new Data(data[0])
+			{
+				B = data[1]
+			};
 			return result;
 		}
 		private static Data ReconstructInt(byte[] data)
 		{
-			Data result = new Data(data[0]);
-			result.Integer1 = BitConverter.ToInt32(data, 1);
+			Data result = new Data(data[0])
+			{
+				Integer1 = BitConverter.ToInt32(data, 1)
+			};
 			return result;
 		}
 		private static Data ReconstructInts(byte[] data)
 		{
-			Data result = new Data(data[0]);
-			result.Integer1 = BitConverter.ToInt32(data, 1);
-			result.Integer2 = BitConverter.ToInt32(data, 5);
+			Data result = new Data(data[0])
+			{
+				Integer1 = BitConverter.ToInt32(data, 1),
+				Integer2 = BitConverter.ToInt32(data, 5)
+			};
 			return result;
 		}
 
@@ -101,7 +107,6 @@ namespace Bambulanci
 			{
 				return new Data(data[0]);
 			}
-
 		}
 
 		public static Data GetDataTcp(NetworkStream stream)
@@ -153,6 +158,7 @@ namespace Bambulanci
 		}
 
 	}
+
 	abstract class Host
 	{
 		protected readonly FormBambulanci form;
@@ -162,7 +168,7 @@ namespace Bambulanci
 
 		public void BroadcastMessage(byte[] message)
 		{
-			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, WaiterClient.listenPort));
+			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
 		}
 
 		/// <summary>
@@ -170,8 +176,8 @@ namespace Bambulanci
 		/// </summary>
 		public void LocalhostAndBroadcastMessage(byte[] message)
 		{
-			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, WaiterClient.listenPort));
-			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Loopback, WaiterClient.listenPort));
+			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Broadcast, Client.listenPort));
+			udpHost.Send(message, message.Length, new IPEndPoint(IPAddress.Loopback, Client.listenPort));
 		}
 
 		public void SendMessageToTarget(byte[] message, IPEndPoint targetEP)
@@ -184,7 +190,7 @@ namespace Bambulanci
 		}
 
 	}
-	public class ClientInfo
+	public struct ClientInfo
 	{
 		public TcpClient TcpClient { get; set; }
 		public IPEndPoint IpEndPoint { get; set; }
@@ -199,14 +205,18 @@ namespace Bambulanci
 		}
 	}
 
-	class WaiterHost : Host
+	class HostConnecter : Host
 	{
-		public WaiterHost(FormBambulanci form) : base(form) { }
+		public HostConnecter(FormBambulanci form) : base(form) { }
 
 		private TcpListener tcpHost;
 		public List<ClientInfo> ConnectedClients { get; set; }
 
 		private BackgroundWorker bwBroadcastResponder;
+
+		/// <summary>
+		/// Sends message to client who sent broadcast.
+		/// </summary>
 		private void BR_RespondToBroadcast(object sender, DoWorkEventArgs e)
 		{
 			bool broadcastStopped = false;
@@ -230,8 +240,12 @@ namespace Bambulanci
 		}
 
 		private BackgroundWorker bwClientWaiter;
-		
-		
+
+		/// <summary>
+		/// Closes existing udpHost and starts listening for incomming clients on selected port.
+		/// </summary>
+		/// <param name="numOfPlayers"> Selected number of players in game. </param>
+		/// <param name="listenPort"> Selected listening port. </param>
 		public void BWStartClientWaiter(int numOfPlayers, int listenPort)
 		{
 			if(udpHost != null)
@@ -243,34 +257,35 @@ namespace Bambulanci
 			ParallelBW.ActivateWorker(ref bwClientWaiter, true, CW_WaitForClients, CW_Completed, CW_UpdateRemainingPlayers, (numOfPlayers));
 		}
 
-
+		/// <summary>
+		/// Stops backgroundWorkers broadcastingResponder and clientWaiter.
+		/// </summary>
 		public void BWCancelHost()
 		{
 			BWCancelBroadcastResponder();
 			BWCancelClientWaiter();
 		}
+
 		private void BWCancelBroadcastResponder()
 		{
 			byte[] hostStopBroadcasting = Data.ToBytes(Command.HostStopBroadcasting);
 			IPEndPoint localHost = new IPEndPoint(IPAddress.Loopback, ListenPort);
 			SendMessageToTarget(hostStopBroadcasting, localHost);
 		}
+
+		/// <summary>
+		/// Throws exception on ClientWaiter.
+		/// </summary>
 		private void BWCancelClientWaiter()
 		{
 			tcpHost.Stop();	
 		}
 
 		/// <summary>
-		/// Reports progress of bwClientWaiter.
-		/// </summary>
-		private void UpdateRemainingPlayers(int numOfPlayers)
-		{
-			int remainingPlayers = numOfPlayers - ConnectedClients.Count;
-			bwClientWaiter.ReportProgress(remainingPlayers);
-		}
-
-		/// <summary>
 		/// Waits for numOfPlayers to connect to host.
+		/// Information about each connected client is saved under ConnectedClients list.
+		/// 
+		/// Catching socket exception stops this worker and closes all tcp connections.
 		/// </summary>
 		private void CW_WaitForClients(object sender, DoWorkEventArgs e)
 		{
@@ -284,7 +299,7 @@ namespace Bambulanci
 
 			ParallelBW.ActivateWorker(ref bwBroadcastResponder, false, BR_RespondToBroadcast, null);
 
-			int id = 1; //0 is host
+			int id = FormBambulanci.hostId + 1;
 			try
 			{
 				while (ConnectedClients.Count < numOfPlayers)
@@ -314,6 +329,15 @@ namespace Bambulanci
 			}
 		}
 
+		/// <summary>
+		/// Reports progress of bwClientWaiter.
+		/// </summary>
+		private void UpdateRemainingPlayers(int numOfPlayers)
+		{
+			int remainingPlayers = numOfPlayers - ConnectedClients.Count;
+			bwClientWaiter.ReportProgress(remainingPlayers);
+		}
+
 		private void CW_UpdateRemainingPlayers(object sender, ProgressChangedEventArgs e)
 		{
 			int remainingPlayers = e.ProgressPercentage;
@@ -337,15 +361,15 @@ namespace Bambulanci
 			}
 		}
 
-		public IngameHost StartIngameHost()
+		public HostInGame StartIngameHost()
 		{
-			return new IngameHost(form, udpHost, ListenPort);
+			return new HostInGame(form, udpHost, ListenPort);
 		}
 	}
 
-	class IngameHost : Host
+	class HostInGame : Host
 	{
-		public IngameHost(FormBambulanci form, UdpClient udpHost, int listenport) : base(form)
+		public HostInGame(FormBambulanci form, UdpClient udpHost, int listenport) : base(form)
 		{
 			this.udpHost = udpHost;
 			this.ListenPort = listenport;
@@ -361,7 +385,7 @@ namespace Bambulanci
 		private void FirePlayersWeapon(WeaponState weaponState, IPEndPoint clientEP)
 		{
 			Player senderPlayer;
-			lock (form.Game.Players) //host deadlock...............
+			lock (form.Game.Players)
 			{
 				senderPlayer = form.Game.Players.Find(p => p.ipEndPoint.Equals(clientEP));
 			}
@@ -412,6 +436,8 @@ namespace Bambulanci
 
 		/// <summary>
 		/// Ends game. Inform clients about game score. Stops clients backgroundWorkers.
+		/// 
+		/// Datagram might not be received by client, because it's send over UDP.
 		/// </summary>
 		private void GL_Completed(object sender, RunWorkerCompletedEventArgs e)
 		{
@@ -425,13 +451,18 @@ namespace Bambulanci
 	{
 		protected const int notUsed = 0;
 		protected const int notFound = -1;
-		public const int listenPort = 60000; //wont allow multiple servers
+
+		/// <summary>
+		/// Setting client's port static for all clients forbids running multiple servers at one time.
+		/// However static port enables broadcasting from host.
+		/// </summary>
+		public const int listenPort = 60000;
 
 		protected readonly FormBambulanci form;
 		protected UdpClient udpClient;
 		public IPEndPoint hostEP;
 
-		protected int myPlayerId = 0;
+		protected int myPlayerId;
 
 		public Client(FormBambulanci form) => this.form = form;
 
@@ -442,17 +473,17 @@ namespace Bambulanci
 
 	}
 
-	class WaiterClient : Client
+	class ClientConnecter : Client
 	{
-		public bool InGame;
+		private TcpClient tcpClient;
+		private NetworkStream streamToHost;
 
-		TcpClient tcpClient;
-		NetworkStream streamToHost;
+		public ClientConnecter(FormBambulanci form) : base(form) { }
 
-		public WaiterClient(FormBambulanci form) : base(form) { }
-
-		public void StartClient(IPAddress iPAddress) => udpClient = new UdpClient(new IPEndPoint(iPAddress, listenPort));
-		public void StopClient()
+		public void StartUdpClient(IPAddress iPAddress) => udpClient = new UdpClient(new IPEndPoint(iPAddress, listenPort));
+		
+		
+		public void StopUdpClient()
 		{
 			if (udpClient != null)
 			{
@@ -475,6 +506,7 @@ namespace Bambulanci
 			IPEndPoint localhostEP = new IPEndPoint(IPAddress.Loopback, listenPort);
 			SendMessageToTarget(poisonPill, localhostEP);
 		}
+
 		public void BWServerRefresherStart(int hostPort)
 		{
 			if (bwServerRefresher != null)
@@ -486,7 +518,7 @@ namespace Bambulanci
 
 		/// <summary>
 		/// Sends broadcast and waits for host's response.
-		/// Each responding host is then added to server listBox
+		/// Each responding host is then added to server listBox.
 		/// </summary>
 		private void SR_RefreshServers(object sender, DoWorkEventArgs e)
 		{
@@ -515,6 +547,10 @@ namespace Bambulanci
 			}
 		}
 
+		/// <summary>
+		/// Add server to listbox.
+		/// Select first server on the list to avoid "server not selected" login errors.
+		/// </summary>
 		private void SR_ServerFound(object sender, ProgressChangedEventArgs e)
 		{
 			var newHostEP = e.UserState;
@@ -537,7 +573,7 @@ namespace Bambulanci
 		}
 
 		/// <summary>
-		/// Logging to server stops refreshing servers in backgroud.
+		/// Stops serverRefresher in backgroud.
 		/// </summary>
 		public void LoginToSelectedServer()
 		{
@@ -555,10 +591,15 @@ namespace Bambulanci
 			WaitForCommandTCP(Command.HostLoginAccepted);
 			form.ChangeGameState(GameState.ClientWaiting);
 			
-			ParallelBW.ActivateWorker(ref bwHostWaiter, true, HW_ClientWaiting, HW_WaitingCompleted, HW_WaitingProgress);
+			ParallelBW.ActivateWorker(ref bwHostWaiter, true, HW_ClientWaiting, null, HW_WaitingProgress);
 		}
 
 		private BackgroundWorker bwHostWaiter;
+
+		/// <summary>
+		/// Waiting for other players to connect and for host to start game.
+		/// Closes TCP connection.
+		/// </summary>
 		private void HW_ClientWaiting(object sender, DoWorkEventArgs e)
 		{
 			WaitForCommandTCP(Command.HostMoveToWaitingRoom);
@@ -580,46 +621,45 @@ namespace Bambulanci
 					form.ChangeGameState(GameState.ClientWaitingRoom);
 					break;
 				case Command.HostStartGame:
-					InGame = true;
 					myPlayerId = (int)e.UserState;
+					StartIngameClient();
 					break;
 				default:
 					break;
 			}
 		}
 		
-		private void HW_WaitingCompleted(object sender, RunWorkerCompletedEventArgs e)
-		{
-			if (InGame)
-			{
-				StartIngameClient();
-			}
-		}
 		private void StartIngameClient()
 		{
 			form.ChangeGameState(GameState.InGame);
-			IngameClient.StartClient(form, udpClient, hostEP, myPlayerId);
+			ClientInGame.StartClient(form, udpClient, hostEP, myPlayerId);
 		}
+
+		/// <summary>
+		/// Start host's in-game client.
+		/// </summary>
 		public void HostStartIngameClient(int sendPort)
 		{
 			form.ChangeGameState(GameState.InGame);
 			UdpClient udpClient = new UdpClient(new IPEndPoint(IPAddress.Loopback, listenPort));
 			IPEndPoint hostEP = new IPEndPoint(IPAddress.Loopback, sendPort);
-			IngameClient.StartClient(form, udpClient, hostEP, myPlayerId);
+			ClientInGame.StartClient(form, udpClient, hostEP, myPlayerId);
 		}
 	}
 
-	class IngameClient : Client
+	class ClientInGame : Client
 	{
 		Game game;
-		private IngameClient(FormBambulanci form) : base(form) { }
+		private ClientInGame(FormBambulanci form) : base(form) { }
 		public static void StartClient(FormBambulanci form, UdpClient udpClient, IPEndPoint hostEP, int myPlayerId)
 		{
-			IngameClient client = new IngameClient(form);
-			client.udpClient = udpClient;
-			client.hostEP = hostEP;
-			client.myPlayerId = myPlayerId;
-			client.game = form.Game;
+			ClientInGame client = new ClientInGame(form)
+			{
+				udpClient = udpClient,
+				hostEP = hostEP,
+				myPlayerId = myPlayerId,
+				game = form.Game
+			};
 			client.StartGameListening();
 		}
 
@@ -628,10 +668,28 @@ namespace Bambulanci
 			ParallelBW.ActivateWorker(ref bwInGameListener, true, IGL_ProcessHostCommands, IGL_DisplayScore, IGL_RedrawProgress);
 		}
 
+
+		private Dictionary<Command, Action<Data>> ActionByCommand;
+		private void ActionByCommandInitializer()
+		{
+			ActionByCommand = new Dictionary<Command, Action<Data>>()
+			{
+				{ Command.HostTick, HostTick },
+				{ Command.HostPlayerMovement, MoveOrAddPlayer },
+				{ Command.HostPlayerFire, MoveOrAddProjectile },
+				{ Command.HostDestroyProjectile, DestroyProjectile },
+				{ Command.HostKillPlayer, KillPlayer},
+				{ Command.HostPlayerRespawn, RespawnPlayer },
+				{ Command.HostBoxSpawned, SpawnBox },
+				{ Command.HostBoxCollected, CollectBox }
+			};
+		}
+
 		private void HostTick(Data ignored)
 		{
 			bwInGameListener.ReportProgress(notUsed);
 		}
+
 		private void MoveOrAddPlayer(Data received)
 		{
 			(int playerId, byte direction, float x, float y) = received.Values;
@@ -784,23 +842,6 @@ namespace Bambulanci
 
 		private BackgroundWorker bwInGameListener;
 
-		private void ActionByCommandInitializer()
-		{
-			ActionByCommand = new Dictionary<Command, Action<Data>>()
-			{
-				{ Command.HostTick, HostTick },
-				{ Command.HostPlayerMovement, MoveOrAddPlayer },
-				{ Command.HostPlayerFire, MoveOrAddProjectile },
-				{ Command.HostDestroyProjectile, DestroyProjectile },
-				{ Command.HostKillPlayer, KillPlayer},
-				{ Command.HostPlayerRespawn, RespawnPlayer },
-				{ Command.HostBoxSpawned, SpawnBox },
-				{ Command.HostBoxCollected, CollectBox }
-			};
-
-		}
-		private Dictionary<Command, Action<Data>> ActionByCommand;
-
 		/// <summary>
 		/// Alters game state based commands sent by host.
 		/// </summary>
@@ -818,6 +859,7 @@ namespace Bambulanci
 				
 			}
 		}
+
 		/// <summary>
 		/// Redraws form. Sends playerMovement and weaponState info to host.
 		/// </summary>
@@ -834,6 +876,9 @@ namespace Bambulanci
 			SendMessageToTarget(clientFire, hostEP);
 		}
 
+		/// <summary>
+		/// End of game.
+		/// </summary>
 		private void IGL_DisplayScore(object sender, RunWorkerCompletedEventArgs e)
 		{
 			form.ChangeGameState(GameState.GameScore);
@@ -854,6 +899,7 @@ namespace Bambulanci
 			}
 			form.lScore.Text = score;
 		}
+
 		private IEnumerable<Player> AllPlayers()
 		{
 			foreach (var player in form.Game.Players)
@@ -867,6 +913,9 @@ namespace Bambulanci
 		}
 	}
 
+	/// <summary>
+	/// Class for activating background workers.
+	/// </summary>
 	static class ParallelBW
 	{
 		public static void ActivateWorker(ref BackgroundWorker worker, bool reportsProgress, DoWorkEventHandler work,

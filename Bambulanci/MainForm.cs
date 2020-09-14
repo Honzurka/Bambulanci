@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Text;
 using System.Net;
-using System.Net.Sockets;
-using System.Threading;
 using System.Windows.Forms;
 
 namespace Bambulanci
@@ -16,27 +13,15 @@ namespace Bambulanci
 		const int Noone = -1;
 
 		private GameState currentGameState;
-		private readonly WaiterClient waiterClient;
-		private readonly WaiterHost waiterHost;
+		private readonly ClientConnecter clientConnecter;
+		private readonly HostConnecter hostConnecter;
 		
-		/// <summary>
-		/// Form height without border.
-		/// </summary>
 		public FormBambulanci()
 		{
 			InitializeComponent();
-			waiterClient = new WaiterClient(this);
-			waiterHost = new WaiterHost(this);
+			clientConnecter = new ClientConnecter(this);
+			hostConnecter = new HostConnecter(this);
 			ChangeGameState(GameState.Intro);
-
-			//StartSinglePlayer(); //debug
-			}
-
-		private void StartSinglePlayer() //debug only
-		{
-			nGameTime.Value = 10;
-			waiterHost.BWStartClientWaiter(0, 45000);
-			ChangeGameState(GameState.HostWaitingRoom);
 		}
 
 		private void DisableControl(Control c)
@@ -60,11 +45,15 @@ namespace Bambulanci
 		}
 
 		public static int WidthStatic { get; private set; }
+		
+		/// <summary>
+		/// Form height without border.
+		/// </summary>
 		public static int HeightStatic { get; private set; }
 		
 		private void ResizeWindow()
 		{
-			//this.WindowState = FormWindowState.Maximized;
+			this.WindowState = FormWindowState.Maximized;
 			int borderHeight = this.Height - this.ClientRectangle.Height;
 			FormBambulanci.WidthStatic = this.Width;
 			FormBambulanci.HeightStatic = this.Height - borderHeight;
@@ -139,6 +128,7 @@ namespace Bambulanci
 			}
 			currentGameState = newState;
 		}
+
 		private void BCreateGame_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.HostSelect);
@@ -149,24 +139,24 @@ namespace Bambulanci
 		{
 			ChangeGameState(GameState.HostWaiting);
 			int numOfPlayers = lBNumOfPlayers.SelectedIndex + 1;
-			waiterHost.BWStartClientWaiter(numOfPlayers, (int)nListenPort.Value);
+			hostConnecter.BWStartClientWaiter(numOfPlayers, (int)nListenPort.Value);
 		}
 
 		private void BConnect_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.ClientSearch);
-			waiterClient.StartClient(IPAddress.Any);
+			clientConnecter.StartUdpClient(IPAddress.Any);
 		}
 
 		private void BRefreshServers_Click(object sender, EventArgs e)
 		{
 			lBServers.Items.Clear();
-			waiterClient.BWServerRefresherStart((int)nHostPort.Value);
+			clientConnecter.BWServerRefresherStart((int)nHostPort.Value);
 		}
 
 		private void BLogin_Click(object sender, EventArgs e)
 		{
-			waiterClient.LoginToSelectedServer();
+			clientConnecter.LoginToSelectedServer();
 		}
 
 		private void BExit_Click(object sender, EventArgs e)
@@ -177,23 +167,23 @@ namespace Bambulanci
 		private void BCancelHost_Click(object sender, EventArgs e)
 		{
 			ChangeGameState(GameState.HostSelect);
-			waiterHost.BWCancelHost();
+			hostConnecter.BWCancelHost();
 		}
 
 		private void BIntro_Click(object sender, EventArgs e)
 		{
-			waiterClient.StopClient();
+			clientConnecter.StopUdpClient();
 			ChangeGameState(GameState.Intro);
 		}
 
 		public Game Game { get; private set; }
-		private IngameHost ingameHost;
-		public int GameTime { get; private set; } //not working correctly..-----------------------if ticks are too fast??
+		private HostInGame ingameHost;
+		public int GameTime { get; private set; }
+		public const int hostId = 0;
 
-
-		private const int hostId = 0;
 		/// <summary>
 		/// Starts client's game and add client's player to Game.
+		/// Closes TCP connection that was needed only before game start.
 		/// </summary>
 		private void AddPlayersToGame(List<ClientInfo> connectedClients)
 		{
@@ -202,7 +192,7 @@ namespace Bambulanci
 				if (client.Id != hostId)
 				{
 					byte[] hostStartGame = Data.ToBytes(Command.HostStartGame, client.Id);
-					waiterHost.SendMessageToTargetTCP(client.Stream, hostStartGame);
+					hostConnecter.SendMessageToTargetTCP(client.Stream, hostStartGame);
 					client.Stream.Close();
 					client.TcpClient.Close();
 				}
@@ -214,11 +204,11 @@ namespace Bambulanci
 		/// <summary>
 		/// Starts host's client and adds him to host's clientList.
 		/// </summary>
-		private void AddHostsClient(WaiterHost waiterHost)
+		private void AddHostsClient(HostConnecter waiterHost)
 		{
 			//start host's client
 			int sendPort = waiterHost.ListenPort;
-			waiterClient.HostStartIngameClient(sendPort);
+			clientConnecter.HostStartIngameClient(sendPort);
 
 			//add host's client
 			waiterHost.ConnectedClients.Add(new ClientInfo(null, new IPEndPoint(IPAddress.Loopback, Client.listenPort), 0,null));
@@ -231,14 +221,14 @@ namespace Bambulanci
 		private void BStartGame_Click(object sender, EventArgs e)
 		{
 			GameTime = (int)nGameTime.Value * 1000 / TimerInGame.Interval;
-			AddHostsClient(waiterHost);
-			AddPlayersToGame(waiterHost.ConnectedClients);
-			ingameHost = waiterHost.StartIngameHost();
+			AddHostsClient(hostConnecter);
+			AddPlayersToGame(hostConnecter.ConnectedClients);
+			ingameHost = hostConnecter.StartIngameHost();
 			TimerInGame.Enabled = true;
 		}
 
 		private readonly Random rng = new Random();
-		private const double probabilityOfBoxSpawn = 0.003; //should be relative to timer frequency....
+		private const double probabilityOfBoxSpawn = 0.003;
 
 		private void MoveOrKillPlayers()
 		{
@@ -259,6 +249,7 @@ namespace Bambulanci
 				}
 			}
 		}
+
 		private void RespawnPlayers()
 		{
 			lock (Game.DeadPlayers)
@@ -284,7 +275,7 @@ namespace Bambulanci
 					projectile.Move();
 					byte[] hostPlayerFire = Data.ToBytes(Command.HostPlayerFire, (projectile.id, (byte)projectile.Direction, projectile.X, projectile.Y));
 					ingameHost.BroadcastMessage(hostPlayerFire);
-					if (projectile.shouldBeDestroyed)
+					if (projectile.ShouldBeDestroyed)
 					{
 						byte[] hostDestroyProjectile = Data.ToBytes(Command.HostDestroyProjectile, projectile.id);
 						ingameHost.LocalhostAndBroadcastMessage(hostDestroyProjectile);
@@ -292,6 +283,10 @@ namespace Bambulanci
 				}
 			}
 		}
+
+		/// <summary>
+		/// Generates random weaponBox.
+		/// </summary>
 		private (int boxId, byte weaponType, float x, float y) GenerateBoxValues()
 		{
 			byte randomWeaponId = (byte)rng.Next(Enum.GetNames(typeof(WeaponType)).Length);
@@ -324,7 +319,7 @@ namespace Bambulanci
 
 		/// <summary>
 		/// Host only.
-		/// Moves, kills and respawns players. Creates and moves projectiles. Spawns and collects game boxes.
+		/// Handles game object actions.
 		/// </summary>
 		private void TimerInGame_Tick(object sender, EventArgs e)
 		{

@@ -4,9 +4,6 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Net;
-using System.Net.Sockets;
-using System.Windows.Forms;
-using System.Windows.Forms.VisualStyles;
 
 namespace Bambulanci
 {
@@ -80,6 +77,9 @@ namespace Bambulanci
 		protected readonly Player player;
 		protected readonly Game game;
 
+		/// <summary>
+		/// Number of timer ticks between shots.
+		/// </summary>
 		public abstract int Cooldown { get; }
 		protected int currentCooldown;
 		public Weapon(Game game, Player player)
@@ -116,38 +116,49 @@ namespace Bambulanci
 		public override int Cooldown => 50;
 		public Shotgun(Game game, Player player) : base(game, player) { }
 
-		const float shellOffset = 20f;
+		/// <summary>
+		/// Distance between individual shells.
+		/// </summary>
+		private const float shellOffset = 20f;
+
+		private readonly float offset = Player.SizePx / 2f / FormBambulanci.WidthStatic;
+		
+		private void GenerateProjectiles()
+		{
+			float projectileMidX = player.X + offset;
+			float projectileMidY = player.Y + offset;
+
+			float offsetX = 0;
+			float offsetY = 0;
+			if (player.Direction == Direction.Up || player.Direction == Direction.Down)
+			{
+				offsetX = shellOffset / FormBambulanci.WidthStatic;
+			}
+			if (player.Direction == Direction.Left || player.Direction == Direction.Right)
+			{
+				offsetY = shellOffset / FormBambulanci.HeightStatic;
+			}
+
+			PointF[] shellCoords = new PointF[] {
+				new PointF(projectileMidX - offsetX, projectileMidY - offsetY),
+				new PointF(projectileMidX, projectileMidY),
+				new PointF(projectileMidX + offsetX, projectileMidY + offsetY)
+			};
+
+			lock (game.Projectiles)
+			{
+				for (int i = 0; i < shellCoords.Length; i++)
+				{
+					game.Projectiles.Add(new Projectile(game, shellCoords[i].X, shellCoords[i].Y, player.Direction, player.projectileIdGenerator, player.PlayerId));
+					player.projectileIdGenerator++;
+				}
+			}
+		}
 		public override void Fire()
 		{
 			if (currentCooldown <= 0)
 			{
-
-				float offset = Player.SizePx / 2f / FormBambulanci.WidthStatic;
-				float projectileMidX = player.X + offset;
-				float projectileMidY = player.Y + offset;
-
-				float offsetX = 0;
-				float offsetY = 0;
-				if (player.Direction == Direction.Up || player.Direction == Direction.Down)
-				{
-					offsetX = shellOffset / FormBambulanci.WidthStatic;
-				}
-				if (player.Direction == Direction.Left || player.Direction == Direction.Right)
-				{
-					offsetY = shellOffset / FormBambulanci.HeightStatic;
-				}
-
-				lock (game.Projectiles)
-				{
-					game.Projectiles.Add(new Projectile(game, projectileMidX - offsetX, projectileMidY - offsetY, player.Direction, player.projectileIdGenerator, player.PlayerId));
-					player.projectileIdGenerator++;
-
-					game.Projectiles.Add(new Projectile(game, projectileMidX, projectileMidY, player.Direction, player.projectileIdGenerator,  player.PlayerId));
-					player.projectileIdGenerator++;
-
-					game.Projectiles.Add(new Projectile(game, projectileMidX + offsetX, projectileMidY + offsetY, player.Direction, player.projectileIdGenerator, player.PlayerId));
-					player.projectileIdGenerator++;
-				}
+				GenerateProjectiles();
 				currentCooldown = Cooldown;
 			}
 			else
@@ -170,7 +181,7 @@ namespace Bambulanci
 		public float X { get; set; }
 		public float Y { get; set; }
 		public abstract int GetSizePx();
-		public Direction Direction { get; set; } //player's direction had private set....
+		public Direction Direction { get; set; }
 		public abstract float GetSpeed();
 		protected readonly Game game;
 		
@@ -221,18 +232,22 @@ namespace Bambulanci
 			Y = newY;
 		}
 
+		/// <summary>
+		/// Rectangle object collision detection.
+		/// Check whether object overlaps with obstacle.
+		/// </summary>
+		/// <param name="newX"> Object's x coord. </param>
+		/// <param name="newY"> Object's y coord. </param>
 		private bool Overlaps(float newX, float newY, float obstacleXPx, float obstacleYPx, float obstacleWidthPx, float obstacleHeightPx)
 		{
 			int formWidth = FormBambulanci.WidthStatic;
 			int formHeight = FormBambulanci.HeightStatic;
 
-			//newX, newY between 0 and 1
 			float objL = newX * formWidth;
 			float objR = newX * formWidth + GetSizePx();
 			float objT = newY * formHeight;
 			float objB = newY * formHeight + GetSizePx();
 
-			//obstacleX,obstacleY in pixels
 			float obstacleL = obstacleXPx;
 			float obstacleR = obstacleXPx + obstacleWidthPx;
 			float obstacleT = obstacleYPx;
@@ -244,6 +259,10 @@ namespace Bambulanci
 			return xOverlap && yOverlap;
 		}
 
+		/// <summary>
+		/// Detect walls colliding with object.
+		/// If wall is detected, alters object coordinates, to make object hug wall instead of walking inside of wall.
+		/// </summary>
 		private bool DetectWalls(ref float newX, ref float newY)
 		{
 			int tileWidth = game.map.tileSizeScaled.Width;
@@ -276,6 +295,11 @@ namespace Bambulanci
 			return false;
 		}
 
+		/// <summary>
+		/// Detect player colliding with object.
+		/// If player is detected, makes object hug the player.
+		/// If object is not player then it's projectile and player is killed.
+		/// </summary>
 		private bool DetectAndKillPlayer(ref float newX, ref float newY)
 		{
 			int formWidth = FormBambulanci.WidthStatic;
@@ -350,9 +374,10 @@ namespace Bambulanci
 		}
 
 	}
+
 	public class Projectile : MovableObject
 	{
-		public bool shouldBeDestroyed = false; //host only
+		public bool ShouldBeDestroyed { get; set; } = false; //host only
 		public readonly int id; //host only
 
 		public override float GetSpeed() => 0.02f;
@@ -378,7 +403,7 @@ namespace Bambulanci
 				int index = game.Projectiles.FindIndex(p => p.id == id);
 				if (index != notFound)
 				{
-					game.Projectiles[index].shouldBeDestroyed = true;
+					game.Projectiles[index].ShouldBeDestroyed = true;
 				}
 			}
 		}
@@ -387,23 +412,29 @@ namespace Bambulanci
 	public class Player : MovableObject
 	{
 		private const int respawnTime = 100;
+		private const int noone = -1;
 
 		public int Kills { get; set; } = 0;
 		public int Deaths { get; set; } = 0;
 
 		public bool IsAlive { get; set; } = true;
-		public int KilledBy { get; private set; } = -1;
-		public int RespawnTimer { get; set; } = 0;
+		public int KilledBy { get; private set; } = noone;
+		public int RespawnTimer { get; set; }
 
 		public static int SizePx { get; private set; }
 		public static void SetSize(int formWidth)
 		{
-			SizePx = formWidth / 32; //(int)(formWidth / 32f)
+			SizePx = formWidth / 32;
 		}
 		public override int GetSizePx() => SizePx;
 		public override float GetSpeed() => 0.01f;
 		protected override bool IsPlayer { get; set; } = true;
 		private Weapon weapon;
+
+		/// <summary>
+		/// Multiplies player's id to set value of projectileIdGenerator.
+		/// Expects that less than 1 mil projectiles will be present at one time in game from a single player.
+		/// </summary>
 		const int projectileIdMultiplier = 1000000;
 		public int projectileIdGenerator;
 		public readonly IPEndPoint ipEndPoint; //host only
@@ -474,6 +505,9 @@ namespace Bambulanci
 		public readonly int rows;
 		public readonly Size tileSizeScaled;
 
+		/// <summary>
+		/// Tile cache.
+		/// </summary>
 		private Bitmap[] tiles;
 		private int[,] grid;
 		private int[] wallTiles;
@@ -485,6 +519,9 @@ namespace Bambulanci
 			this.tileSizeScaled = tileSizeScaled;
 		}
 
+		/// <summary>
+		/// Generates tilemap from which game background is drawn.
+		/// </summary>
 		public static Map GetStandardMap()
 		{
 			int cols = 20;
@@ -497,7 +534,6 @@ namespace Bambulanci
 			int tileCount = 24;
 			Size tileSize = new Size(48, 48);
 
-			//tileCache
 			result.tiles = new Bitmap[tileCount];
 			for (int i = 0; i < tileCount; i ++)
 			{
@@ -505,7 +541,7 @@ namespace Bambulanci
 				int y = i / atlasCols * tileSize.Height;
 
 				Rectangle cloneRect = new Rectangle(x, y, tileSize.Width, tileSize.Height);
-				Bitmap tile = tileAtlas.Clone(cloneRect, tileAtlas.PixelFormat); //pixelFormat??
+				Bitmap tile = tileAtlas.Clone(cloneRect, tileAtlas.PixelFormat);
 				Bitmap tileScaled = GraphicsDrawer.ResizeImage(tile, result.tileSizeScaled.Width, result.tileSizeScaled.Height);
 				
 				result.tiles[i] = tileScaled;	
@@ -526,10 +562,7 @@ namespace Bambulanci
 				{ 21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19 },
 				{ 9,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,8 },
 			};
-
 			result.wallTiles = new int[] { 6, 7, 8, 9, 18, 19, 20, 21, 15 };
-
-
 			return result;
 		}
 
@@ -539,6 +572,10 @@ namespace Bambulanci
 			return tiles[tileNum];
 		}
 
+		/// <summary>
+		/// Used for wall collision checking.
+		/// Index outside map is labeled as wall therefore also provides window collision detection.
+		/// </summary>
 		public bool IsWall(int col, int row)
 		{
 			if (col < 0 || col >= cols || row < 0 || row >= rows)
@@ -573,7 +610,7 @@ namespace Bambulanci
 		}
 
 		/// <summary>
-		/// Draws background from map to Graphics g
+		/// Draws background from map to graphics.
 		/// </summary>
 		public void DrawBackground(Graphics g)
 		{
@@ -584,7 +621,6 @@ namespace Bambulanci
 					g.DrawImage(tile, column * map.tileSizeScaled.Width, row * map.tileSizeScaled.Height);
 				}
 		}
-
 
 		/// <summary>
 		/// Creaters array of playerImg based on allowedColors.
@@ -708,11 +744,14 @@ namespace Bambulanci
 		public int BoxIdCounter { get; set; } = 1;
 		public List<ICollectableObject> Boxes { get;  set; } = new List<ICollectableObject>();
 
+		/// <summary>
+		/// In case of multiple maps might receive delegate to map generator as argument.
+		/// </summary>
 		public Game()
 		{
 			formWidth = FormBambulanci.WidthStatic;
 			formHeight = FormBambulanci.HeightStatic;
-			map = Map.GetStandardMap(); //might be delegate in case of multiple maps
+			map = Map.GetStandardMap();
 			graphicsDrawer = new GraphicsDrawer(map);
 		}
 
