@@ -665,7 +665,7 @@ namespace Bambulanci
 
 		private void StartGameListening()
 		{
-			ParallelBW.ActivateWorker(ref bwInGameListener, true, IGL_ProcessHostCommands, IGL_DisplayScore, IGL_RedrawProgress);
+			ParallelBW.ActivateWorker(ref bwGameListener, true, IGL_ProcessHostCommands, IGL_DisplayScore, IGL_RedrawProgress);
 		}
 
 
@@ -687,7 +687,7 @@ namespace Bambulanci
 
 		private void HostTick(Data ignored)
 		{
-			bwInGameListener.ReportProgress(notUsed);
+			bwGameListener.ReportProgress(notUsed);
 		}
 
 		private void MoveOrAddPlayer(Data received)
@@ -840,7 +840,7 @@ namespace Bambulanci
 			}
 		}
 
-		private BackgroundWorker bwInGameListener;
+		private BackgroundWorker bwGameListener;
 
 		/// <summary>
 		/// Alters game state based commands sent by host.
@@ -890,11 +890,11 @@ namespace Bambulanci
 			{
 				if (player.PlayerId == myPlayerId)
 				{
-					score = $"(TY) id:{player.PlayerId} kills:{player.Kills} deaths:{player.Deaths} \n" + score;
+					score = $"(TY) id:{player.PlayerId} zabití:{player.Kills} úmrtí:{player.Deaths} \n" + score;
 				}
 				else
 				{
-					score += $"\n id:{player.PlayerId} kills:{player.Kills} deaths:{player.Deaths} \n";
+					score += $"\n id:{player.PlayerId} zabití:{player.Kills} úmrtí:{player.Deaths} \n";
 				}
 			}
 			form.lScore.Text = score;
