@@ -468,7 +468,7 @@ namespace Bambulanci
 
 	public class Map
 	{
-		private const int notFound = -1; //information duplicity, notFound is always -1...
+		private const int notFound = -1;
 
 		public readonly int cols;
 		public readonly int rows;

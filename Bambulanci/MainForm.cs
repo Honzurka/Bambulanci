@@ -191,22 +191,22 @@ namespace Bambulanci
 		/// <summary>
 		/// Starts client's game and add client's player to Game.
 		/// </summary>
-		private void AddPlayersToGame(List<ClientAndStream> connectedClients)
+		private void AddPlayersToGame(List<ClientInfo> connectedClients)
 		{
 			foreach (var client in connectedClients)
 			{
-				if (client.id != 0) //exludes host
+				if (client.Id != 0) //exludes host
 				{
-					byte[] hostStartGame = Data.ToBytes(Command.HostStartGame, client.id);
-					NetworkStream stream = client.tcpClient.GetStream();
+					byte[] hostStartGame = Data.ToBytes(Command.HostStartGame, client.Id);
+					NetworkStream stream = client.TcpClient.GetStream();
 					stream.Write(hostStartGame, 0, hostStartGame.Length);
 					//test -- creating new stream instead of using old one. == didnt help....
 					stream.Close();
-					client.tcpClient.Close();
+					client.TcpClient.Close();
 				}
 
 				(float x, float y) = Game.GetSpawnCoords(rng);
-				Game.Players.Add(new Player(Game, x, y, client.id, ipEndPoint: new IPEndPoint(client.ipEndPoint.Address, Client.listenPort)));
+				Game.Players.Add(new Player(Game, x, y, client.Id, ipEndPoint: new IPEndPoint(client.IpEndPoint.Address, Client.listenPort)));
 			}
 		}
 		
@@ -220,7 +220,7 @@ namespace Bambulanci
 			waiterClient.HostStartIngameClient(sendPort);
 
 			//add host's client
-			waiterHost.connectedClients.Add(new ClientAndStream(null, new IPEndPoint(IPAddress.Loopback, Client.listenPort), 0));
+			waiterHost.ConnectedClients.Add(new ClientInfo(null, new IPEndPoint(IPAddress.Loopback, Client.listenPort), 0,null));
 		}
 
 		/// <summary>
@@ -231,7 +231,7 @@ namespace Bambulanci
 		{
 			GameTime = (int)nGameTime.Value * 1000 / TimerInGame.Interval;
 			AddHostsClient(waiterHost);
-			AddPlayersToGame(waiterHost.connectedClients);
+			AddPlayersToGame(waiterHost.ConnectedClients);
 			ingameHost = waiterHost.StartIngameHost();
 			TimerInGame.Enabled = true;
 		}
