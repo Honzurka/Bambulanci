@@ -366,7 +366,6 @@
 		private System.Windows.Forms.NumericUpDown nListenPort;
 		private System.Windows.Forms.NumericUpDown nHostPort;
 		private System.Windows.Forms.Button bRefreshServers;
-		private System.Windows.Forms.Button bExit;
 		private System.Windows.Forms.Button bCancelHost;
 		private System.Windows.Forms.Button bIntro;
 		public System.Windows.Forms.Label lWaiting;
@@ -379,6 +378,7 @@
 		private System.Windows.Forms.Label lPort;
 		private System.Windows.Forms.NumericUpDown nGameTime;
 		private System.Windows.Forms.Label lGameTime;
+		public System.Windows.Forms.Button bExit;
 	}
 }
 

@@ -119,7 +119,7 @@ namespace Bambulanci
 		/// <summary>
 		/// Distance between individual shells.
 		/// </summary>
-		private const float shellOffset = 20f;
+		private const float shellOffset = 30f;
 
 		private readonly float offset = Player.SizePx / 2f / FormBambulanci.WidthStatic;
 		

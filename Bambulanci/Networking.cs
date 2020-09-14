@@ -898,6 +898,14 @@ namespace Bambulanci
 				}
 			}
 			form.lScore.Text = score;
+
+			//center score controls.
+			int lScoreX = (FormBambulanci.WidthStatic - form.lScore.Width) / 2;
+			int lScoreY = FormBambulanci.HeightStatic / 8;
+			int bExitX = (FormBambulanci.WidthStatic - form.bExit.Width) / 2;
+			int bExitY = FormBambulanci.HeightStatic * 4 / 5;
+			form.lScore.Location = new Point(lScoreX, lScoreY);
+			form.bExit.Location = new Point(bExitX, bExitY);
 		}
 
 		private IEnumerable<Player> AllPlayers()
