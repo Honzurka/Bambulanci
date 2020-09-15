@@ -225,3 +225,5 @@ Metoda `GetSpawnCoords` generuje souřadnice pro nové objekty.
 ## Chyby
 
 * Z důvodu statického portu pro klienty není možné spustit na jednom počítači více klientských aplikací.
+* Jelikož je UDP ztrátové, občas se klient nedozví některé informace. Například při zániku objektů se může stát, že objekt na straně klienta zůstane. Řešitelné tím, že by host posílal absolutní data místo relativních, například celé listy s objekty, tím by však narostlo množství informací posílaných po síti.
+* Kvůli ztrátovosti UDP se klientům nemusí na konci hry zobrazit tabulka se skóre. Šlo by řešit pomocí TCP, nebo nějakým způsobem timeoutu, kdy by se po určité době, kdy hostitel neodpovídá, klient sám odpojil.
