@@ -1,4 +1,4 @@
-# Uživatelská část
+# Uživatelská dokumentace
 Hra Bambulánci je 2D střílečka pro 2 až 4 hráče připojené po síti. Bambulánci jsou inspirováni hrou Bulánci.
 
 
@@ -46,7 +46,7 @@ Vystřeluje 1 náboj 6x za vteřinu.
 
 
 
-# Programátorská část
+# Programátorská dokumentace
 
 ## Program
 Položky s předponou bw- pojmenovávají `BackgroundWorkera`.
